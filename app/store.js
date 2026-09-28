@@ -10,7 +10,7 @@
      getMyCoupleCode()              → código de pareja guardado en users/{uid} (o null)
      createCouple(profile, seed)    → crea la pareja y devuelve el código
      joinCouple(code, profile)      → se une a una pareja existente (máx. 2 miembros)
-     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring}); devuelve "dejar de escuchar"
+     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks}); devuelve "dejar de escuchar"
      updateCouple(patch)            → admite rutas con puntos: {'profiles.X.name': 'Ana'}
      add(col, data) → {id, done}  ·  set(col, id, data) (id fijo, idempotente)  ·  update(col, id, patch)  ·  remove(col, id)
    Las escrituras NO se esperan en la interfaz: Firestore las aplica al momento en local
@@ -23,7 +23,7 @@ export function hasFirebaseConfig() {
   return !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/PEGA|TU_/i.test(firebaseConfig.apiKey));
 }
 
-const COLS = ['points', 'expenses', 'tasks', 'recurring'];
+const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks'];
 
 /* ---------------- Firebase ---------------- */
 class FirebaseBackend {
@@ -92,7 +92,7 @@ class FirebaseBackend {
   watch(code, onData, onError) {
     const { fb } = this;
     this.code = code;
-    const data = { couple: null, points: [], expenses: [], tasks: [], recurring: [] };
+    const data = { couple: null, ...Object.fromEntries(COLS.map(c => [c, []])) };
     const seen = new Set();
     const emit = key => { seen.add(key); if (seen.has('couple') && COLS.every(c => seen.has(c))) onData({ ...data }); };
     const unsubs = [
@@ -147,7 +147,8 @@ class DemoBackend {
   }
   start(onUser) { this.onUser = onUser; onUser(this.data ? { uid: this.data.me, email: 'modo demo' } : null); }
   /** Crea la demo con datos de ejemplo para que se vea viva desde el principio. */
-  begin(seed) {
+  begin(fullSeed) {
+    const { ideas: seedIdeas = [], ...seed } = fullSeed;
     const A = 'demoA', B = 'demoB';
     const now = Date.now(), H = 3600e3, D = 24 * H, t = ymd();
     const pts = (type, from, to, amount, title, emoji, status, createdBy, ago) => ({ id: uid8(), type, from, to, amount, title, emoji, status, createdBy, createdAt: now - ago, resolvedAt: status === 'pending' ? null : now - ago + H, resolvedBy: status === 'pending' ? null : (createdBy === A ? B : A), note: '' });
@@ -156,6 +157,7 @@ class DemoBackend {
       me: A,
       couple: {
         ...seed, code: 'DEMO42', members: [A, B], createdAt: now - 20 * D, updatedAt: now,
+        goal: { title: 'Escapada juntos', emoji: '🏖️', target: 300, since: now - 20 * D },
         profiles: {
           [A]: { name: 'Pepino', emoji: '🥒', sugar: 'papi', income: 210000 },
           [B]: { name: 'Churri', emoji: '🍓', sugar: 'mami', income: 170000 },
@@ -164,9 +166,9 @@ class DemoBackend {
       points: [
         pts('claim', null, A, 15, 'Hacer la cena', '🍝', 'approved', A, 6 * D),
         pts('claim', null, B, 20, 'Limpiar el baño', '🛁', 'approved', B, 5 * D),
-        pts('reward', null, B, 20, 'Escuchar sin juzgar', '🎧', 'approved', A, 4.5 * D),
-        pts('claim', null, B, 15, 'Desayuno en la cama', '☕', 'approved', B, 3.5 * D),
-        pts('reward', null, A, 25, 'Detalle sorpresa', '🌹', 'approved', B, 4 * D),
+        pts('reward', null, B, 20, 'Encargarse de la cita del médico', '📅', 'approved', A, 4.5 * D),
+        pts('claim', null, B, 15, 'Poner el lavavajillas', '🍽️', 'approved', B, 3.5 * D),
+        pts('reward', null, A, 25, 'Montar el mueble del salón', '🔧', 'approved', B, 4 * D),
         pts('claim', null, A, 10, 'Fregar los platos', '🧽', 'approved', A, 3 * D),
         pts('redeem', B, A, 30, 'Tarde de series (elijo yo)', '📺', 'approved', B, 2 * D),
         pts('claim', null, B, 15, 'Hacer la compra', '🛒', 'pending', B, 3 * H),
@@ -185,6 +187,15 @@ class DemoBackend {
         { id: uid8(), title: 'Hacer la compra', emoji: '🛒', pts: 15, assignee: null, rotate: false, repeat: 'weekly', due: ymd(new Date(now + 1 * D)), doneAt: null, log: [], createdBy: A, createdAt: now - 10 * D },
         { id: uid8(), title: 'Cambiar las sábanas', emoji: '🛏️', pts: 10, assignee: null, rotate: false, repeat: 'weekly', due: ymd(new Date(now + 4 * D)), doneAt: null, log: [], createdBy: A, createdAt: now - 8 * D },
         { id: uid8(), title: 'Pedir cita veterinario', emoji: '🐾', pts: 5, assignee: A, rotate: false, repeat: 'none', due: null, doneAt: null, log: [], createdBy: B, createdAt: now - 2 * D },
+      ],
+      ideas: seedIdeas.map((it, i) => ({
+        id: uid8(), ...it, note: it.note || '', createdBy: i % 2 ? B : A, createdAt: now - (30 - i) * H, doneAt: null,
+        // algunos votos de ejemplo para que se vea un "match"
+        votes: i === 0 || i === 13 ? { [A]: 1, [B]: 1 } : i % 3 === 0 ? { [B]: 1 } : {},
+      })),
+      thanks: [
+        { id: uid8(), from: B, to: A, text: 'Por hacerme la cena cuando llegué tarde', emoji: '🍝', createdAt: now - 5 * H, seenAt: null, reaction: null },
+        { id: uid8(), from: A, to: B, text: 'Por escucharme ayer', emoji: '🎧', createdAt: now - 2 * D, seenAt: now - 2 * D, reaction: '❤️' },
       ],
       recurring: [
         { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'proportional', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },

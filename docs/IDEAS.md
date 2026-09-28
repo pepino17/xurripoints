@@ -11,10 +11,20 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - Borrar mi cuenta / salir de la pareja (con cuidado: el historial es de los dos).
 
 ## Economía de puntos
-- Restar puntos / "multas" suaves (llegar tarde, dejar la ropa tirada) — que las acepte la otra persona.
-- Rachas y logros (7 días fregando, 100 puntos ganados…).
 - Vales con cantidad limitada ("solo 2 al mes") o con fecha de caducidad.
-- Pujas: los dos quieren el mismo plan → gana quien ofrezca más puntos.
+- Logros de equipo (nunca individuales): "10 planes hechos juntos", "primera meta conseguida"…
+
+## Conexión (más allá de los puntos)
+- **Revisión semanal juntos** (10 min, al estilo de la "reunión de pareja" de Gottman): lo que ha ido bien,
+  un gracias, algo que necesitas la semana que viene.
+- **Mapa del amor**: preguntas para conoceros mejor (gustos, miedos, sueños).
+- Recordatorio de **fechas importantes** (aniversario, cumpleaños de las familias).
+
+## Descartado (por salud de la pareja — ver docs/PSICOLOGIA.md)
+- ~~Multas / restar puntos~~: castigar convierte la app en un instrumento de control.
+- ~~Pujas por planes~~: fomenta competir por lo que debería decidirse juntos.
+- ~~Rachas individuales~~: generan culpa y comparación.
+- ~~Vales de "permiso" (salir con amigos, etc.)~~: el tiempo libre de cada uno no se compra.
 
 ## Gastos
 - Foto del ticket.

@@ -88,6 +88,18 @@ service cloud.firestore {
       match /recurring/{id} {
         allow read, write: if isMember(code);
       }
+      // Planes: ideas de pelis, planes y comida que votáis los dos.
+      match /ideas/{id} {
+        allow read, write: if isMember(code);
+      }
+      // Tarro de gracias (sin puntos). Lo escribe quien agradece; quien lo recibe solo marca "visto"/reacción.
+      match /thanks/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && request.resource.data.from == me() && request.resource.data.to != me();
+        allow update: if isMember(code) && resource.data.to == me()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'reaction']);
+        allow delete: if isMember(code) && resource.data.from == me();
+      }
     }
   }
 }

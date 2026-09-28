@@ -3,6 +3,31 @@
 Cambios importantes del proyecto. Formato: versión — fecha — cambios.
 La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions).
 
+## [0.3.0] — 2026-09-28 · Revisión psicológica: que sume, no que lleve la cuenta
+
+Joan: "estudia la app como profesional de psicología de pareja: debe ayudar a convivir y hacer las cosas fáciles,
+no volverse una herramienta tóxica de cuantificación. Y que aporte más: elegir planes, pelis…".
+Informe completo con fuentes en **`docs/PSICOLOGIA.md`**.
+
+**Ajustes para que no sea tóxica**
+- **Vales = favores, no permisos.** Fuera "salir con amigos", "videojuegos", "partido", "compras". Nuevos:
+  "Me libras de una tarea", "Tarde libre de tareas (tú te encargas)", "Me cocinas mi plato favorito"…
+- **Los mimos no se cobran.** El catálogo que da puntos es solo tareas y carga mental (gestiones, citas, planes
+  familiares). Masajes y detalles pasan a **Gracias**.
+- **Confianza por defecto:** lo que apuntas cuenta solo en 24 h si tu pareja no contesta. "Aprobar" → **"¡Gracias! 💛"**.
+- **Sin competición:** fuera el "+X esta semana" de cada uno; ahora **Meta juntos** (una escapada, una cena…)
+  que se llena con los puntos de los dos, con celebración y metas conseguidas guardadas.
+- **Rechazos con cariño:** "No cuela" → "Lo hablamos"; mensajes rápidos amables.
+- **Dinero sin reproche:** "Le debes…" → "Para cuadrar: tú → Churri 24 € · sin prisa".
+- Nueva hoja **"Para que la app sume"** (7 consejos) y nueva bienvenida (6 tarjetas).
+
+**Más allá de los puntos**
+- **💛 Gracias** (sin puntos) + **tarro de gracias**; aviso cuando te llegan.
+- **🍿 Planes** (nueva pestaña): pelis, planes y comida; votáis 👍/👎, la app enseña las **coincidencias** (match),
+  **vota de una en una** o **elige al azar**. El voto de la pareja se ve después de votar tú. **Recuerdos** 📸 de lo hecho.
+- **💬 Pregunta del día** para hablar en persona (la misma en los dos móviles).
+- Pareja se abre desde los avatares de arriba (⚙️).
+
 ## [0.2.0] — 2026-09-28 · Revisión general, gastos fijos y lista para testers
 
 Joan: "revisa la app en general, mejórala" y "un link en GitHub para descargar que siempre baje la última versión".

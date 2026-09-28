@@ -9,6 +9,11 @@ Guía para cualquier asistente (o persona) que retome el proyecto. Léela junto 
 - Valora la **honestidad técnica**: si algo no se puede (p. ej. avisos push sin servidor), dilo y da la alternativa real.
 - Si dudas del concepto, **pregunta** antes de construir a ciegas.
 
+## 1b. Regla de oro: que la app SUME a la pareja
+- Lee **`docs/PSICOLOGIA.md`** antes de añadir funciones. Sus **8 reglas de diseño son obligatorias**:
+  nada de castigos, nada de permisos, el cariño no tiene precio, cooperar > competir, confianza por defecto,
+  lenguaje amable, empujar a hablar en persona, y nada que sirva para controlar.
+
 ## 2. Idioma y tono
 - **Todo en español** (interfaz, código, comentarios, documentación).
 - Tono de la app: cariñoso y con humor de pareja, **sin ser empalagoso** ni infantil.

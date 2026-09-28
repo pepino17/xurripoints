@@ -17,8 +17,9 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
 </div>
 
 ## Qué hace
-- **Xurripoints:** ganad puntos haciendo cosas por el otro (fregar, cena, masaje…) y gastadlos en **vales**
-  (salir con los amigos, siesta sin interrupciones…). Todo se aprueba entre los dos.
+- **Xurripoints:** las tareas de casa dan puntos; se canjean por **vales** (favores: que te cubran una tarea,
+  elegir la peli, una siesta sin ruido…). Todo suma a una **meta juntos**. Los mimos no se cobran: para eso está **Gracias** 💛.
+- **Planes:** apuntad pelis, planes y comida, votad y la app os dice en qué coincidís (o elige por vosotros).
 - **Tareas:** repartidas, libres o por turnos, con una barra que dice quién lleva más carga.
 - **Gastos:** quién pagó y cómo se reparte — **50/50, proporcional, sugar mami, sugar papi o a medida** —,
   gastos fijos que se apuntan solos cada mes y cuánto se debe cada uno.
@@ -39,5 +40,7 @@ python -m http.server 5173 --directory app       # probar en el navegador
 npm run sync                                     # empaqueta Firebase + copia la web a android/
 ```
 Cada push a `main` compila el APK en GitHub Actions y lo publica en Releases.
+
+Diseñada con criterio de psicología de pareja para que **sume y no lleve la cuenta**: [`docs/PSICOLOGIA.md`](docs/PSICOLOGIA.md).
 
 Documentación: [`CONTEXTO.md`](CONTEXTO.md) · [`COMO_TRABAJAR.md`](COMO_TRABAJAR.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/`](docs/)

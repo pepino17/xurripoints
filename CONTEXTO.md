@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-28** (v0.2.0).
+> Última actualización: **2026-09-28** (v0.3.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas. Tiene una moneda propia (los *xurripoints*) que se gana cuidando
@@ -21,6 +21,9 @@ para **tareas** y **gastos** con varios modos de reparto (50/50, proporcional, s
   repetición, reparto automático), gastos (todos los modos), liquidar, perfiles.
 - v0.2.0 (revisión): gastos fijos, bienvenida, avisos de respuesta, aviso de versión nueva, compartir la app,
   confirmaciones propias, firma estable. 11 pruebas de lógica en verde. Verificado en navegador.
+- v0.3.0 (revisión psicológica, `docs/PSICOLOGIA.md`): vales = favores (no permisos), mimos sin precio (→ Gracias),
+  confianza por defecto (cuenta sola en 24 h), Meta juntos, Planes (ideas + votos + match + azar), pregunta del día,
+  lenguaje sin reproche. **Las 8 reglas de diseño de `docs/PSICOLOGIA.md` son obligatorias.**
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** desde 2026-09-28 para que los testers puedan descargar.
 - **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`) y pasar la config → entonces se
@@ -60,6 +63,11 @@ firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
 - `couples/{C}/recurring/{id}` (gastos fijos) → `{ title, category, amount, paidBy, mode, sugar, customPctA, day(1-28),
   startMonth:'YYYY-MM', lastMonth }`. Cada mes se crea `expenses/rec_<id>_<YYYY-MM>` (id fijo → sin duplicados)
   con `recurringId`. Lo hace `runRecurring()` al recibir datos.
+- `couples/{C}/ideas/{id}` (Planes) → `{ list:'pelis'|'planes'|'comida', title, note, votes:{uid: 1|-1|0}, createdBy, createdAt, doneAt }`.
+- `couples/{C}/thanks/{id}` (Gracias, sin puntos) → `{ from, to, text, emoji, createdAt, seenAt, reaction }`.
+- En `couples/{C}`: `goal: { title, emoji, target, since }` (Meta juntos: suma los puntos NUEVOS aprobados de los dos desde `since`)
+  y `goalsDone: [ {title, emoji, target, doneAt} ]`.
+- Reclamaciones (`claim`) pendientes con más de 24 h cuentan como aprobadas (`L.effStatus`); en la base siguen `pending`.
 - `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat:'none'|'daily'|'weekly'|'monthly',
   due, doneAt, doneBy, log:[{by, at}] (últimas 30), createdBy, createdAt }`
 

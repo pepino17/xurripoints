@@ -97,14 +97,37 @@ t('versiones', () => {
   assert.ok(!L.isNewer('0.1.9', '0.2.0'));
 });
 
-t('puntos ganados esta semana', () => {
+t('confianza por defecto: una reclamación sin respuesta en 24 h cuenta sola; los vales no', () => {
+  const now = Date.now(), H = 3600e3;
+  const P = [
+    { type: 'claim', from: null, to: 'a', amount: 10, status: 'pending', createdAt: now - 25 * H },
+    { type: 'claim', from: null, to: 'a', amount: 7, status: 'pending', createdAt: now - 2 * H },
+    { type: 'redeem', from: 'a', to: 'b', amount: 5, status: 'pending', createdAt: now - 48 * H },
+  ];
+  assert.deepEqual(L.balances(P, M, now), { a: 10, b: 0 });
+  assert.equal(L.reserved(P, 'a'), 5);
+  assert.ok(L.isAutoAccepted(P[0], now));
+  assert.ok(!L.isAutoAccepted(P[1], now));
+});
+
+t('meta juntos y semana juntos: cuentan los puntos nuevos de los dos', () => {
   const now = Date.now(), D = 86400e3;
   const P = [
-    { to: 'a', amount: 10, status: 'approved', resolvedAt: now - D },
-    { to: 'a', amount: 99, status: 'approved', resolvedAt: now - 9 * D },
-    { to: 'b', amount: 5, status: 'pending', createdAt: now },
+    { from: null, to: 'a', amount: 10, status: 'approved', resolvedAt: now - D },
+    { from: null, to: 'b', amount: 20, status: 'approved', resolvedAt: now - 2 * D },
+    { from: 'a', to: 'b', amount: 50, status: 'approved', resolvedAt: now - D }, // vale: no suma a la meta
+    { from: null, to: 'a', amount: 99, status: 'approved', resolvedAt: now - 20 * D },
   ];
-  assert.deepEqual(L.weekGains(P, M, now), { a: 10, b: 0 });
+  assert.equal(L.goalProgress(P, { since: now - 10 * D }, now), 30);
+  assert.equal(L.weekTogether(P, now), 30);
+});
+
+t('planes: match cuando los dos votan que sí', () => {
+  assert.ok(L.ideaState({ votes: { a: 1, b: 1 } }, M).match);
+  assert.ok(!L.ideaState({ votes: { a: 1 } }, M).match);
+  assert.ok(L.ideaState({ votes: { a: 1, b: -1 } }, M).vetoed);
+  assert.equal(L.pickRandom([]), null);
+  assert.equal(L.dayIndex(40, '2026-09-28'), L.dayIndex(40, '2026-09-28'));
 });
 
 console.log(`\n${n} pruebas OK`);

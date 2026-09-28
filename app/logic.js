@@ -45,15 +45,25 @@ export function nextDue(due, repeat, today = ymd()) {
 
 /* ---------------- Xurripoints ----------------
    Cada movimiento: { type, from, to, amount, status }
-   - claim  (reclamar): from=null → to=yo. Pendiente hasta que la pareja apruebe.
+   - claim  (reclamar): from=null → to=yo. La pareja da las gracias (acepta). Si no contesta en 24 h,
+                        cuenta sola: CONFIANZA POR DEFECTO (evita que uno "audite" al otro; ver docs/PSICOLOGIA.md).
    - reward (premiar):  from=null → to=pareja. Aprobado al momento (lo da quien lo crea).
    - redeem (vale):     from=yo → to=pareja. Pendiente: si la pareja acepta, los puntos pasan a ella.
+                        Los vales SIEMPRE necesitan respuesta (piden algo del tiempo de la otra persona).
    - gift   (regalar):  from=yo → to=pareja. Aprobado al momento.
-   Saldo = lo recibido − lo entregado, solo de movimientos aprobados. */
-export function balances(points, members) {
+   Saldo = lo recibido − lo entregado, solo de movimientos aprobados (o aceptados solos). */
+export const AUTO_ACCEPT_MS = 24 * 3600e3;
+/** Estado real de un movimiento: una reclamación sin respuesta en 24 h se da por aceptada. */
+export function effStatus(t, now = Date.now()) {
+  if (t.status === 'pending' && t.type === 'claim' && t.createdAt && now - t.createdAt >= AUTO_ACCEPT_MS) return 'approved';
+  return t.status;
+}
+export function isAutoAccepted(t, now = Date.now()) { return t.status === 'pending' && effStatus(t, now) === 'approved'; }
+
+export function balances(points, members, now = Date.now()) {
   const b = Object.fromEntries(members.map(u => [u, 0]));
   for (const t of points) {
-    if (t.status !== 'approved') continue;
+    if (effStatus(t, now) !== 'approved') continue;
     if (t.to != null && t.to in b) b[t.to] += t.amount;
     if (t.from != null && t.from in b) b[t.from] -= t.amount;
   }
@@ -61,10 +71,32 @@ export function balances(points, members) {
 }
 /** Puntos "apartados" en vales pedidos que aún no se han contestado. */
 export function reserved(points, uid) {
-  return points.filter(t => t.status === 'pending' && t.from === uid).reduce((s, t) => s + t.amount, 0);
+  return points.filter(t => t.status === 'pending' && t.type === 'redeem' && t.from === uid).reduce((s, t) => s + t.amount, 0);
 }
 export function available(points, members, uid) {
   return balances(points, members)[uid] - reserved(points, uid);
+}
+/** Meta juntos: puntos NUEVOS (reclamados o premiados) que habéis sumado entre los dos desde que empezó. */
+export function goalProgress(points, goal, now = Date.now()) {
+  if (!goal) return 0;
+  return points.filter(t => t.from == null && effStatus(t, now) === 'approved' && (t.resolvedAt || t.createdAt || 0) >= (goal.since || 0))
+    .reduce((s, t) => s + t.amount, 0);
+}
+
+/* ---------------- Planes (decidir juntos) ----------------
+   Idea: { list:'pelis'|'planes'|'comida', title, note, votes:{uid: 1 | -1}, doneAt }.
+   Match = los dos han votado 👍. */
+export function ideaState(idea, members) {
+  const v = idea.votes || {};
+  const ups = members.filter(u => v[u] === 1).length;
+  return { match: members.length > 1 && ups === members.length, ups, vetoed: members.some(u => v[u] === -1) };
+}
+export function pickRandom(list, rnd = Math.random) { return list.length ? list[Math.floor(rnd() * list.length)] : null; }
+/** Índice que cambia cada día pero es el mismo en los dos móviles (pregunta del día). */
+export function dayIndex(n, day = ymd()) {
+  let h = 7;
+  for (const c of day) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return n ? h % n : 0;
 }
 
 /* ---------------- Gastos ----------------
@@ -138,13 +170,10 @@ export function isNewer(a, b) {
   for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
   return false;
 }
-/** Puntos que ha recibido cada uno (aprobados) en los últimos 7 días. */
-export function weekGains(points, members, now = Date.now()) {
-  const g = Object.fromEntries(members.map(u => [u, 0]));
-  for (const t of points) {
-    if (t.status === 'approved' && t.to in g && (t.resolvedAt || t.createdAt) >= now - 7 * 86400e3) g[t.to] += t.amount;
-  }
-  return g;
+/** Puntos nuevos que habéis sumado ENTRE LOS DOS en los últimos 7 días (no se compara quién más). */
+export function weekTogether(points, now = Date.now()) {
+  return points.filter(t => t.from == null && effStatus(t, now) === 'approved' && (t.resolvedAt || t.createdAt || 0) >= now - 7 * 86400e3)
+    .reduce((s, t) => s + t.amount, 0);
 }
 
 /* ---------------- Tareas ----------------

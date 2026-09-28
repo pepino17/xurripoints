@@ -6,7 +6,7 @@
 import { createBackend, hasFirebaseConfig } from './store.js';
 import * as L from './logic.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -66,20 +66,63 @@ function dueLabel(due) {
 }
 
 /* ---------------- Catálogo por defecto ---------------- */
+/* Catálogo pensado con criterio psicológico (docs/PSICOLOGIA.md):
+   - GANAR = tareas de casa y carga mental. Los mimos (masajes, detalles…) NO se cobran: para eso está "Gracias".
+   - VALES = favores que te hace la pareja, NO permisos. El tiempo libre de cada uno no se compra. */
 const DEFAULT_EARN = [
   ['🍝', 'Hacer la cena', 15], ['🧽', 'Fregar los platos', 10], ['🧺', 'Poner una lavadora', 10],
-  ['🛒', 'Hacer la compra', 15], ['🛁', 'Limpiar el baño', 20], ['🗑️', 'Bajar la basura', 5],
-  ['🛏️', 'Hacer la cama', 5], ['💆', 'Dar un masaje', 20], ['☕', 'Desayuno en la cama', 20],
-  ['🌹', 'Detalle sorpresa', 25], ['🎧', 'Escuchar sin juzgar', 15], ['🚗', 'Hacer de chófer', 10],
+  ['👕', 'Tender o doblar la ropa', 10], ['🛒', 'Hacer la compra', 15], ['🛁', 'Limpiar el baño', 20],
+  ['🧹', 'Barrer o pasar la aspiradora', 15], ['🗑️', 'Bajar la basura', 5], ['🛏️', 'Cambiar las sábanas', 10],
+  ['📅', 'Pedir una cita o hacer una gestión', 15], ['🎂', 'Organizar un plan o un regalo familiar', 20], ['🚗', 'Hacer de chófer', 10],
 ];
 const DEFAULT_SPEND = [
-  ['🍻', 'Salir con mis amigos/as', 50], ['📺', 'Elegir peli o serie', 10], ['😴', 'Siesta sin interrupciones', 15],
-  ['🎮', 'Tarde de videojuegos', 30], ['🙅', 'Librarme de una tarea', 20], ['🍕', 'Cena de capricho (elijo yo)', 25],
-  ['💤', 'Dormir hasta tarde el finde', 20], ['⚽', 'Ver el partido tranquilo', 25], ['🛍️', 'Tarde de compras', 30],
-  ['🌟', 'Deseo libre', 100],
+  ['🙅', 'Me libras de una tarea', 20], ['🍳', 'Me cocinas mi plato favorito', 30], ['📺', 'Elijo yo la peli o serie', 10],
+  ['😴', 'Siesta sin interrupciones', 15], ['💤', 'Duermo hasta tarde (tú con el desayuno)', 20], ['🕊️', 'Tarde libre de tareas (tú te encargas)', 40],
+  ['🧺', 'Te encargas de la colada esta semana', 40], ['🍕', 'Elijo yo la cena', 15], ['🚗', 'Me llevas y me traes', 20],
+  ['🌟', 'Deseo libre (con cariño)', 100],
 ];
+/* Planes: listas para decidir juntos. Ideas de partida pensadas para la novedad (hacer cosas nuevas juntos
+   se asocia a más satisfacción en pareja: Aron et al., 2000). */
+const IDEA_LISTS = [['pelis', '🎬', 'Pelis'], ['planes', '📍', 'Planes'], ['comida', '🍽️', 'Comida']];
+const SEED_IDEAS = [
+  ...['Una de Studio Ghibli', 'Un documental de naturaleza', 'Una comedia romántica', 'Una de miedo con mantita', 'Maratón de una saga', 'Una serie corta de una temporada']
+    .map(title => ({ list: 'pelis', title })),
+  ...['Cocinar juntos algo que nunca hayáis probado', 'Ruta a pie por un sitio nuevo', 'Noche de juegos de mesa', 'Picnic al atardecer',
+    'Clase de algo juntos (baile, cerámica, cocina…)', 'Desayunar fuera un domingo', 'Escapada de un día a un pueblo', 'Museo o exposición',
+    'Noche sin móviles', 'Karaoke en casa', 'Ver amanecer', 'Mercadillo o feria'].map(title => ({ list: 'planes', title })),
+  ...['Pizza casera', 'Japonés', 'Tacos', 'Hamburguesas', 'Ramen', 'Algo del mercado y cocinar juntos', 'Brunch'].map(title => ({ list: 'comida', title })),
+];
+const THANKS_PRESETS = [['🍝', 'Por la cena'], ['🎧', 'Por escucharme'], ['😂', 'Por hacerme reír'], ['🤒', 'Por cuidarme'],
+  ['🙌', 'Por encargarte de todo hoy'], ['🧺', 'Por la ropa'], ['💛', 'Por ser tú']];
+/* Pregunta del día: la misma en los dos móviles. Para hablar en persona (no se guarda nada). */
+const QUESTIONS = [
+  '¿Qué es lo que más te ha gustado de esta semana juntos?', '¿Qué pequeño gesto mío te hace sentir querido o querida?',
+  '¿Qué plan te apetecería hacer este mes que nunca hayamos hecho?', '¿Cuál es tu recuerdo favorito de nuestros primeros meses?',
+  '¿Hay algo que te preocupe y te gustaría contarme?', '¿Qué te hace sentir más en casa?',
+  'Si mañana tuviéramos el día libre, ¿cómo sería tu día perfecto conmigo?', '¿Qué canción te recuerda a nosotros?',
+  '¿Qué admiras de mí que no me hayas dicho últimamente?', '¿En qué te puedo ayudar esta semana?',
+  '¿Qué tarea de casa odias más y cuál no te importa hacer?', '¿Qué viaje te gustaría que hiciéramos algún día?',
+  '¿Qué te ha hecho reír hoy?', '¿Hay algo que te gustaría que hiciéramos más a menudo?',
+  '¿Qué te gustaría aprender este año?', '¿Cómo te gusta que te cuiden cuando estás malito o malita?',
+  '¿Qué tradición nuestra te gustaría crear?', '¿Qué es lo más bonito que alguien ha hecho por ti?',
+  '¿Qué tres palabras nos describen como pareja?', '¿Qué momento del día es tu favorito para estar juntos?',
+  '¿Qué sueño tienes para dentro de cinco años?', '¿Qué comida te recuerda a tu infancia?',
+  '¿De qué te sientes orgulloso u orgullosa últimamente?', '¿Qué necesitas más ahora mismo: espacio, compañía, ayuda o mimos?',
+  '¿Qué te gustaría que te preguntara más a menudo?', '¿Qué cosa pequeña te alegraría mañana?',
+  '¿Cuándo te has sentido más en equipo conmigo?', '¿Qué plan barato te hace muy feliz?',
+  '¿Qué te gustaría celebrar este mes, aunque sea pequeño?', '¿Qué hábito te gustaría que cuidáramos juntos?',
+  '¿A qué amigo o familiar echas de menos y podríamos ver?', '¿Qué fue lo primero que pensaste de mí?',
+  '¿Qué te relaja más después de un día duro?', '¿Qué harías con una tarde entera solo para ti?',
+  '¿Qué te ha costado esta semana y no me has contado?', '¿Qué foto nuestra te gusta más y por qué?',
+  '¿Qué podríamos dejar de hacer para estar más tranquilos?', '¿Qué te gustaría agradecerme de este mes?',
+  '¿Qué te hace sentir escuchado o escuchada de verdad?', '¿Qué cosa nueva te apetece probar conmigo?',
+]
 const mkItems = list => list.map(([emoji, title, pts]) => ({ id: L.uid8(), emoji, title, pts }));
-const newCoupleSeed = () => ({ catalog: { earn: mkItems(DEFAULT_EARN), spend: mkItems(DEFAULT_SPEND) }, settings: { taskPctA: 50 } });
+const newCoupleSeed = () => ({
+  catalog: { earn: mkItems(DEFAULT_EARN), spend: mkItems(DEFAULT_SPEND) }, settings: { taskPctA: 50 },
+  goal: { title: 'Escapada juntos', emoji: '🏖️', target: 500, since: Date.now() },
+  ideas: SEED_IDEAS,
+});
 
 const CATS = [
   ['super', '🛒', 'Súper'], ['casa', '🏠', 'Casa'], ['facturas', '💡', 'Facturas'], ['fuera', '🍽️', 'Comer fuera'],
@@ -99,6 +142,7 @@ const S = {
   authMode: 'welcome',    // welcome · signup · login
   authError: '', busy: false,
   tab: 'home', ptab: 'earn', taskFilter: 'all', showDone: false,
+  itab: 'planes', showDoneIdeas: false, qShift: 0, seenThanks: null,
   enter: true,            // animación de entrada al cambiar de pestaña
   unwatch: null, sheet: null, seenPending: null, myPending: null,
   dialog: null,           // función que cierra el diálogo abierto (confirmar / bienvenida)
@@ -133,7 +177,7 @@ async function boot() {
 
 async function onUser(user) {
   if (S.unwatch) { S.unwatch(); S.unwatch = null; }
-  S.user = user; S.data = null; S.code = null; S.seenPending = null; S.myPending = null;
+  S.user = user; S.data = null; S.code = null; S.seenPending = null; S.myPending = null; S.seenThanks = null;
   closeSheet(true);
   if (!user) { S.phase = 'auth'; S.authMode = 'welcome'; render(); return; }
   S.phase = 'loading'; render();
@@ -172,13 +216,13 @@ function watchCouple(code) {
 
 /** Aviso dentro de la app cuando llega una petición nueva de la pareja. */
 function notifyNewRequests() {
-  const mine = S.data.points.filter(t => t.status === 'pending' && t.createdBy !== ME());
+  const mine = pendingForMe();
   const ids = new Set(mine.map(t => t.id));
   if (S.seenPending) {
     const fresh = mine.filter(t => !S.seenPending.has(t.id));
     if (fresh.length) {
       const t = fresh[0];
-      toast(`💌 ${pname()} ${t.type === 'redeem' ? 'quiere canjear' : 'dice que ha hecho'}: ${t.title}`);
+      toast(`💌 ${pname()} ${t.type === 'redeem' ? 'te pide un vale' : 'ha hecho'}: ${t.title}`);
       vibrate([30, 60, 30]);
     }
   }
@@ -193,6 +237,13 @@ function notifyNewRequests() {
     }
   }
   S.myPending = new Set(S.data.points.filter(t => t.status === 'pending' && t.createdBy === ME()).map(t => t.id));
+  // Gracias que llegan
+  const th = (S.data.thanks || []).filter(t => t.to === ME());
+  if (S.seenThanks) {
+    const fresh = th.find(t => !S.seenThanks.has(t.id));
+    if (fresh) { toast(`💛 ${pname()} te da las gracias: ${fresh.text}`); vibrate([20, 40, 20]); }
+  }
+  S.seenThanks = new Set(th.map(t => t.id));
 }
 
 function errMsg(e) {
@@ -353,10 +404,10 @@ function viewWait() {
 }
 
 /* ---------------- Carcasa (cabecera + pestaña + menú) ---------------- */
-function pendingForMe() { return S.data.points.filter(t => t.status === 'pending' && t.createdBy !== ME()).sort(byNewest); }
+function pendingForMe() { return S.data.points.filter(t => L.effStatus(t) === 'pending' && t.createdBy !== ME()).sort(byNewest); }
 
 function viewShell() {
-  const views = { home: viewHome, points: viewPoints, tasks: viewTasks, money: viewMoney, couple: viewCouple };
+  const views = { home: viewHome, points: viewPoints, tasks: viewTasks, money: viewMoney, plans: viewPlans, couple: viewCouple };
   const nPending = pendingForMe().length;
   const today = L.ymd();
   const nTasks = S.data.tasks.filter(t => L.isActive(t) && t.assignee === ME() && t.due && t.due <= today).length;
@@ -366,7 +417,7 @@ function viewShell() {
   <div class="bgfx" aria-hidden="true"></div>
   <header class="top">
     <div class="brand"><i class="xc"></i><span>Xurri<em>points</em></span></div>
-    <button class="duo" data-act="tab" data-tab="couple" aria-label="Pareja">${av(ME())}${av(PA())}</button>
+    <button class="duo ${S.tab === 'couple' ? 'on' : ''}" data-act="tab" data-tab="couple" aria-label="Pareja y ajustes">${av(ME())}${av(PA())}<span class="duo-gear">${ic('settings')}</span></button>
   </header>
   ${S.be.kind === 'firebase' && !navigator.onLine ? `<div class="offline">${ic('wifi-off')} Sin conexión · lo que apuntes se sube al volver</div>` : ''}
   ${S.be.kind === 'demo' ? `<button class="demo-bar" data-act="demo-switch">Modo demo · eres <b>${esc(prof(ME()).name)}</b> ${ic('repeat-2')} cambiar a ${esc(pname())}</button>` : ''}
@@ -376,17 +427,16 @@ function viewShell() {
     ${tab('points', 'coins', 'Puntos')}
     ${tab('tasks', 'list-checks', 'Tareas', nTasks)}
     ${tab('money', 'wallet', 'Gastos')}
-    ${tab('couple', 'users', 'Pareja')}
+    ${tab('plans', 'popcorn', 'Planes')}
   </nav>`;
 }
 
 /* ---------------- INICIO ---------------- */
-function purseCard(u, bal, res, week) {
+function purseCard(u, bal, res) {
   return `<div class="purse-card ${side(u)}">
     <div class="purse-who">${av(u, 'lg')}<span>${esc(nameOf(u))}</span></div>
     <div class="purse-num">${bal}</div>
     <div class="purse-lb"><i class="xc"></i> xurripoints</div>
-    ${week ? `<div class="purse-week">+${week} esta semana</div>` : ''}
     ${res ? `<div class="purse-res">${res} apartados en vales</div>` : ''}
   </div>`;
 }
@@ -397,13 +447,13 @@ function requestCard(t) {
   return `<article class="ticket ${redeem ? 'is-vale' : 'is-claim'}">
     <div class="stub">${esc(t.emoji || '✨')}</div>
     <div class="tk-body">
-      <div class="tk-kicker">${av(u, 'xs')} ${esc(prof(u).name)} ${redeem ? 'quiere canjear un vale' : 'dice que ha hecho'}</div>
+      <div class="tk-kicker">${av(u, 'xs')} ${esc(prof(u).name)} ${redeem ? 'te pide un vale' : 'ha hecho'}</div>
       <div class="tk-title">${redeem ? '<small>Vale por</small> ' : ''}${esc(t.title)}</div>
       ${t.note ? `<div class="tk-note">“${esc(t.note)}”</div>` : ''}
-      <div class="tk-meta">${redeem ? `${coin(t.amount)} pasarán a ti` : `${coin('+' + t.amount)} para ${esc(prof(u).name)}`} · ${ago(t.createdAt)}</div>
+      <div class="tk-meta">${redeem ? `${coin(t.amount)} pasarán a tu hucha` : `${coin('+' + t.amount)} para ${esc(prof(u).name)} · cuenta sola en ${hoursLeft(t)} h`} · ${ago(t.createdAt)}</div>
       <div class="tk-actions">
-        <button class="btn mint sm" data-act="approve" data-id="${t.id}">${ic('check')} ${redeem ? 'Aceptar' : 'Aprobar'}</button>
-        <button class="btn sm soft-berry" data-act="reject" data-id="${t.id}">${redeem ? 'Ahora no' : 'No cuela'}</button>
+        <button class="btn mint sm" data-act="approve" data-id="${t.id}">${redeem ? `${ic('check')} Aceptar` : '¡Gracias! 💛'}</button>
+        <button class="btn sm ghost" data-act="reject" data-id="${t.id}">${redeem ? 'Ahora no' : 'Lo hablamos'}</button>
       </div>
     </div>
   </article>`;
@@ -412,7 +462,7 @@ function requestCard(t) {
 function myRequestRow(t) {
   return `<div class="mini-row">
     <span class="mr-emoji">${esc(t.emoji || '✨')}</span>
-    <span class="mr-body"><b>${esc(t.title)}</b><small>${t.type === 'redeem' ? 'Vale pedido' : 'Reclamado'} · ${coin(t.amount)} · ${ago(t.createdAt)}</small></span>
+    <span class="mr-body"><b>${esc(t.title)}</b><small>${t.type === 'redeem' ? 'Vale pedido' : `Apuntado · cuenta solo en ${hoursLeft(t)} h`} · ${coin(t.amount)} · ${ago(t.createdAt)}</small></span>
     <button class="btn sm ghost" data-act="cancel" data-id="${t.id}">Anular</button>
   </div>`;
 }
@@ -420,19 +470,21 @@ function myRequestRow(t) {
 function historyRow(t) {
   const me = ME();
   const other = esc(pname());
+  const st = L.effStatus(t);
   const who = {
-    claim: t.to === me ? 'Reclamaste tú' : `Reclamó ${other}`,
+    claim: t.to === me ? 'Lo hiciste tú' : `Lo hizo ${other}`,
     reward: t.createdBy === me ? `Premiaste a ${other}` : `${other} te premió`,
     redeem: t.from === me ? 'Canjeaste un vale' : `${other} canjeó un vale`,
     gift: t.from === me ? `Regalaste a ${other}` : `${other} te regaló`,
   }[t.type] || '';
   let sign = 'neutral', num = String(t.amount);
-  if (t.status === 'approved' || t.status === 'pending') {
+  if (st === 'approved' || st === 'pending') {
     if (t.to === me) { sign = 'plus'; num = '+' + t.amount; }
     else if (t.from === me) { sign = 'minus'; num = '−' + t.amount; }
   }
-  const pill = { pending: '<span class="pill wait">Pendiente</span>', rejected: '<span class="pill no">Rechazado</span>', cancelled: '<span class="pill off">Anulado</span>' }[t.status] || '';
-  return `<div class="hist ${t.status}">
+  const pill = L.isAutoAccepted(t) ? '<span class="pill auto">Contó solo</span>'
+    : ({ pending: '<span class="pill wait">Pendiente</span>', rejected: '<span class="pill no">Lo habláis</span>', cancelled: '<span class="pill off">Anulado</span>' }[st] || '');
+  return `<div class="hist ${st}">
     <span class="h-emoji">${esc(t.emoji || '✨')}</span>
     <span class="h-body"><b>${esc(t.title)}</b><small>${who} · ${ago(t.createdAt)} ${pill}</small>
       ${t.reply ? `<small class="h-reply">💬 “${esc(t.reply)}”</small>` : ''}</span>
@@ -444,36 +496,42 @@ function viewHome() {
   const me = ME(), pa = PA(), P = S.data.points;
   const bal = L.balances(P, MEMBERS());
   const toDecide = pendingForMe();
-  const mine = P.filter(t => t.status === 'pending' && t.createdBy === me).sort(byNewest);
-  const wk = L.weekGains(P, MEMBERS());
-  const recent = P.filter(t => t.status === 'approved' || t.status === 'rejected').sort((a, b) => (b.resolvedAt || b.createdAt) - (a.resolvedAt || a.createdAt)).slice(0, 5);
+  const mine = P.filter(t => L.effStatus(t) === 'pending' && t.createdBy === me).sort(byNewest);
+  const unseenThanks = (S.data.thanks || []).filter(t => t.to === me && !t.seenAt).sort(byNewest).slice(0, 2);
+  const recent = P.filter(t => ['approved', 'rejected'].includes(L.effStatus(t))).sort((a, b) => (b.resolvedAt || b.createdAt) - (a.resolvedAt || a.createdAt)).slice(0, 5);
   const today = L.ymd();
   const myTasks = activeTasks().filter(t => (t.assignee === me || !t.assignee) && t.due && t.due <= today).slice(0, 4);
   const net = L.netBalances(S.data.expenses, MEMBERS());
 
   let money;
-  if (Math.abs(net[me]) < 1) money = `<span class="mc-emoji">✨</span><span><b>Estáis en paz</b><small>Nadie debe nada</small></span>`;
-  else if (net[me] > 0) money = `<span class="mc-emoji">💸</span><span><b>${esc(pname())} te debe ${eur(net[me])}</b><small>Toca para ver los gastos</small></span>`;
-  else money = `<span class="mc-emoji">🙈</span><span><b>Le debes ${eur(-net[me])} a ${esc(pname())}</b><small>Toca para ver los gastos</small></span>`;
+  // Lenguaje neutro: "para cuadrar", no "me debes" (el dinero es de los dos y sin prisas).
+  if (Math.abs(net[me]) < 1) money = `<span class="mc-emoji">✨</span><span><b>Cuentas en paz</b><small>Toca para ver los gastos</small></span>`;
+  else money = `<span class="mc-emoji">🤝</span><span><b>Para cuadrar: ${net[me] > 0 ? `${esc(pname())} → tú` : `tú → ${esc(pname())}`} ${eur(Math.abs(net[me]))}</b><small>Sin prisa, cuando os venga bien</small></span>`;
 
   return `
   ${updateBanner()}
   <section class="purse">
-    ${purseCard(me, bal[me], L.reserved(P, me), wk[me])}
+    ${purseCard(me, bal[me], L.reserved(P, me))}
     <div class="purse-heart" aria-hidden="true">💞</div>
-    ${purseCard(pa, bal[pa], L.reserved(P, pa), wk[pa])}
+    ${purseCard(pa, bal[pa], L.reserved(P, pa))}
   </section>
+  ${goalCard()}
+
+  ${unseenThanks.length ? `<section class="block stack tight">${unseenThanks.map(t => `
+    <div class="thanks-card"><span class="th-emoji">${esc(t.emoji || '💛')}</span>
+      <span class="th-body"><small>${esc(pname())} te da las gracias</small><b>${esc(t.text)}</b></span>
+      <button class="btn sm" data-act="thanks-seen" data-id="${t.id}" aria-label="Me encanta">❤️</button></div>`).join('')}</section>` : ''}
 
   ${toDecide.length ? `<section class="block">
-    <h2 class="h">Te toca decidir <span class="count">${toDecide.length}</span></h2>
+    <h2 class="h">Esperan tu respuesta <span class="count">${toDecide.length}</span></h2>
     <div class="stack">${toDecide.map(requestCard).join('')}</div>
   </section>` : ''}
 
   <section class="quick">
-    <button class="qa mint" data-act="quick" data-type="claim"><span class="qa-ic">${ic('hand-heart')}</span><b>Reclamar</b><small>He hecho algo</small></button>
-    <button class="qa butter" data-act="quick" data-type="redeem"><span class="qa-ic">${ic('ticket')}</span><b>Pedir vale</b><small>Gastar puntos</small></button>
-    <button class="qa rose" data-act="quick" data-type="reward"><span class="qa-ic">${ic('sparkles')}</span><b>Premiar</b><small>Dar puntos a ${esc(pname())}</small></button>
-    <button class="qa lilac" data-act="quick" data-type="gift"><span class="qa-ic">${ic('gift')}</span><b>Regalar</b><small>De tu saldo</small></button>
+    <button class="qa mint" data-act="quick" data-type="claim"><span class="qa-ic">${ic('check-check')}</span><b>Lo he hecho</b><small>Apunta una tarea</small></button>
+    <button class="qa rose" data-act="quick" data-type="thanks"><span class="qa-ic">${ic('heart')}</span><b>Gracias</b><small>Sin puntos, con cariño</small></button>
+    <button class="qa butter" data-act="quick" data-type="redeem"><span class="qa-ic">${ic('ticket')}</span><b>Pedir un favor</b><small>Canjea un vale</small></button>
+    <button class="qa lilac" data-act="quick" data-type="reward"><span class="qa-ic">${ic('sparkles')}</span><b>Premiar</b><small>Lo ha hecho ${esc(pname())}</small></button>
   </section>
 
   <button class="money-chip" data-act="tab" data-tab="money">${money}${ic('chevron-right')}</button>
@@ -482,6 +540,8 @@ function viewHome() {
     <div class="h-row"><h2 class="h">Tus tareas de hoy</h2><button class="btn link sm" data-act="tab" data-tab="tasks">Ver todas</button></div>
     ${myTasks.length ? `<div class="stack tight">${myTasks.map(taskRow).join('')}</div>` : `<p class="empty">Nada pendiente para hoy 🌿</p>`}
   </section>
+
+  ${questionCard()}
 
   ${mine.length ? `<section class="block">
     <h2 class="h">Esperando a ${esc(pname())}</h2>
@@ -496,22 +556,23 @@ function viewHome() {
 
 /* ---------------- PUNTOS ---------------- */
 function viewPoints() {
-  const tabs = [['earn', 'Ganar'], ['vales', 'Vales'], ['hist', 'Historial']];
+  const tabs = [['earn', 'Tareas'], ['vales', 'Vales'], ['hist', 'Historial']];
   const avail = L.available(S.data.points, MEMBERS(), ME());
   let body = '';
   if (S.ptab === 'earn') {
     const items = catalog().earn;
-    body = `<p class="hint">Toca una acción: la <b>reclamas</b> tú (${esc(pname())} la aprueba) o <b>premias</b> a ${esc(pname())}.</p>
+    body = `<p class="hint">Tareas y cosas de casa. Si la has hecho tú, la <b>apuntas</b> (${esc(pname())} te da las gracias, o cuenta sola en 24 h). Si la ha hecho ${esc(pname())}, se la <b>premias</b>.</p>
       <div class="earn-grid">${items.map((it, i) => `
         <div class="earn" style="--i:${i}">
           <button class="earn-main" data-act="earn-item" data-id="${it.id}"><span class="earn-emoji">${esc(it.emoji)}</span><b>${esc(it.title)}</b>${coin('+' + it.pts)}</button>
           <button class="edit-dot" data-act="cat-edit" data-kind="earn" data-id="${it.id}" aria-label="Editar">${ic('pencil')}</button>
         </div>`).join('')}
         <button class="earn add" data-act="cat-new" data-kind="earn">${ic('plus')}<b>Nueva acción</b></button>
-      </div>`;
+      </div>
+      <p class="tip">💡 Los mimos no se cobran: para eso está <b>Gracias</b> 💛</p>`;
   } else if (S.ptab === 'vales') {
     const items = catalog().spend;
-    body = `<p class="hint">Tienes ${coin(avail)} disponibles. Pide un vale y, si ${esc(pname())} acepta, los puntos pasan a su hucha.</p>
+    body = `<p class="hint">Tienes ${coin(avail)} disponibles. Los vales son <b>favores</b> que te hace ${esc(pname())}, no permisos: vuestro tiempo libre no se compra 💛. Si acepta, los puntos pasan a su hucha.</p>
       <div class="stack">${items.map((it, i) => couponCard(it, i, avail)).join('')}
         <button class="coupon add" data-act="cat-new" data-kind="spend">${ic('plus')} Nuevo vale</button>
       </div>`;
@@ -592,7 +653,7 @@ function viewTasks() {
         <span><b>${100 - pa}%</b> ${esc(prof(b).name)} ${av(b, 'xs')}</span>
       </div>
       ${nFree ? `<button class="btn soft wide" data-act="task-auto">${ic('shuffle')} Repartir ${nFree === 1 ? 'la tarea libre' : `las ${nFree} libres`} de forma justa</button>` : ''}
-      ${!tot && !free ? '' : `<p class="muted small">Cuenta los puntos de cada tarea y cuántas veces se repite a la semana.</p>`}
+      <p class="muted small">Es la carga semanal (puntos × veces). Apuntad también lo invisible: citas, planes, cumpleaños, acordarse de todo.</p>
     </section>
     <div class="chips scroll">${filters.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="task-filter" data-v="${k}">${esc(l)}</button>`).join('')}</div>
     ${groups.map(([title, list]) => list.length ? `<section class="block"><h2 class="h sm">${title}</h2><div class="stack tight">${list.map(taskRow).join('')}</div></section>` : '').join('')}
@@ -699,10 +760,13 @@ function viewCouple() {
     <section class="card list">
       <button class="set-row" data-act="task-target"><span class="sr-ic">⚖️</span><span class="sr-body"><b>Reparto de tareas</b><small>${esc(prof(a).name)} ${t}% · ${esc(prof(b).name)} ${100 - t}%</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="ptab-go" data-v="earn"><span class="sr-ic">🪙</span><span class="sr-body"><b>Acciones y vales</b><small>${catalog().earn.length} acciones · ${catalog().spend.length} vales · toca el lápiz para editar</small></span>${ic('chevron-right')}</button>
+      <button class="set-row" data-act="goal-edit"><span class="sr-ic">${esc((C().goal || {}).emoji || '🎯')}</span><span class="sr-body"><b>Meta juntos</b><small>${C().goal ? `${esc(C().goal.title)} · ${C().goal.target} puntos` : 'Sin meta'}${(C().goalsDone || []).length ? ` · ${(C().goalsDone || []).length} conseguidas 🏆` : ''}</small></span>${ic('chevron-right')}</button>
+      <button class="set-row" data-act="quick" data-type="thanks"><span class="sr-ic">🫙</span><span class="sr-body"><b>Tarro de gracias</b><small>${(S.data.thanks || []).length} gracias guardadas</small></span>${ic('chevron-right')}</button>
       <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código de pareja</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
     </section>
     <section class="card list">
       <button class="set-row" data-act="welcome"><span class="sr-ic">💡</span><span class="sr-body"><b>¿Cómo funciona?</b><small>La explicación rápida de la app</small></span>${ic('chevron-right')}</button>
+      <button class="set-row" data-act="tips"><span class="sr-ic">🌿</span><span class="sr-body"><b>Para que la app sume</b><small>7 ideas para usarla sin llevar la cuenta</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="share-app"><span class="sr-ic">📲</span><span class="sr-body"><b>Pasar la app a alguien</b><small>Envía el enlace de descarga por WhatsApp</small></span>${ic('share-2')}</button>
       <button class="set-row" data-act="check-update"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>${S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones'}</small></span>${ic('refresh-cw')}</button>
     </section>
@@ -800,10 +864,12 @@ function askConfirm({ title, text = '', ok = 'Sí', danger = false }) {
 }
 
 const WELCOME = [
-  ['<i class="xc"></i>', 'Ganad xurripoints', 'Haz cosas por tu pareja o por casa y <b>reclámalas</b>. Tu pareja las <b>aprueba</b>… o te dice que no cuela.'],
-  ['🎟️', 'Canjeadlos por vales', '¿Quieres salir con tus amigos? <b>Pide el vale</b>. Si te dice que sí, tus puntos <b>pasan a su hucha</b>.'],
-  ['🧽', 'Repartid las tareas', 'Tuyas, suyas, <b>libres</b> o <b>por turnos</b>. Una barra os dice quién lleva más carga.'],
-  ['💸', 'Y los gastos, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. La app os dice quién debe cuánto.'],
+  ['<i class="xc"></i>', 'Apuntad lo que hacéis', 'Las tareas de casa dan <b>xurripoints</b>. Tu pareja te da las <b>gracias</b>… y si se le pasa, cuenta sola en 24 h.'],
+  ['🎟️', 'Canjeadlos por favores', '¿Que te cubra una tarea, elegir la peli, una siesta sin ruido? <b>Pide el vale</b>. Son favores, <b>no permisos</b>.'],
+  ['🎯', 'Sumáis para una meta juntos', 'Todo lo que hacéis los dos llena una <b>meta común</b> (una escapada, una cena…). No es una competición.'],
+  ['🍿', 'Decidid sin discutir', 'En <b>Planes</b> apuntáis pelis, planes y comida, votáis y la app os dice en qué <b>coincidís</b>. O que elija por vosotros.'],
+  ['💸', 'Y los gastos, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. Tareas repartidas con una barra de carga.'],
+  ['💛', 'Es un juego, no un contrato', 'Los mimos no se cobran: para eso está <b>Gracias</b>. Si un día no apetece apuntar nada, no pasa nada.'],
 ];
 const DEMO_SLIDE = ['🔁', 'Estás en modo demo', 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y aprobar.'];
 function maybeWelcome() { if (!lsGet('xp_welcome_v1') && !S.dialog) showWelcome(); }
@@ -890,6 +956,188 @@ async function checkUpdate(force = false) {
   } catch (e) { return null; }
 }
 
+/* ---------------- Confianza, meta, gracias y pregunta del día ---------------- */
+function hoursLeft(t) { return Math.max(1, Math.ceil((L.AUTO_ACCEPT_MS - (Date.now() - (t.createdAt || 0))) / 3600e3)); }
+
+function goalCard() {
+  const g = C().goal;
+  if (!g) return `<button class="goal empty" data-act="goal-edit"><span class="goal-emoji">🎯</span><span class="goal-body"><b>Poneos una meta juntos</b><small>Los puntos de los dos suman para un plan en común</small></span></button>`;
+  const prog = L.goalProgress(S.data.points, g);
+  const pct = Math.min(100, Math.round(prog / g.target * 100));
+  const done = prog >= g.target;
+  const wk = L.weekTogether(S.data.points);
+  return `<button class="goal ${done ? 'done' : ''}" data-act="goal-edit">
+    <span class="goal-emoji">${esc(g.emoji)}</span>
+    <span class="goal-body"><small>Meta juntos</small><b>${esc(g.title)}</b>
+      <span class="goal-bar" role="img" aria-label="${pct}%"><span style="width:${pct}%"></span></span>
+      <small>${done ? '¡Conseguido! 🎉 Toca para celebrarlo y elegir otra' : `${prog} de ${g.target}${wk ? ` · esta semana +${wk} entre los dos` : ' · cada tarea suma'}`}</small></span>
+  </button>`;
+}
+function goalSheet() {
+  const g = C().goal;
+  const done = g && L.goalProgress(S.data.points, g) >= g.target;
+  const cur = done ? { title: '', emoji: '🎯', target: g.target } : (g || { title: '', emoji: '🎯', target: 500 });
+  const form = `<div class="stack">
+      <div class="emoji-line"><input class="inp emoji-inp" id="gl-emoji" maxlength="4" value="${esc(cur.emoji)}" aria-label="Emoji">
+        <input class="inp" id="gl-title" maxlength="40" value="${esc(cur.title)}" placeholder="Escapada, cena especial, concierto…"></div>
+      <div class="emoji-row">${['🏖️', '🍣', '🎢', '🎬', '🏕️', '💆', '🎤', '✈️'].map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="gl-emoji" data-v="${e}">${e}</button>`).join('')}</div>
+      <div class="field"><span>¿Cuántos puntos entre los dos?</span>
+        <div class="chips" id="gl-target">${[200, 300, 500, 800, 1000].map(n => `<button type="button" class="chip ${n === cur.target ? 'on' : ''}" data-act="pick" data-v="${n}"><i class="xc"></i>${n}</button>`).join('')}</div></div>
+      <button class="btn primary big" data-act="goal-save" data-renew="${done ? '1' : ''}">${done ? 'Empezar nueva meta' : 'Guardar'}</button>
+    </div>`;
+  if (done) {
+    setTimeout(() => celebrate(['🎉', '💞', '✨', '🏆']), 200);
+    return `<div class="big-emoji">${esc(g.emoji)}</div><h3 class="sheet-title center">¡Lo habéis conseguido!</h3>
+      <p class="muted center">«${esc(g.title)}» · ${g.target} puntos entre los dos. Ahora toca hacerlo de verdad 💞</p>
+      <h4 class="h sm">Siguiente meta</h4>${form}`;
+  }
+  return `<h3 class="sheet-title">Meta juntos 🎯</h3>
+    <p class="muted">Todos los puntos que ganáis <b>los dos</b> suman aquí. Es un objetivo común, no una competición.</p>${form}`;
+}
+function thanksSheet() {
+  const list = [...(S.data.thanks || [])].sort(byNewest).slice(0, 25);
+  return `<h3 class="sheet-title">Dar las gracias 💛</h3>
+    <p class="muted">Sin puntos: solo para que ${esc(pname())} sepa que lo has visto. Pequeños gracias a diario cuidan mucho la relación.</p>
+    <div class="chips" id="th-quick">${THANKS_PRESETS.map(([e, t]) => `<button type="button" class="chip" data-act="pick" data-v="${e}|${esc(t)}">${e} ${esc(t)}</button>`).join('')}</div>
+    <input class="inp" id="th-text" maxlength="120" placeholder="O escribe: Gracias por…">
+    <button class="btn primary big wide" data-act="do-thanks">${ic('heart')} Enviar gracias</button>
+    ${list.length ? `<h4 class="h sm jar-title">Vuestro tarro de gracias 🫙</h4><div class="card list">${list.map(t => `
+      <div class="hist"><span class="h-emoji">${esc(t.emoji || '💛')}</span><span class="h-body"><b>${esc(t.text)}</b>
+        <small>${t.from === ME() ? `Para ${esc(pname())}` : `De ${esc(pname())}`} · ${ago(t.createdAt)}${t.reaction ? ` · ${esc(t.reaction)}` : ''}</small></span></div>`).join('')}</div>` : ''}`;
+}
+function tipsSheet() {
+  const tips = [
+    ['💛', 'Los mimos no se cobran', 'Un masaje o un detalle valen más si no tienen precio. Para eso está <b>Gracias</b>.'],
+    ['🎟️', 'Vales = favores, no permisos', 'Cada uno tiene derecho a su tiempo y a sus amigos. Los vales son para pedir ayuda o caprichos.'],
+    ['🤝', 'Confianza por defecto', 'Lo que apuntas cuenta solo en 24 h. No hace falta revisar cada cosa que hace el otro.'],
+    ['🎯', 'Sois un equipo', 'Los puntos de los dos llenan una meta común. Mirad la barra, no quién tiene más.'],
+    ['🗣️', 'Lo importante se habla', 'Si algo se repite o molesta, habladlo en persona. La app ayuda, no sustituye una conversación.'],
+    ['🌿', 'Es un juego', 'Si un día no apetece apuntar nada, no pasa nada. Nadie lleva la cuenta de verdad.'],
+    ['🚩', 'Si algo no va bien', 'Si la app se usa para controlar o dar permisos, dejad los puntos y hablad. Si hay miedo, pedid ayuda (en España, el 016 es gratis y no sale en la factura).'],
+  ];
+  return `<h3 class="sheet-title">Para que la app sume 🌿</h3>
+    <p class="muted">Pensado con lo que dice la psicología de pareja.</p>
+    <div class="tips">${tips.map(([e, t, x]) => `<div class="tip-row"><span class="tip-e">${e}</span><span><b>${t}</b><small>${x}</small></span></div>`).join('')}</div>`;
+}
+function questionCard() {
+  const q = QUESTIONS[(L.dayIndex(QUESTIONS.length) + S.qShift) % QUESTIONS.length];
+  return `<section class="question block"><small>💬 Para hablar hoy, sin móvil</small><p>${esc(q)}</p>
+    <button class="btn link sm" data-act="q-next">Otra pregunta</button></section>`;
+}
+
+/* ---------------- PLANES (decidir juntos) ---------------- */
+const findIdea = id => (S.data.ideas || []).find(x => x.id === id);
+function viewPlans() {
+  const members = MEMBERS(), me = ME();
+  const all = (S.data.ideas || []).filter(x => x.list === S.itab);
+  const open = all.filter(x => !x.doneAt);
+  const matches = open.filter(x => L.ideaState(x, members).match);
+  const others = open.filter(x => !L.ideaState(x, members).match).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const toVote = open.filter(x => !(x.votes || {})[me]);
+  const done = all.filter(x => x.doneAt).sort((a, b) => b.doneAt - a.doneAt);
+  return `<h1 class="page-title">Planes</h1>
+    <div class="seg">${IDEA_LISTS.map(([k, e, l]) => `<button class="${S.itab === k ? 'on' : ''}" data-act="itab" data-v="${k}">${e} ${l}</button>`).join('')}</div>
+    <section class="card decide">
+      <p><b>¿No os decidís?</b><small>${matches.length ? `Coincidís en ${matches.length} ${matches.length === 1 ? 'idea' : 'ideas'} 💞` : 'Votad las ideas: cuando los dos decís que sí, hay match 💞'}</small></p>
+      <div class="row-btns">
+        <button class="btn primary" data-act="idea-roulette" ${open.length ? '' : 'disabled'}>${ic('dices')} Elegir al azar</button>
+        <button class="btn soft" data-act="idea-swipe" ${toVote.length ? '' : 'disabled'}>${ic('thumbs-up')} Votar${toVote.length ? ` (${toVote.length})` : ''}</button>
+      </div>
+    </section>
+    ${matches.length ? `<section class="block"><h2 class="h sm">Os apetece a los dos 💞</h2><div class="stack tight">${matches.map(ideaRow).join('')}</div></section>` : ''}
+    <section class="block"><h2 class="h sm">Ideas</h2>${others.length ? `<div class="stack tight">${others.map(ideaRow).join('')}</div>` : `<p class="empty">Apuntad ideas con el + 💡</p>`}</section>
+    ${done.length ? `<section class="block"><button class="btn link sm" data-act="toggle-done-ideas">📸 Recuerdos: lo que ya hicisteis (${done.length})</button>
+      ${S.showDoneIdeas ? `<div class="stack tight">${done.map(ideaRow).join('')}</div>` : ''}</section>` : ''}
+    <button class="fab" data-act="idea-new" aria-label="Nueva idea">${ic('plus')}</button>`;
+}
+function ideaRow(x) {
+  const members = MEMBERS(), me = ME(), v = x.votes || {};
+  const st = L.ideaState(x, members);
+  // El voto de tu pareja se ve cuando has votado tú (así nadie se deja llevar).
+  const dot = u => {
+    const hidden = u !== me && !v[me];
+    const cls = hidden ? (v[u] ? 'hidden' : '') : v[u] === 1 ? 'up' : v[u] === -1 ? 'down' : '';
+    return `<span class="vote-dot ${cls}" title="${hidden && v[u] ? 'Ya ha votado' : ''}">${av(u, 'xs')}</span>`;
+  };
+  const dt = x.doneAt ? new Date(x.doneAt) : null;
+  return `<div class="idea ${st.match ? 'match' : ''} ${x.doneAt ? 'done' : ''}">
+    <button class="idea-main" data-act="idea-open" data-id="${x.id}"><b>${esc(x.title)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}${dt ? `<small>📸 ${dt.getDate()} de ${MONTHS[dt.getMonth()]}</small>` : ''}</button>
+    <span class="idea-votes">${members.map(dot).join('')}</span>
+    ${x.doneAt ? '' : `<span class="idea-my">
+      <button class="vbtn ${v[me] === 1 ? 'on up' : ''}" data-act="idea-vote" data-id="${x.id}" data-v="1" aria-label="Me apetece">👍</button>
+      <button class="vbtn ${v[me] === -1 ? 'on down' : ''}" data-act="idea-vote" data-id="${x.id}" data-v="-1" aria-label="No me apetece">👎</button></span>`}
+  </div>`;
+}
+function voteIdea(id, v, fromSwipe = false) {
+  const x = findIdea(id); if (!x) return;
+  const me = ME(), pa = PA();
+  const cur = (x.votes || {})[me] || 0;
+  const next = !fromSwipe && cur === v ? 0 : v; // tocar otra vez el mismo voto lo quita
+  S.be.update('ideas', id, { [`votes.${me}`]: next }).catch(err => toast(errMsg(err)));
+  if (next === 1 && (x.votes || {})[pa] === 1) { celebrate(['💞', '🍿', '✨']); toast(`¡Match! A los dos os apetece: ${x.title} 💞`); }
+}
+function ideaForm(x) {
+  const isNew = !x;
+  x = x || { title: '', note: '', list: S.itab };
+  return `<h3 class="sheet-title">${isNew ? 'Nueva idea 💡' : 'Idea'}</h3>
+    <div class="stack">
+      <div class="seg" id="id-list">${IDEA_LISTS.map(([k, e, l]) => `<button type="button" class="${x.list === k ? 'on' : ''}" data-act="pick" data-v="${k}">${e} ${l}</button>`).join('')}</div>
+      <input class="inp" id="id-title" maxlength="80" value="${esc(x.title)}" placeholder="${x.list === 'pelis' ? 'Título de la peli o serie' : x.list === 'comida' ? 'Qué os apetece comer' : 'Un plan que os apetezca'}">
+      <input class="inp" id="id-note" maxlength="140" value="${esc(x.note || '')}" placeholder="Dónde, enlace, notas… (opcional)">
+      <button class="btn primary big" data-act="idea-save" data-id="${isNew ? '' : x.id}">Guardar</button>
+      ${isNew ? '' : `<button class="btn mint" data-act="idea-done" data-id="${x.id}">${x.doneAt ? '↩️ Volver a ideas' : '📸 ¡Lo hicimos!'}</button>
+        <button class="btn soft-berry" data-act="idea-delete" data-id="${x.id}">${ic('trash-2')} Borrar</button>`}
+    </div>`;
+}
+/* Votar de una en una (tipo "swipe") */
+function openSwipe() {
+  const me = ME();
+  const queue = (S.data.ideas || []).filter(x => x.list === S.itab && !x.doneAt && !(x.votes || {})[me]).map(x => x.id);
+  openSheet('', { ctx: { queue, pos: 0, total: queue.length } });
+  paintSwipe();
+}
+function nextSwipe() { if (!S.sheet || !S.sheet.queue) return; S.sheet.pos++; paintSwipe(); }
+function paintSwipe() {
+  const c = S.sheet;
+  if (!c || !c.queue) return;
+  if (c.pos >= c.queue.length) {
+    const m = (S.data.ideas || []).filter(x => x.list === S.itab && !x.doneAt && L.ideaState(x, MEMBERS()).match).length;
+    swapSheet(`<div class="big-emoji">🎉</div><h3 class="sheet-title center">¡Listo!</h3>
+      <p class="muted center">${m ? `Coincidís en ${m} ${m === 1 ? 'idea' : 'ideas'} 💞` : `Cuando ${esc(pname())} vote, veréis en qué coincidís 💞`}</p>
+      <button class="btn primary big wide" data-act="sheet-close">Vale</button>`);
+    return;
+  }
+  const x = findIdea(c.queue[c.pos]);
+  if (!x) { c.pos++; paintSwipe(); return; }
+  swapSheet(`<p class="muted center">${c.pos + 1} de ${c.total}</p>
+    <div class="swipe-card"><span class="sw-list">${IDEA_LISTS.find(l => l[0] === x.list)[1]}</span><b>${esc(x.title)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}</div>
+    <div class="swipe-btns">
+      <button class="btn big soft-berry" data-act="swipe-vote" data-id="${x.id}" data-v="-1">👎 Paso</button>
+      <button class="btn big mint" data-act="swipe-vote" data-id="${x.id}" data-v="1">👍 Me apetece</button>
+    </div>
+    <button class="btn link wide" data-act="swipe-skip">Saltar</button>`);
+}
+/* Ruleta: elige entre los match (o entre las ideas que nadie ha vetado) */
+function openRoulette() {
+  const members = MEMBERS();
+  const open = (S.data.ideas || []).filter(x => x.list === S.itab && !x.doneAt);
+  const matches = open.filter(x => L.ideaState(x, members).match);
+  const pool = matches.length ? matches : open.filter(x => !L.ideaState(x, members).vetoed);
+  if (!pool.length) { toast('No hay ideas sin veto. ¡Añadid alguna! 💡'); return; }
+  const final = L.pickRandom(pool);
+  openSheet(`<p class="muted center">${matches.length ? 'Entre lo que os apetece a los dos…' : 'Entre las ideas que nadie ha vetado…'}</p>
+    <div class="roulette"><b id="rl-title">…</b></div>
+    <div class="row-btns" id="rl-btns" hidden><button class="btn" data-act="idea-roulette">${ic('dices')} Otra</button><button class="btn primary" data-act="sheet-close">¡Vamos! 💞</button></div>`);
+  let n = 0;
+  const spin = () => {
+    const el = $('#rl-title'); if (!el) return;
+    n++;
+    if (n < 14) { el.textContent = L.pickRandom(pool).title; setTimeout(spin, 50 + n * 12); }
+    else { el.textContent = final.title; el.parentElement.classList.add('landed'); $('#rl-btns').hidden = false; celebrate(['🎲', '💞', '✨']); }
+  };
+  spin();
+}
+
 /* ---------------- Puntos: crear, aprobar… ---------------- */
 function addPoints(o) {
   const me = ME(), now = Date.now();
@@ -909,16 +1157,17 @@ function pointsPicker(type) {
   const items = catalog().earn;
   const claim = type === 'claim';
   return `<h3 class="sheet-title">${claim ? '¿Qué has hecho? 💪' : `¿Qué ha hecho ${esc(pname())}? ✨`}</h3>
-    <p class="muted">${claim ? `${esc(pname())} tendrá que aprobarlo.` : 'Los puntos le llegan al momento.'}</p>
+    <p class="muted">${claim ? `${esc(pname())} te dará las gracias (y si se le pasa, cuenta solo en 24 h).` : 'Los puntos le llegan al momento.'}</p>
     <div class="pick-list">${items.map(it => `<button class="pick-row" data-act="do-points" data-type="${type}" data-id="${it.id}">
       <span class="pr-emoji">${esc(it.emoji)}</span><b>${esc(it.title)}</b>${coin('+' + it.pts)}</button>`).join('')}</div>
     <details class="custom-box"><summary>${ic('pencil-line')} Otra cosa…</summary>
       <div class="stack">
         <input class="inp" id="cu-title" maxlength="60" placeholder="${claim ? 'He montado el mueble de IKEA' : 'Me ha hecho reír un montón'}">
         ${ptsChips('cu-pts', 10)}
-        <button class="btn primary" data-act="do-points-custom" data-type="${type}">${claim ? 'Reclamar' : `Premiar a ${esc(pname())}`}</button>
+        <button class="btn primary" data-act="do-points-custom" data-type="${type}">${claim ? 'Apuntar' : `Premiar a ${esc(pname())}`}</button>
       </div>
-    </details>`;
+    </details>
+    ${claim ? '' : `<button class="btn link wide" data-act="quick" data-type="gift">o regálale puntos de tu hucha 🎁</button>`}`;
 }
 function ptsChips(id, sel, list = [5, 10, 15, 20, 30, 50, 100]) {
   return `<div class="chips" id="${id}">${list.map(n => `<button type="button" class="chip ${n === sel ? 'on' : ''}" data-act="pick" data-v="${n}"><i class="xc"></i>${n}</button>`).join('')}</div>`;
@@ -926,7 +1175,7 @@ function ptsChips(id, sel, list = [5, 10, 15, 20, 30, 50, 100]) {
 
 function redeemPicker() {
   const avail = L.available(S.data.points, MEMBERS(), ME());
-  return `<h3 class="sheet-title">Pedir un vale 🎟️</h3>
+  return `<h3 class="sheet-title">Pedir un favor 🎟️</h3>
     <p class="muted">Tienes ${coin(avail)} disponibles.</p>
     <div class="stack">${catalog().spend.map((it, i) => couponCard(it, i, avail)).join('')}</div>`;
 }
@@ -1178,7 +1427,12 @@ const ACT = {
   'pair-create': async (d, el) => {
     const p = readProfile();
     el.disabled = true;
-    try { const code = await S.be.createCouple(p, newCoupleSeed()); watchCouple(code); }
+    try {
+      const { ideas, ...seed } = newCoupleSeed();
+      const code = await S.be.createCouple(p, seed);
+      watchCouple(code);
+      ideas.forEach(it => S.be.add('ideas', { ...it, note: '', votes: {}, createdBy: ME(), createdAt: Date.now(), doneAt: null }).done.catch(() => { }));
+    }
     catch (err) { toast(errMsg(err)); el.disabled = false; }
   },
   'pair-join': async (d, el) => {
@@ -1210,13 +1464,14 @@ const ACT = {
   'quick': d => {
     if (d.type === 'claim' || d.type === 'reward') openSheet(pointsPicker(d.type));
     else if (d.type === 'redeem') openSheet(redeemPicker());
+    else if (d.type === 'thanks') openSheet(thanksSheet());
     else openSheet(giftSheet());
   },
   'earn-item': d => {
     const it = findItem('earn', d.id); if (!it) return;
     openSheet(`<div class="big-emoji">${esc(it.emoji)}</div><h3 class="sheet-title center">${esc(it.title)}</h3><p class="center">${coin('+' + it.pts, 'lg')}</p>
       <div class="stack">
-        <button class="btn mint big" data-act="do-points" data-type="claim" data-id="${it.id}">${ic('hand-heart')} Lo he hecho yo · reclamar</button>
+        <button class="btn mint big" data-act="do-points" data-type="claim" data-id="${it.id}">${ic('check-check')} Lo he hecho yo</button>
         <button class="btn primary big" data-act="do-points" data-type="reward" data-id="${it.id}">${ic('sparkles')} Lo ha hecho ${esc(pname())} · premiar</button>
       </div>`);
   },
@@ -1238,7 +1493,7 @@ const ACT = {
     if (L.available(S.data.points, MEMBERS(), ME()) < it.pts) { toast('No te llegan los puntos 😅'); return; }
     addPoints({ type: 'redeem', from: ME(), to: PA(), amount: it.pts, title: it.title, emoji: it.emoji, note: $('#rd-note').value.trim() });
     closeSheet();
-    toast(`Vale pedido 🎟️ Ahora le toca a ${pname()}`);
+    toast(`Vale pedido 🎟️ ${pname()} te dirá algo`);
   },
   'do-gift': () => {
     const n = Number(picked('gf-pts') || 0);
@@ -1253,21 +1508,74 @@ const ACT = {
     if (t.type === 'redeem' && L.balances(S.data.points, MEMBERS())[t.from] < t.amount) { toast(`A ${pname()} ya no le llegan los puntos`); return; }
     S.be.update('points', t.id, { status: 'approved', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
     celebrate();
-    toast(t.type === 'redeem' ? `¡Vale aceptado! +${t.amount} para ti 💗` : `Aprobado: +${t.amount} para ${pname()} ✨`);
+    toast(t.type === 'redeem' ? `¡Vale aceptado! +${t.amount} para tu hucha 💗` : `Gracias enviadas: +${t.amount} para ${pname()} 💛`);
   },
   'reject': d => {
     const t = findPoint(d.id); if (!t) return;
-    openSheet(`<h3 class="sheet-title">${t.type === 'redeem' ? 'Ahora no' : 'No cuela'} 🙈</h3>
-      <p class="muted">¿Le dices por qué? <small>(opcional)</small></p>
-      <div class="chips" id="rj-quick">${['Hoy no 🙈', 'Negociamos 😏', 'Mejor otro día', 'Eso no fue así 🤨'].map(s => `<button type="button" class="chip" data-act="pick" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>
-      <input class="inp" id="rj-reply" maxlength="100" placeholder="O escribe algo…">
-      <button class="btn soft-berry big wide" data-act="do-reject" data-id="${t.id}">Rechazar</button>`);
+    const redeem = t.type === 'redeem';
+    const quick = redeem ? ['Hoy no puedo 🙈', 'Mejor otro día 💛', '¿Lo negociamos? 😏'] : ['¿Lo hablamos luego?', 'Creo que faltó algo 🙈', 'Gracias, pero no cuenta 💛'];
+    openSheet(`<h3 class="sheet-title">${redeem ? 'Ahora no 🙈' : 'Lo hablamos 💬'}</h3>
+      <p class="muted">Un «no» también se puede decir bonito. ¿Le dejas un mensaje? <small>(opcional)</small></p>
+      <div class="chips" id="rj-quick">${quick.map(q => `<button type="button" class="chip" data-act="pick" data-v="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+      <input class="inp" id="rj-reply" maxlength="100" placeholder="O escribe algo con cariño…">
+      <button class="btn big wide" data-act="do-reject" data-id="${t.id}">Enviar</button>`);
   },
   'do-reject': d => {
     const reply = $('#rj-reply').value.trim() || picked('rj-quick') || '';
     S.be.update('points', d.id, { status: 'rejected', resolvedAt: Date.now(), resolvedBy: ME(), reply }).catch(err => toast(errMsg(err)));
-    closeSheet(); toast('Rechazado');
+    closeSheet(); toast('Enviado 💬');
   },
+  /* gracias, meta, planes */
+  'do-thanks': () => {
+    const typed = $('#th-text').value.trim();
+    const [pe, pt] = (picked('th-quick') || '').split('|');
+    const text = typed || pt;
+    if (!text) { toast('Elige o escribe por qué ✍️'); return; }
+    S.be.add('thanks', { from: ME(), to: PA(), text: text.slice(0, 120), emoji: typed ? '💛' : (pe || '💛'), createdAt: Date.now(), seenAt: null, reaction: null }).done.catch(err => toast(errMsg(err)));
+    closeSheet(); celebrate(['💛', '💗', '✨']); toast(`Gracias enviadas a ${pname()} 💛`);
+  },
+  'thanks-seen': d => { S.be.update('thanks', d.id, { seenAt: Date.now(), reaction: '❤️' }).catch(err => toast(errMsg(err))); celebrate(['❤️', '💛']); },
+  'goal-edit': () => openSheet(goalSheet()),
+  'goal-save': d => {
+    const title = $('#gl-title').value.trim() || 'Nuestra meta';
+    const emoji = $('#gl-emoji').value.trim() || '🎯';
+    const target = Number(picked('gl-target') || 500);
+    const g = C().goal;
+    const patch = {};
+    if (d.renew === '1' && g) patch.goalsDone = [...(C().goalsDone || []), { title: g.title, emoji: g.emoji, target: g.target, doneAt: Date.now() }];
+    patch.goal = { title, emoji, target, since: d.renew === '1' || !g ? Date.now() : g.since };
+    S.be.updateCouple(patch).catch(err => toast(errMsg(err)));
+    closeSheet(); toast(d.renew === '1' ? '¡Nueva meta! A por ella 💪' : 'Meta guardada 🎯');
+  },
+  'tips': () => openSheet(tipsSheet()),
+  'q-next': () => { S.qShift++; render(); },
+  'itab': d => { S.itab = d.v; render(); },
+  'toggle-done-ideas': () => { S.showDoneIdeas = !S.showDoneIdeas; render(); },
+  'idea-new': () => openSheet(ideaForm()),
+  'idea-open': d => { const x = findIdea(d.id); if (x) openSheet(ideaForm(x)); },
+  'idea-save': d => {
+    const title = $('#id-title').value.trim();
+    if (!title) { toast('Escribe la idea ✍️'); return; }
+    const data = { title: title.slice(0, 80), note: $('#id-note').value.trim().slice(0, 140), list: picked('id-list') || S.itab };
+    if (d.id) S.be.update('ideas', d.id, data).catch(err => toast(errMsg(err)));
+    else S.be.add('ideas', { ...data, votes: { [ME()]: 1 }, createdBy: ME(), createdAt: Date.now(), doneAt: null }).done.catch(err => toast(errMsg(err)));
+    S.itab = data.list; closeSheet(); toast(d.id ? 'Guardado' : 'Idea apuntada 💡 (con tu 👍)');
+  },
+  'idea-done': d => {
+    const x = findIdea(d.id); if (!x) return;
+    S.be.update('ideas', d.id, { doneAt: x.doneAt ? null : Date.now() }).catch(err => toast(errMsg(err)));
+    closeSheet();
+    if (!x.doneAt) { celebrate(['📸', '💞', '✨']); toast('¡Guardado en vuestros recuerdos! 📸'); }
+  },
+  'idea-delete': async d => {
+    if (!await askConfirm({ title: '¿Borrar esta idea?', ok: 'Borrar', danger: true })) return;
+    S.be.remove('ideas', d.id).catch(err => toast(errMsg(err))); closeSheet();
+  },
+  'idea-vote': d => voteIdea(d.id, Number(d.v)),
+  'idea-swipe': () => openSwipe(),
+  'swipe-vote': d => { voteIdea(d.id, Number(d.v), true); nextSwipe(); },
+  'swipe-skip': () => nextSwipe(),
+  'idea-roulette': () => openRoulette(),
   'cancel': d => {
     S.be.update('points', d.id, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
     toast('Petición anulada');
@@ -1387,7 +1695,7 @@ const ACT = {
 function doPoints(type, title, emoji, pts) {
   if (type === 'claim') {
     addPoints({ type: 'claim', to: ME(), amount: pts, title, emoji });
-    closeSheet(); toast(`Reclamado: +${pts}. Ahora ${pname()} lo aprueba 💌`);
+    closeSheet(); toast(`Apuntado: +${pts} 💪 ${pname()} lo verá`);
   } else {
     addPoints({ type: 'reward', to: PA(), amount: pts, title, emoji });
     closeSheet(); celebrate(); toast(`¡${pname()} recibe +${pts}! ✨`);
