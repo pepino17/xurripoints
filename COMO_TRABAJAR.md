@@ -18,6 +18,11 @@ Guía para cualquier asistente (o persona) que retome el proyecto. Léela junto 
 - **Todo en español** (interfaz, código, comentarios, documentación).
 - Tono de la app: cariñoso y con humor de pareja, **sin ser empalagoso** ni infantil.
 
+## 2b. Interfaz: que sea fácil
+- Cada pantalla, **lo mínimo a la vista**; lo secundario en "Más opciones" (`details.more`) o plegado.
+- Todo lo que se apunta entra por el **＋ central** (`addMenu`). Nada de botones flotantes por pantalla.
+- Azar siempre con `L.randInt` / `L.rand` (nunca `Math.random` para decidir nada).
+
 ## 3. Datos (cuidado: son de DOS personas)
 - Los datos viven en Firestore y los comparten los dos móviles. **No cambies el significado de un campo**
   sin migración; añadir campos sí es seguro. Modelo en `CONTEXTO.md`.

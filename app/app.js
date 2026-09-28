@@ -7,7 +7,7 @@ import { createBackend, hasFirebaseConfig } from './store.js';
 import * as L from './logic.js';
 import { THIS_OR_THAT, WHO_MORE, DIE_PIPS } from './content.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -142,10 +142,11 @@ const S = {
   phase: 'boot',          // boot · auth · loading · pair · wait · app
   authMode: 'welcome',    // welcome · signup · login
   authError: '', busy: false,
-  tab: 'home', ptab: 'earn', taskFilter: 'all', showDone: false,
+  tab: 'home', ptab: 'vales', taskFilter: 'all', showDone: false,
   itab: 'planes', showDoneIdeas: false, qShift: 0, seenThanks: null,
   jtab: 'ideas', mtab: 'exp',             // Juntos: ideas · decidir · jugar  ·  Gastos: gastos · ahorro
-  coinMode: 'coin', coinRes: '', dice: 1, lastDice: [3, 5], diceRes: '',
+  coinMode: 'coin', coinRes: '', coinFace: 'h', dice: 1, lastDice: [3, 5], diceRes: '',
+  flipping: false, rolling: false, spinning: false, spinOpts: null,
   wheelText: '', wheelRot: 0, wheelRes: '', deferred: false,
   game: null, gscore: {},
   enter: true,            // animación de entrada al cambiar de pestaña
@@ -167,6 +168,26 @@ const av = (u, cls = '') => `<span class="av ${side(u)} ${cls}">${esc(prof(u).em
 const coin = (n, cls = '') => `<span class="pts ${cls}"><i class="xc"></i>${n}</span>`;
 const catalog = () => (C().catalog || { earn: [], spend: [] });
 const taskPctA = () => (C().settings && Number.isFinite(C().settings.taskPctA) ? C().settings.taskPctA : 50);
+const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+/** Reparto de gastos de la pareja ("⭐ vuestro reparto"): por defecto en los gastos nuevos y en los fijos. */
+const defaultSplit = () => (C().settings && C().settings.split) || { mode: 'equal', sugar: null, customPctA: 50 };
+const splitIncomes = () => Object.fromEntries(MEMBERS().map(u => [u, prof(u).income || 0]));
+/** Un reparto dicho en palabras, desde mi punto de vista (primero mi parte). Texto plano: escapar al pintar. */
+function splitWords(mode, sugar, customPctA, incomes = splitIncomes()) {
+  const me = ME(), [a] = MEMBERS();
+  if (mode === 'default') { const d = defaultSplit(); return splitWords(d.mode, d.sugar, d.customPctA, incomes); }
+  const pA = L.pctA(mode, { members: MEMBERS(), incomes, sugar, customPctA });
+  const mine = Math.round(a === me ? pA : 100 - pA);
+  if (mode === 'equal') return 'a medias';
+  if (mode === 'proportional') return `según ingresos (${mine}/${100 - mine})`;
+  if (mode === 'sugar') { const p = prof(sugar); return `sugar ${p.sugar === 'papi' ? 'papi' : 'mami'}: paga ${sugar === me ? 'todo tú' : `todo ${p.name}`}`; }
+  return `a medida (${mine}/${100 - mine})`;
+}
+/** Página con título (y botón de volver o acción a la derecha). */
+function pageHead(title, { back = false, action = '' } = {}) {
+  return `<div class="page-head">${back ? `<button class="btn icon ghost back-btn" data-act="tab" data-tab="home" aria-label="Volver">${ic('arrow-left')}</button>` : ''}
+    <h1 class="page-title">${title}</h1>${action ? `<span class="ph-act">${action}</span>` : ''}</div>`;
+}
 
 /* ---------------- Arranque ---------------- */
 async function boot() {
@@ -415,7 +436,7 @@ function pendingForMe() { return S.data.points.filter(t => L.effStatus(t) === 'p
 
 function viewShell() {
   const views = { home: viewHome, points: viewPoints, tasks: viewTasks, money: viewMoney, plans: viewJuntos, couple: viewCouple };
-  const nPending = pendingForMe().length;
+  const nHome = pendingForMe().length + (S.data.thanks || []).filter(t => t.to === ME() && !t.seenAt).length;
   const today = L.ymd();
   const nTasks = S.data.tasks.filter(t => L.isActive(t) && t.assignee === ME() && t.due && t.due <= today).length;
   const tab = (id, icon, label, badge = 0) => `<button class="tab ${S.tab === id ? 'on' : ''}" data-act="tab" data-tab="${id}" aria-label="${label}">
@@ -427,49 +448,40 @@ function viewShell() {
     <button class="duo ${S.tab === 'couple' ? 'on' : ''}" data-act="tab" data-tab="couple" aria-label="Pareja y ajustes">${av(ME())}${av(PA())}<span class="duo-gear">${ic('settings')}</span></button>
   </header>
   ${S.be.kind === 'firebase' && !navigator.onLine ? `<div class="offline">${ic('wifi-off')} Sin conexión · lo que apuntes se sube al volver</div>` : ''}
-  ${S.be.kind === 'demo' ? `<button class="demo-bar" data-act="demo-switch">Modo demo · eres <b>${esc(prof(ME()).name)}</b> ${ic('repeat-2')} cambiar a ${esc(pname())}</button>` : ''}
+  ${S.be.kind === 'demo' ? `<button class="demo-bar" data-act="demo-switch">Demo · eres <b>${esc(prof(ME()).name)}</b> ${ic('repeat-2')} cambiar</button>` : ''}
   <main class="view ${S.enter ? 'enter' : ''}" id="view">${views[S.tab]()}</main>
   <nav class="tabs">
-    ${tab('home', 'heart', 'Inicio', nPending)}
-    ${tab('points', 'coins', 'Puntos')}
+    ${tab('home', 'heart', 'Inicio', nHome)}
     ${tab('tasks', 'list-checks', 'Tareas', nTasks)}
-    ${tab('money', 'wallet', 'Gastos')}
+    <button class="tab-add" data-act="add-menu" aria-label="Apuntar algo"><span>${ic('plus')}</span></button>
+    ${tab('money', 'wallet', 'Dinero')}
     ${tab('plans', 'party-popper', 'Juntos')}
   </nav>`;
 }
 
 /* ---------------- INICIO ---------------- */
-function purseCard(u, bal, res) {
-  return `<div class="purse-card ${side(u)}">
-    <div class="purse-who">${av(u, 'lg')}<span>${esc(nameOf(u))}</span></div>
-    <div class="purse-num">${bal}</div>
-    <div class="purse-lb"><i class="xc"></i> xurripoints</div>
-    ${res ? `<div class="purse-res">${res} apartados en vales</div>` : ''}
+function requestRow(t) {
+  const redeem = t.type === 'redeem';
+  return `<div class="todo ${redeem ? 'vale' : 'claim'}">
+    <span class="td-e">${esc(t.emoji || '✨')}</span>
+    <span class="td-body"><small>${esc(prof(t.createdBy).name)} ${redeem ? 'te pide un favor' : 'ha hecho'}</small><b>${esc(t.title)}</b>
+      ${t.note ? `<small>“${esc(t.note)}”</small>` : ''}
+      <small>${redeem ? `${coin(t.amount)} pasan a tu hucha` : `${coin('+' + t.amount)} · cuenta sola en ${hoursLeft(t)} h`}</small></span>
+    <span class="td-act">
+      <button class="btn mint sm" data-act="approve" data-id="${t.id}">${redeem ? 'Aceptar' : '¡Gracias!'}</button>
+      <button class="btn ghost sm" data-act="reject" data-id="${t.id}">${redeem ? 'Ahora no' : 'Hablar'}</button>
+    </span>
   </div>`;
 }
-
-function requestCard(t) {
-  const u = t.createdBy;
-  const redeem = t.type === 'redeem';
-  return `<article class="ticket ${redeem ? 'is-vale' : 'is-claim'}">
-    <div class="stub">${esc(t.emoji || '✨')}</div>
-    <div class="tk-body">
-      <div class="tk-kicker">${av(u, 'xs')} ${esc(prof(u).name)} ${redeem ? 'te pide un vale' : 'ha hecho'}</div>
-      <div class="tk-title">${redeem ? '<small>Vale por</small> ' : ''}${esc(t.title)}</div>
-      ${t.note ? `<div class="tk-note">“${esc(t.note)}”</div>` : ''}
-      <div class="tk-meta">${redeem ? `${coin(t.amount)} pasarán a tu hucha` : `${coin('+' + t.amount)} para ${esc(prof(u).name)} · cuenta sola en ${hoursLeft(t)} h`} · ${ago(t.createdAt)}</div>
-      <div class="tk-actions">
-        <button class="btn mint sm" data-act="approve" data-id="${t.id}">${redeem ? `${ic('check')} Aceptar` : '¡Gracias! 💛'}</button>
-        <button class="btn sm ghost" data-act="reject" data-id="${t.id}">${redeem ? 'Ahora no' : 'Lo hablamos'}</button>
-      </div>
-    </div>
-  </article>`;
+function thanksRowHome(t) {
+  return `<div class="todo thanks"><span class="td-e">${esc(t.emoji || '💛')}</span>
+    <span class="td-body"><small>${esc(pname())} te da las gracias</small><b>${esc(t.text)}</b></span>
+    <button class="btn sm" data-act="thanks-seen" data-id="${t.id}" aria-label="Me encanta">❤️</button></div>`;
 }
-
 function myRequestRow(t) {
   return `<div class="mini-row">
     <span class="mr-emoji">${esc(t.emoji || '✨')}</span>
-    <span class="mr-body"><b>${esc(t.title)}</b><small>${t.type === 'redeem' ? 'Vale pedido' : `Apuntado · cuenta solo en ${hoursLeft(t)} h`} · ${coin(t.amount)} · ${ago(t.createdAt)}</small></span>
+    <span class="mr-body"><b>${esc(t.title)}</b><small>${t.type === 'redeem' ? 'Favor pedido' : `Apuntado · cuenta solo en ${hoursLeft(t)} h`} · ${coin(t.amount)} · ${ago(t.createdAt)}</small></span>
     <button class="btn sm ghost" data-act="cancel" data-id="${t.id}">Anular</button>
   </div>`;
 }
@@ -503,91 +515,75 @@ function viewHome() {
   const me = ME(), pa = PA(), P = S.data.points;
   const bal = L.balances(P, MEMBERS());
   const toDecide = pendingForMe();
-  const mine = P.filter(t => L.effStatus(t) === 'pending' && t.createdBy === me).sort(byNewest);
-  const unseenThanks = (S.data.thanks || []).filter(t => t.to === me && !t.seenAt).sort(byNewest).slice(0, 2);
-  const recent = P.filter(t => ['approved', 'rejected'].includes(L.effStatus(t))).sort((a, b) => (b.resolvedAt || b.createdAt) - (a.resolvedAt || a.createdAt)).slice(0, 5);
+  const mine = P.filter(t => L.effStatus(t) === 'pending' && t.createdBy === me);
+  const thanks = (S.data.thanks || []).filter(t => t.to === me && !t.seenAt).sort(byNewest).slice(0, 3);
   const today = L.ymd();
   const myTasks = activeTasks().filter(t => (t.assignee === me || !t.assignee) && t.due && t.due <= today).slice(0, 4);
   const net = L.netBalances(S.data.expenses, MEMBERS());
-
-  let money;
+  const g = C().goal, prog = g ? L.goalProgress(P, g) : 0, pct = g ? Math.min(100, Math.round(prog / g.target * 100)) : 0;
+  const wk = L.weekTogether(P);
+  const n = thanks.length + toDecide.length + myTasks.length;
   // Lenguaje neutro: "para cuadrar", no "me debes" (el dinero es de los dos y sin prisas).
-  if (Math.abs(net[me]) < 1) money = `<span class="mc-emoji">✨</span><span><b>Cuentas en paz</b><small>Toca para ver los gastos</small></span>`;
-  else money = `<span class="mc-emoji">🤝</span><span><b>Para cuadrar: ${net[me] > 0 ? `${esc(pname())} → tú` : `tú → ${esc(pname())}`} ${eur(Math.abs(net[me]))}</b><small>Sin prisa, cuando os venga bien</small></span>`;
-
+  const money = Math.abs(net[me]) < 1 ? '✨ Cuentas en paz'
+    : `🤝 Para cuadrar: ${net[me] > 0 ? `${esc(pname())} → tú` : `tú → ${esc(pname())}`} <b>${eur(Math.abs(net[me]))}</b>`;
   return `
   ${updateBanner()}
-  <section class="purse">
-    ${purseCard(me, bal[me], L.reserved(P, me))}
-    <div class="purse-heart" aria-hidden="true">💞</div>
-    ${purseCard(pa, bal[pa], L.reserved(P, pa))}
+  <section class="hero">
+    <button class="hero-pts" data-act="tab" data-tab="points">
+      <span class="hero-lb">Vuestros xurripoints <em>Vales ${ic('chevron-right')}</em></span>
+      <span class="hero-duo">
+        <span class="hd">${av(me)}<b>${bal[me]}</b><small>Tú</small></span>
+        <span class="hd-heart" aria-hidden="true">💞</span>
+        <span class="hd">${av(pa)}<b>${bal[pa]}</b><small>${esc(pname())}</small></span>
+      </span>
+    </button>
+    ${g ? `<button class="hero-goal ${prog >= g.target ? 'done' : ''}" data-act="goal-edit">
+        <span class="hg-e">${esc(g.emoji)}</span>
+        <span class="hg-body"><small>${prog >= g.target ? '¡Meta conseguida! 🎉 Toca para celebrarlo' : `Meta juntos · ${prog}/${g.target}${wk ? ` · +${wk} esta semana` : ''}`}</small>
+          <b>${esc(g.title)}</b><span class="goal-bar"><span style="width:${pct}%"></span></span></span></button>`
+      : `<button class="hero-goal" data-act="goal-edit"><span class="hg-e">🎯</span><span class="hg-body"><b>Poneos una meta juntos</b><small>Los puntos de los dos suman</small></span></button>`}
   </section>
-  ${goalCard()}
-
-  ${unseenThanks.length ? `<section class="block stack tight">${unseenThanks.map(t => `
-    <div class="thanks-card"><span class="th-emoji">${esc(t.emoji || '💛')}</span>
-      <span class="th-body"><small>${esc(pname())} te da las gracias</small><b>${esc(t.text)}</b></span>
-      <button class="btn sm" data-act="thanks-seen" data-id="${t.id}" aria-label="Me encanta">❤️</button></div>`).join('')}</section>` : ''}
-
-  ${toDecide.length ? `<section class="block">
-    <h2 class="h">Esperan tu respuesta <span class="count">${toDecide.length}</span></h2>
-    <div class="stack">${toDecide.map(requestCard).join('')}</div>
-  </section>` : ''}
-
-  <section class="quick">
-    <button class="qa mint" data-act="quick" data-type="claim"><span class="qa-ic">${ic('check-check')}</span><b>Lo he hecho</b><small>Apunta una tarea</small></button>
-    <button class="qa rose" data-act="quick" data-type="thanks"><span class="qa-ic">${ic('heart')}</span><b>Gracias</b><small>Sin puntos, con cariño</small></button>
-    <button class="qa butter" data-act="quick" data-type="redeem"><span class="qa-ic">${ic('ticket')}</span><b>Pedir un favor</b><small>Canjea un vale</small></button>
-    <button class="qa lilac" data-act="quick" data-type="reward"><span class="qa-ic">${ic('sparkles')}</span><b>Premiar</b><small>Lo ha hecho ${esc(pname())}</small></button>
-  </section>
-
-  <button class="money-chip" data-act="tab" data-tab="money">${money}${ic('chevron-right')}</button>
 
   <section class="block">
-    <div class="h-row"><h2 class="h">Tus tareas de hoy</h2><button class="btn link sm" data-act="tab" data-tab="tasks">Ver todas</button></div>
-    ${myTasks.length ? `<div class="stack tight">${myTasks.map(taskRow).join('')}</div>` : `<p class="empty">Nada pendiente para hoy 🌿</p>`}
+    <h2 class="h">Para ti ${n ? `<span class="count">${n}</span>` : ''}</h2>
+    ${n ? `<div class="stack tight">${thanks.map(thanksRowHome).join('')}${toDecide.map(requestRow).join('')}${myTasks.map(taskRow).join('')}</div>`
+      : `<p class="empty">Todo al día ✨<br><small>Para apuntar algo, toca el <b>+</b> de abajo.</small></p>`}
+    ${mine.length ? `<button class="btn link sm" data-act="ptab-go" data-v="hist">⏳ ${mine.length === 1 ? '1 cosa esperando' : `${mine.length} cosas esperando`} a ${esc(pname())}</button>` : ''}
   </section>
 
-  ${questionCard()}
-
-  ${mine.length ? `<section class="block">
-    <h2 class="h">Esperando a ${esc(pname())}</h2>
-    <div class="card list">${mine.map(myRequestRow).join('')}</div>
-  </section>` : ''}
-
-  <section class="block">
-    <div class="h-row"><h2 class="h">Últimos movimientos</h2><button class="btn link sm" data-act="ptab-go" data-v="hist">Historial</button></div>
-    ${recent.length ? `<div class="card list">${recent.map(historyRow).join('')}</div>` : `<p class="empty">Aún no hay movimientos. ¡Estrenad la hucha! 🐷</p>`}
-  </section>`;
+  <button class="line-row" data-act="tab" data-tab="money"><span>${money}</span>${ic('chevron-right')}</button>
+  ${questionCard()}`;
 }
 
 /* ---------------- PUNTOS ---------------- */
 function viewPoints() {
-  const tabs = [['earn', 'Tareas'], ['vales', 'Vales'], ['hist', 'Historial']];
+  const tabs = [['vales', '🎟️ Vales'], ['earn', '✅ Acciones'], ['hist', '🕘 Historial']];
+  if (!tabs.some(t => t[0] === S.ptab)) S.ptab = 'vales';
   const avail = L.available(S.data.points, MEMBERS(), ME());
   let body = '';
   if (S.ptab === 'earn') {
     const items = catalog().earn;
-    body = `<p class="hint">Tareas y cosas de casa. Si la has hecho tú, la <b>apuntas</b> (${esc(pname())} te da las gracias, o cuenta sola en 24 h). Si la ha hecho ${esc(pname())}, se la <b>premias</b>.</p>
+    body = `<p class="hint">Toca una para apuntarla (o premiar a ${esc(pname())}). Los mimos no se cobran: para eso está <b>Gracias</b> 💛</p>
       <div class="earn-grid">${items.map((it, i) => `
         <div class="earn" style="--i:${i}">
           <button class="earn-main" data-act="earn-item" data-id="${it.id}"><span class="earn-emoji">${esc(it.emoji)}</span><b>${esc(it.title)}</b>${coin('+' + it.pts)}</button>
           <button class="edit-dot" data-act="cat-edit" data-kind="earn" data-id="${it.id}" aria-label="Editar">${ic('pencil')}</button>
         </div>`).join('')}
         <button class="earn add" data-act="cat-new" data-kind="earn">${ic('plus')}<b>Nueva acción</b></button>
-      </div>
-      <p class="tip">💡 Los mimos no se cobran: para eso está <b>Gracias</b> 💛</p>`;
+      </div>`;
   } else if (S.ptab === 'vales') {
     const items = catalog().spend;
-    body = `<p class="hint">Tienes ${coin(avail)} disponibles. Los vales son <b>favores</b> que te hace ${esc(pname())}, no permisos: vuestro tiempo libre no se compra 💛. Si acepta, los puntos pasan a su hucha.</p>
+    body = `<p class="hint">Tienes ${coin(avail)} para gastar. Son <b>favores</b> de ${esc(pname())}, no permisos 💛</p>
       <div class="stack">${items.map((it, i) => couponCard(it, i, avail)).join('')}
         <button class="coupon add" data-act="cat-new" data-kind="spend">${ic('plus')} Nuevo vale</button>
       </div>`;
   } else {
+    const mine = S.data.points.filter(t => L.effStatus(t) === 'pending' && t.createdBy === ME()).sort(byNewest);
     const all = [...S.data.points].sort(byNewest);
-    body = all.length ? `<div class="card list">${all.map(historyRow).join('')}</div>` : `<p class="empty">Todavía no hay movimientos.</p>`;
+    body = `${mine.length ? `<h2 class="h sm">Esperando a ${esc(pname())}</h2><div class="card list">${mine.map(myRequestRow).join('')}</div><h2 class="h sm block">Todo</h2>` : ''}
+      ${all.length ? `<div class="card list">${all.map(historyRow).join('')}</div>` : `<p class="empty">Todavía no hay movimientos.</p>`}`;
   }
-  return `<h1 class="page-title">Puntos</h1>
+  return `${pageHead('Puntos y vales', { back: true })}
     <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button class="${S.ptab === k ? 'on' : ''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
     ${body}`;
 }
@@ -632,7 +628,7 @@ function taskRow(t) {
 
 function viewTasks() {
   const [a, b] = MEMBERS();
-  const { load, free } = L.taskLoad(S.data.tasks, MEMBERS());
+  const { load } = L.taskLoad(S.data.tasks, MEMBERS());
   const tot = load[a] + load[b];
   const pa = tot ? Math.round(load[a] / tot * 100) : 50;
   const target = taskPctA();
@@ -648,39 +644,31 @@ function viewTasks() {
   ];
   const done = S.data.tasks.filter(t => !L.isActive(t) && pass(t)).sort((x, y) => (y.doneAt || 0) - (x.doneAt || 0)).slice(0, 15);
   const filters = [['all', 'Todas'], ['mine', 'Mías'], ['theirs', `De ${pname()}`], ['free', 'Libres']];
-  return `<h1 class="page-title">Tareas</h1>
-    <section class="card load-card">
-      <div class="h-row"><h2 class="h sm">Reparto de la semana</h2><button class="btn link sm nowrap" data-act="task-target">${ic('scale')} ${target}/${100 - target}</button></div>
-      <div class="loadbar" role="img" aria-label="${esc(prof(a).name)} ${pa}%, ${esc(prof(b).name)} ${100 - pa}%">
-        <span class="a" style="width:${pa}%"></span><span class="b" style="width:${100 - pa}%"></span>
-        <i class="target" style="left:${target}%"></i>
-      </div>
-      <div class="load-legend">
-        <span>${av(a, 'xs')} ${esc(prof(a).name)} <b>${pa}%</b></span>
-        <span><b>${100 - pa}%</b> ${esc(prof(b).name)} ${av(b, 'xs')}</span>
-      </div>
-      ${nFree ? `<button class="btn soft wide" data-act="task-auto">${ic('shuffle')} Repartir ${nFree === 1 ? 'la tarea libre' : `las ${nFree} libres`} de forma justa</button>` : ''}
-      <p class="muted small">Es la carga semanal (puntos × veces). Apuntad también lo invisible: citas, planes, cumpleaños, acordarse de todo.</p>
-    </section>
+  return `${pageHead('Tareas', { action: `<button class="btn sm soft" data-act="task-new">${ic('plus')} Nueva</button>` })}
+    <button class="load-mini" data-act="task-target" aria-label="Reparto de tareas: ${esc(prof(a).name)} ${pa}%, ${esc(prof(b).name)} ${100 - pa}%">
+      <span class="lm-top"><b>Reparto de la semana</b><small>objetivo ${target}/${100 - target} ${ic('pencil')}</small></span>
+      <span class="loadbar"><span class="a" style="width:${pa}%"></span><span class="b" style="width:${100 - pa}%"></span><i class="target" style="left:${target}%"></i></span>
+      <span class="lm-legend"><span>${av(a, 'xs')} ${esc(prof(a).name)} <b>${pa}%</b></span><span><b>${100 - pa}%</b> ${esc(prof(b).name)} ${av(b, 'xs')}</span></span>
+    </button>
+    ${nFree ? `<button class="btn link sm" data-act="task-auto">${ic('shuffle')} Repartir ${nFree === 1 ? 'la tarea libre' : `las ${nFree} libres`} de forma justa</button>` : ''}
     <div class="chips scroll">${filters.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="task-filter" data-v="${k}">${esc(l)}</button>`).join('')}</div>
     ${groups.map(([title, list]) => list.length ? `<section class="block"><h2 class="h sm">${title}</h2><div class="stack tight">${list.map(taskRow).join('')}</div></section>` : '').join('')}
-    ${!act.length ? `<p class="empty">No hay tareas aquí. ¡Añade la primera con el +!</p>` : ''}
+    ${!act.length ? `<p class="empty">No hay tareas aquí.<br><button class="btn sm soft" data-act="task-new">${ic('plus')} Añadir una</button></p>` : ''}
     ${done.length ? `<section class="block">
       <button class="btn link sm" data-act="toggle-done">${S.showDone ? 'Ocultar' : 'Ver'} hechas (${done.length})</button>
       ${S.showDone ? `<div class="stack tight">${done.map(taskRow).join('')}</div>` : ''}
-    </section>` : ''}
-    <button class="fab" data-act="task-new" aria-label="Nueva tarea">${ic('plus')}</button>`;
+    </section>` : ''}`;
 }
 
 /* ---------------- GASTOS ---------------- */
 function modeLabel(e) {
   if (e.kind === 'settle') return 'Liquidación';
-  if (e.mode === 'equal') return '50/50';
-  if (e.mode === 'proportional') return 'Proporcional';
-  if (e.mode === 'sugar') { const p = prof(e.sugar); return `Sugar ${p.sugar === 'papi' ? 'papi' : 'mami'} ${esc(p.name)}`; }
-  const [a] = MEMBERS();
-  const pa = e.shares && e.amount ? Math.round((e.shares[a] || 0) / e.amount * 100) : Math.round(e.customPctA ?? 50);
-  return `A medida ${pa}/${100 - pa}`;
+  if (e.mode === 'default') return '⭐ Vuestro reparto';
+  if (e.mode === 'custom' && e.shares && e.amount) {
+    const [a] = MEMBERS();
+    return esc(cap(splitWords('custom', null, Math.round((e.shares[a] || 0) / e.amount * 100))));
+  }
+  return esc(cap(splitWords(e.mode, e.sugar, e.customPctA ?? 50)));
 }
 function expenseRow(e) {
   const me = ME();
@@ -702,20 +690,10 @@ function expenseRow(e) {
 
 function viewMoney() {
   const segs = `<div class="seg">${[['exp', '💸 Gastos'], ['save', '🐷 Ahorro']].map(([k, l]) => `<button class="${S.mtab === k ? 'on' : ''}" data-act="mtab" data-v="${k}">${l}</button>`).join('')}</div>`;
-  if (S.mtab === 'save') return `<h1 class="page-title">Gastos</h1>${segs}${viewSavings()}`;
+  if (S.mtab === 'save') return `${pageHead('Dinero', { action: `<button class="btn sm soft" data-act="jar-new">${ic('plus')} Hucha</button>` })}${segs}${viewSavings()}`;
   const me = ME(), pa = PA();
   const net = L.netBalances(S.data.expenses, MEMBERS());
-  let debt;
-  if (Math.abs(net[me]) < 1) {
-    debt = `<div class="debt-line">${av(me, 'lg')}<span class="debt-heart">🤝</span>${av(pa, 'lg')}</div>
-      <p class="debt-big">Cuentas en paz</p><p class="muted">Todo cuadrado ✨</p>`;
-  } else {
-    const debtor = net[me] < 0 ? me : pa, creditor = debtor === me ? pa : me;
-    debt = `<div class="debt-line">${av(debtor, 'lg')}<span class="debt-arrow">${ic('arrow-right')}</span>${av(creditor, 'lg')}</div>
-      <p class="debt-big">${eur(Math.abs(net[me]))}</p>
-      <p class="muted">Para cuadrar: ${debtor === me ? `tú → ${esc(pname())}` : `${esc(pname())} → tú`} · sin prisa</p>
-      <button class="btn primary" data-act="settle">${ic('hand-coins')} Liquidar</button>`;
-  }
+  const d = defaultSplit();
   const exps = [...S.data.expenses].sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.createdAt - x.createdAt));
   const ym = L.ymd().slice(0, 7);
   const month = exps.filter(e => e.kind !== 'settle' && (e.date || '').startsWith(ym));
@@ -724,7 +702,6 @@ function viewMoney() {
   const byCat = {};
   month.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
   const topCats = Object.entries(byCat).sort((x, y) => y[1] - x[1]).slice(0, 4);
-
   const groups = [];
   for (const e of exps) {
     const k = (e.date || '').slice(0, 7);
@@ -733,20 +710,23 @@ function viewMoney() {
     g.list.push(e);
   }
   const gLabel = k => { if (!k) return 'Sin fecha'; const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
-
-  return `<h1 class="page-title">Gastos</h1>${segs}
-    <section class="card debt-card">${debt}</section>
-    <section class="card month-card">
-      <div class="h-row"><h2 class="h sm">Este mes</h2><b class="month-total">${eur(total)}</b></div>
-      ${total ? `<div class="paidbar"><span class="${side(me)}" style="width:${Math.round(paidMe / total * 100)}%"></span></div>
-      <p class="muted small">Has pagado tú ${eur(paidMe)} (${Math.round(paidMe / total * 100)}%) · ${esc(pname())} ${eur(total - paidMe)}</p>
-      <div class="chips">${topCats.map(([c, v]) => `<span class="chip static">${catOf(c)[1]} ${eur(v)}</span>`).join('')}</div>`
-      : `<p class="muted small">Sin gastos este mes todavía.</p>`}
+  const even = Math.abs(net[me]) < 1;
+  return `${pageHead('Dinero', { action: `<button class="btn sm soft" data-act="exp-new">${ic('plus')} Gasto</button>` })}${segs}
+    <section class="card sum-card">
+      <div class="sum-row">${even
+        ? `<span class="sum-e">✨</span><span class="sum-body"><small>Cuentas</small><b>En paz, todo cuadrado</b></span>`
+        : `<span class="sum-e">🤝</span><span class="sum-body"><small>Para cuadrar · sin prisa</small><b>${net[me] < 0 ? `Tú → ${esc(pname())}` : `${esc(pname())} → tú`} ${eur(Math.abs(net[me]))}</b></span>
+           <button class="btn sm primary" data-act="settle">Liquidar</button>`}</div>
+      <button class="sum-row" data-act="split-default"><span class="sum-e">⭐</span>
+        <span class="sum-body"><small>Vuestro reparto (por defecto)</small><b>${esc(cap(splitWords(d.mode, d.sugar, d.customPctA)))}</b></span>
+        <span class="sum-edit">Cambiar ${ic('chevron-right')}</span></button>
+      <div class="sum-row"><span class="sum-e">📅</span><span class="sum-body"><small>Este mes</small><b>${eur(total)}</b></span>
+        ${total ? `<small class="sum-side">tú pagaste ${Math.round(paidMe / total * 100)}%</small>` : ''}</div>
+      ${topCats.length ? `<div class="chips sum-cats">${topCats.map(([c, v]) => `<span class="chip static">${catOf(c)[1]} ${eur(v)}</span>`).join('')}</div>` : ''}
     </section>
     ${recurringSection()}
     ${groups.map(g => `<section class="block"><h2 class="h sm cap">${gLabel(g.k)}</h2><div class="card list">${g.list.map(expenseRow).join('')}</div></section>`).join('')}
-    ${!exps.length ? `<p class="empty">Apunta vuestro primer gasto con el + y elegid cómo repartirlo: 50/50, proporcional, sugar mami/papi o a medida. Los fijos (alquiler, luz…) se apuntan solos cada mes.</p>` : ''}
-    <button class="fab" data-act="exp-new" aria-label="Nuevo gasto">${ic('plus')}</button>`;
+    ${!exps.length ? `<p class="empty">Apuntad vuestro primer gasto con <b>+ Gasto</b>. Se reparte con «vuestro reparto» y lo podéis cambiar en cada uno.</p>` : ''}`;
 }
 
 /* ---------------- PAREJA ---------------- */
@@ -756,7 +736,7 @@ function viewCouple() {
   const [a, b] = MEMBERS();
   const since = new Date(C().createdAt || Date.now());
   const incomeTxt = x => (x.income ? `${eur(x.income)}/mes` : 'sin indicar');
-  return `<h1 class="page-title">Pareja</h1>
+  return `${pageHead('Pareja', { back: true })}
     <section class="couple-hero">
       <div class="ch-avs">${av(me, 'xl')}<span class="ch-heart">💗</span>${av(pa, 'xl')}</div>
       <p class="ch-names">${esc(p.name)} <span>&</span> ${esc(q.name)}</p>
@@ -767,6 +747,7 @@ function viewCouple() {
       <div class="set-row"><span class="sr-ic">${esc(q.emoji)}</span><span class="sr-body"><b>${esc(q.name)}</b><small>Sugar ${q.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(q)}</small></span></div>
     </section>
     <section class="card list">
+      <button class="set-row" data-act="split-default"><span class="sr-ic">⭐</span><span class="sr-body"><b>Reparto de gastos</b><small>${esc(cap(splitWords(defaultSplit().mode, defaultSplit().sugar, defaultSplit().customPctA)))}</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="task-target"><span class="sr-ic">⚖️</span><span class="sr-body"><b>Reparto de tareas</b><small>${esc(prof(a).name)} ${t}% · ${esc(prof(b).name)} ${100 - t}%</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="ptab-go" data-v="earn"><span class="sr-ic">🪙</span><span class="sr-body"><b>Acciones y vales</b><small>${catalog().earn.length} acciones · ${catalog().spend.length} vales · toca el lápiz para editar</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="goal-edit"><span class="sr-ic">${esc((C().goal || {}).emoji || '🎯')}</span><span class="sr-body"><b>Meta juntos</b><small>${C().goal ? `${esc(C().goal.title)} · ${C().goal.target} puntos` : 'Sin meta'}${(C().goalsDone || []).length ? ` · ${(C().goalsDone || []).length} conseguidas 🏆` : ''}</small></span>${ic('chevron-right')}</button>
@@ -873,12 +854,12 @@ function askConfirm({ title, text = '', ok = 'Sí', danger = false }) {
 }
 
 const WELCOME = [
-  ['<i class="xc"></i>', 'Apuntad lo que hacéis', 'Las tareas de casa dan <b>xurripoints</b>. Tu pareja te da las <b>gracias</b>… y si se le pasa, cuenta sola en 24 h.'],
-  ['🎟️', 'Canjeadlos por favores', '¿Que te cubra una tarea, elegir la peli, una siesta sin ruido? <b>Pide el vale</b>. Son favores, <b>no permisos</b>.'],
-  ['🎯', 'Sumáis para una meta juntos', 'Todo lo que hacéis los dos llena una <b>meta común</b> (una escapada, una cena…). No es una competición.'],
-  ['🍿', 'Decidid y jugad juntos', 'En <b>Juntos</b>: ideas de pelis y planes con <b>match</b>, <b>ruleta, dados, cara o cruz</b> y <b>juegos para dos</b>.'],
-  ['💸', 'Gastos y ahorro, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. Y <b>huchas</b> para ahorrar juntos.'],
-  ['💛', 'Es un juego, no un contrato', 'Los mimos no se cobran: para eso está <b>Gracias</b>. Si un día no apetece apuntar nada, no pasa nada.'],
+  ['➕', 'Todo se apunta con el +', 'Tareas hechas, gracias, gastos, favores, ideas… Todo desde el botón <b>+</b> de abajo.'],
+  ['<i class="xc"></i>', 'Las tareas dan puntos', 'Tu pareja te da las <b>gracias</b> (o cuenta sola en 24 h). Los mimos no se cobran: para eso está <b>Gracias</b> 💛'],
+  ['🎟️', 'Canjeadlos por favores', '¿Que te cubra una tarea, elegir la peli, una siesta sin ruido? Son favores, <b>no permisos</b>.'],
+  ['🎯', 'Sumáis para una meta juntos', 'Los puntos de los dos llenan una <b>meta común</b>. No es una competición.'],
+  ['🍿', 'Decidid y jugad juntos', 'En <b>Juntos</b>: ideas con <b>match</b>, <b>ruleta, dados, cara o cruz</b> y <b>juegos para dos</b>.'],
+  ['💸', 'Dinero sin dramas', 'Elegid <b>vuestro reparto</b> una vez (a medias, según ingresos, sugar mami/papi…) y cambiadlo en cada gasto si hace falta. Y <b>huchas</b> para ahorrar.'],
 ];
 const DEMO_SLIDE = ['🔁', 'Estás en modo demo', 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y aprobar.'];
 function maybeWelcome() { if (!lsGet('xp_welcome_v1') && !S.dialog) showWelcome(); }
@@ -914,7 +895,7 @@ function showWelcome() {
 /** Apunta los gastos fijos que tocan (id fijo por mes → nunca duplica aunque lo hagan los dos móviles). */
 function runRecurring() {
   const members = MEMBERS();
-  const incomes = Object.fromEntries(members.map(u => [u, prof(u).income || 0]));
+  const incomes = splitIncomes();
   for (const tpl of S.data.recurring || []) {
     const months = L.recurringDue(tpl);
     if (!months.length) continue;
@@ -922,11 +903,12 @@ function runRecurring() {
     if (S.recurringDone.has(`${tpl.id}_${lastM}`)) continue;
     S.recurringDone.add(`${tpl.id}_${lastM}`);
     S.be.update('recurring', tpl.id, { lastMonth: lastM }).catch(err => toast(errMsg(err)));
+    const sp = tpl.mode === 'default' ? defaultSplit() : tpl; // "⭐ vuestro reparto" → el que tengáis ahora
     for (const m of months) {
-      const opts = { members, incomes, sugar: tpl.sugar, customPctA: tpl.customPctA ?? 50 };
+      const opts = { members, incomes, sugar: sp.sugar, customPctA: sp.customPctA ?? 50 };
       S.be.set('expenses', `rec_${tpl.id}_${m}`, {
         kind: 'expense', title: tpl.title, category: tpl.category, amount: tpl.amount, paidBy: tpl.paidBy,
-        mode: tpl.mode, sugar: tpl.mode === 'sugar' ? tpl.sugar : null, shares: L.computeShares(tpl.amount, tpl.mode, opts),
+        mode: sp.mode, sugar: sp.mode === 'sugar' ? sp.sugar : null, shares: L.computeShares(tpl.amount, sp.mode, opts),
         date: L.recurringDate(m, tpl.day), recurringId: tpl.id, createdBy: tpl.createdBy || ME(), createdAt: Date.now(),
       }).catch(err => toast(errMsg(err)));
     }
@@ -936,12 +918,15 @@ function recurringSection() {
   const recs = S.data.recurring || [];
   if (!recs.length) return '';
   const me = ME();
-  return `<section class="block"><h2 class="h sm">Gastos fijos 🔁</h2><div class="card list">${recs.map(r => `
+  const monthly = recs.reduce((t, r) => t + (r.amount || 0), 0);
+  return `<details class="fold block"><summary>🔁 Gastos fijos <small>${recs.length} · ${eur(monthly)}/mes</small>${ic('chevron-down')}</summary>
+    <div class="card list">${recs.map(r => `
     <button class="exp" data-act="tpl-edit" data-id="${r.id}">
       <span class="exp-ic">${catOf(r.category)[1]}</span>
       <span class="exp-body"><b>${esc(r.title)}</b><small>Día ${r.day} · ${r.paidBy === me ? 'Pagas tú' : `Paga ${esc(prof(r.paidBy).name)}`} · ${modeLabel(r)}</small></span>
       <span class="exp-amt">${eur(r.amount)}<small>al mes</small></span>
-    </button>`).join('')}</div></section>`;
+    </button>`).join('')}</div>
+    <p class="muted small">Para añadir otro: <b>+ Gasto</b> → Más opciones → Gasto fijo.</p></details>`;
 }
 
 /* ---------------- Actualizaciones (GitHub Releases) ---------------- */
@@ -968,20 +953,6 @@ async function checkUpdate(force = false) {
 /* ---------------- Confianza, meta, gracias y pregunta del día ---------------- */
 function hoursLeft(t) { return Math.max(1, Math.ceil((L.AUTO_ACCEPT_MS - (Date.now() - (t.createdAt || 0))) / 3600e3)); }
 
-function goalCard() {
-  const g = C().goal;
-  if (!g) return `<button class="goal empty" data-act="goal-edit"><span class="goal-emoji">🎯</span><span class="goal-body"><b>Poneos una meta juntos</b><small>Los puntos de los dos suman para un plan en común</small></span></button>`;
-  const prog = L.goalProgress(S.data.points, g);
-  const pct = Math.min(100, Math.round(prog / g.target * 100));
-  const done = prog >= g.target;
-  const wk = L.weekTogether(S.data.points);
-  return `<button class="goal ${done ? 'done' : ''}" data-act="goal-edit">
-    <span class="goal-emoji">${esc(g.emoji)}</span>
-    <span class="goal-body"><small>Meta juntos</small><b>${esc(g.title)}</b>
-      <span class="goal-bar" role="img" aria-label="${pct}%"><span style="width:${pct}%"></span></span>
-      <small>${done ? '¡Conseguido! 🎉 Toca para celebrarlo y elegir otra' : `${prog} de ${g.target}${wk ? ` · esta semana +${wk} entre los dos` : ' · cada tarea suma'}`}</small></span>
-  </button>`;
-}
 function goalSheet() {
   const g = C().goal;
   const done = g && L.goalProgress(S.data.points, g) >= g.target;
@@ -1039,7 +1010,7 @@ const findIdea = id => (S.data.ideas || []).find(x => x.id === id);
 function viewJuntos() {
   const tabs = [['ideas', '💡 Ideas'], ['decide', '🎲 Decidir'], ['play', '🎮 Jugar']];
   const body = S.jtab === 'decide' ? viewDecide() : S.jtab === 'play' ? viewPlay() : viewPlans();
-  return `<h1 class="page-title">Juntos</h1>
+  return `${pageHead('Juntos', { action: S.jtab === 'ideas' ? `<button class="btn sm soft" data-act="idea-new">${ic('plus')} Idea</button>` : '' })}
     <div class="seg">${tabs.map(([k, l]) => `<button class="${S.jtab === k ? 'on' : ''}" data-act="jtab" data-v="${k}">${l}</button>`).join('')}</div>${body}`;
 }
 function viewPlans() {
@@ -1061,8 +1032,7 @@ function viewPlans() {
     ${matches.length ? `<section class="block"><h2 class="h sm">Os apetece a los dos 💞</h2><div class="stack tight">${matches.map(ideaRow).join('')}</div></section>` : ''}
     <section class="block"><h2 class="h sm">Ideas</h2>${others.length ? `<div class="stack tight">${others.map(ideaRow).join('')}</div>` : `<p class="empty">Apuntad ideas con el + 💡</p>`}</section>
     ${done.length ? `<section class="block"><button class="btn link sm" data-act="toggle-done-ideas">📸 Recuerdos: lo que ya hicisteis (${done.length})</button>
-      ${S.showDoneIdeas ? `<div class="stack tight">${done.map(ideaRow).join('')}</div>` : ''}</section>` : ''}
-    <button class="fab" data-act="idea-new" aria-label="Nueva idea">${ic('plus')}</button>`;
+      ${S.showDoneIdeas ? `<div class="stack tight">${done.map(ideaRow).join('')}</div>` : ''}</section>` : ''}`;
 }
 function ideaRow(x) {
   const members = MEMBERS(), me = ME(), v = x.votes || {};
@@ -1143,8 +1113,9 @@ function openRoulette() {
     <div class="roulette"><b id="rl-title">…</b></div>
     <div class="row-btns" id="rl-btns" hidden><button class="btn" data-act="idea-roulette">${ic('dices')} Otra</button><button class="btn primary" data-act="sheet-close">¡Vamos! 💞</button></div>`);
   let n = 0;
+  const token = S.rouletteToken = (S.rouletteToken || 0) + 1; // si se abre otra ruleta, esta deja de pintar
   const spin = () => {
-    const el = $('#rl-title'); if (!el) return;
+    const el = $('#rl-title'); if (!el || token !== S.rouletteToken) return;
     n++;
     if (n < 14) { el.textContent = L.pickRandom(pool).title; setTimeout(spin, 50 + n * 12); }
     else { el.textContent = final.title; el.parentElement.classList.add('landed'); $('#rl-btns').hidden = false; celebrate(['🎲', '💞', '✨']); }
@@ -1173,13 +1144,15 @@ function wheelHtml(opts) {
 }
 function dieHtml(v, k) { return `<span class="die" id="die${k}">${Array.from({ length: 9 }, (_, p) => `<i class="${DIE_PIPS[v].includes(p) ? 'on' : ''}"></i>`).join('')}</span>`; }
 function viewDecide() {
-  const opts = L.parseOptions(S.wheelText);
+  const opts = S.spinning && S.spinOpts ? S.spinOpts : L.parseOptions(S.wheelText);
   return `<p class="hint">Para cuando no os ponéis de acuerdo… que decida la suerte 🍀</p>
   <section class="card tool">
     <div class="tool-head"><span class="tool-e">🪙</span><b>Cara o cruz</b></div>
     <div class="chips">${[['coin', 'Cara o cruz'], ['who', '¿A quién le toca?']].map(([k, l]) => `<button class="chip ${S.coinMode === k ? 'on' : ''}" data-act="coin-mode" data-v="${k}">${l}</button>`).join('')}</div>
-    <button class="coin-flip" data-act="flip" aria-label="Lanzar la moneda"><span class="cf-coin" id="cf-coin"><i class="xc"></i></span></button>
-    <p class="tool-res" id="cf-res">${S.coinRes ? `<b>${esc(S.coinRes)}</b>` : 'Toca la moneda'}</p>
+    <button class="coin-flip" data-act="flip" aria-label="Lanzar la moneda"><span class="cf-coin ${S.coinFace === 't' ? 'face-t' : ''}" id="cf-coin">
+      <span class="cf-face front"><i class="xc"></i></span><span class="cf-face back">✚</span></span></button>
+    <p class="tool-res" id="cf-res">${S.flipping ? '…' : S.coinRes ? `<b>${esc(S.coinRes)}</b>` : 'Toca la moneda'}</p>
+    <p class="coin-legend">${S.coinMode === 'who' ? `💗 ${esc(prof(MEMBERS()[0]).name)} · ✚ ${esc(prof(MEMBERS()[1]).name)}` : '💗 Cara · ✚ Cruz'}</p>
   </section>
   <section class="card tool">
     <div class="tool-head"><span class="tool-e">🎲</span><b>Dados</b></div>
@@ -1190,35 +1163,42 @@ function viewDecide() {
   <section class="card tool">
     <div class="tool-head"><span class="tool-e">🎡</span><b>Ruleta</b></div>
     <div class="chips scroll">${[['who', '🙋 ¿Quién?'], ['cena', '🍽️ ¿Qué cenamos?'], ['peli', '🎬 ¿Qué vemos?'], ['plan', '📍 ¿Qué hacemos?'], ['yesno', '👍 Sí o no']]
-      .map(([k, l]) => `<button class="chip" data-act="wheel-preset" data-v="${k}">${l}</button>`).join('')}</div>
-    <textarea class="inp" id="wh-opts" rows="3" placeholder="Escribe opciones: una por línea o separadas por comas">${esc(S.wheelText)}</textarea>
+      .map(([k, l]) => `<button class="chip" data-act="wheel-preset" data-v="${k}" ${S.spinning ? 'disabled' : ''}>${l}</button>`).join('')}</div>
+    <textarea class="inp" id="wh-opts" rows="3" placeholder="Escribe opciones: una por línea o separadas por comas" ${S.spinning ? 'readonly' : ''}>${esc(S.wheelText)}</textarea>
     <div class="wheel-wrap"><span class="wheel-pointer" aria-hidden="true"></span>${wheelHtml(opts)}
-      <button class="wheel-hub" data-act="spin" ${opts.length < 2 ? 'disabled' : ''}>¡Girar!</button></div>
-    <p class="tool-res" id="wh-res">${S.wheelRes ? `🎉 <b>${esc(S.wheelRes)}</b>` : opts.length < 2 ? 'Pon al menos 2 opciones' : 'Toca ¡Girar!'}</p>
+      <button class="wheel-hub" data-act="spin" ${opts.length < 2 || S.spinning ? 'disabled' : ''}>¡Girar!</button></div>
+    <p class="tool-res" id="wh-res">${S.spinning ? 'Girando…' : S.wheelRes ? `🎉 <b>${esc(S.wheelRes)}</b>` : opts.length < 2 ? 'Pon al menos 2 opciones' : 'Toca ¡Girar!'}</p>
   </section>`;
 }
 function flipCoin() {
-  const el = $('#cf-coin'); if (!el) return;
-  const heads = Math.random() < 0.5;
-  el.classList.remove('flip-h', 'flip-t'); void el.offsetWidth;
+  const el = $('#cf-coin'); if (!el || S.flipping) return; // un lanzamiento cada vez
+  S.flipping = true;
+  const heads = L.randInt(2) === 0; // 50 % exacto con el generador del sistema
+  el.classList.remove('flip-h', 'flip-t', 'face-t'); void el.offsetWidth;
   el.classList.add(heads ? 'flip-h' : 'flip-t');
   $('#cf-res').textContent = '…';
   setTimeout(() => {
+    S.flipping = false;
+    S.coinFace = heads ? 'h' : 't';
     const u = heads ? MEMBERS()[0] : MEMBERS()[1];
-    S.coinRes = S.coinMode === 'who' ? (u === ME() ? 'Te toca a ti 🙋' : `Le toca a ${pname()} 👉`) : heads ? 'Cara' : 'Cruz';
+    S.coinRes = S.coinMode === 'who' ? (u === ME() ? 'Te toca a ti 🙋' : `Le toca a ${pname()} 👉`) : heads ? 'Cara 💗' : 'Cruz ✚';
+    const c = $('#cf-coin'); if (c) { c.classList.remove('flip-h', 'flip-t'); c.classList.toggle('face-t', !heads); }
     const r = $('#cf-res'); if (r) r.innerHTML = `<b>${esc(S.coinRes)}</b>`;
     vibrate(20);
-  }, 1100);
+  }, 1150);
 }
 function rollDice() {
+  if (S.rolling) return; // una tirada cada vez
+  S.rolling = true;
   const n = S.dice; let k = 0;
   const tick = () => {
-    const vals = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 6));
+    const vals = Array.from({ length: n }, () => 1 + L.randInt(6));
     vals.forEach((v, i) => { const d = $(`#die${i}`); if (d) d.outerHTML = dieHtml(v, i); });
     $$('.die').forEach(d => d.classList.add('rolling'));
     if (++k < 10) { setTimeout(tick, 55 + k * 8); return; }
     $$('.die').forEach(d => d.classList.remove('rolling'));
-    S.lastDice = vals;
+    S.rolling = false;
+    S.lastDice = vals; // el resultado es la última cara que se ve
     S.diceRes = n > 1 ? `${vals[0]} + ${vals[1]} = ${vals[0] + vals[1]}` : `Ha salido un ${vals[0]}`;
     const r = $('#dice-res'); if (r) r.innerHTML = `<b>${esc(S.diceRes)}</b>`;
     vibrate(20);
@@ -1226,19 +1206,26 @@ function rollDice() {
   tick();
 }
 function spinWheel() {
+  if (S.spinning) return; // un giro cada vez
   const opts = L.parseOptions(S.wheelText);
   if (opts.length < 2) { toast('Pon al menos 2 opciones ✍️'); return; }
-  const i = Math.floor(Math.random() * opts.length);
+  const i = L.randInt(opts.length); // todas las opciones con la misma probabilidad
   const seg = 360 / opts.length;
-  S.wheelRot = L.wheelTarget(S.wheelRot, i, opts.length, 5, (Math.random() - 0.5) * seg * 0.6);
+  S.spinning = true; S.spinOpts = opts; S.wheelRes = '';
+  // Se para dentro del trozo elegido (a ±30 % del centro para que parezca natural, nunca en el borde).
+  S.wheelRot = L.wheelTarget(S.wheelRot, i, opts.length, 5, (L.rand() - 0.5) * seg * 0.6);
   const w = $('#wheel'); if (w) w.style.transform = `rotate(${S.wheelRot}deg)`;
-  S.wheelRes = '';
   const r = $('#wh-res'); if (r) r.textContent = 'Girando…';
   const hub = $('.wheel-hub'); if (hub) hub.disabled = true;
+  const ta = $('#wh-opts'); if (ta) ta.readOnly = true;
+  $$('[data-act="wheel-preset"]').forEach(b => { b.disabled = true; });
   setTimeout(() => {
+    S.spinning = false; S.spinOpts = null;
     S.wheelRes = opts[i];
     const res = $('#wh-res'); if (res) res.innerHTML = `🎉 <b>${esc(opts[i])}</b>`;
     const h = $('.wheel-hub'); if (h) h.disabled = false;
+    const t = $('#wh-opts'); if (t) t.readOnly = false;
+    $$('[data-act="wheel-preset"]').forEach(b => { b.disabled = false; });
     celebrate(['🎡', '✨', '💞']);
   }, 3400);
 }
@@ -1259,7 +1246,7 @@ function viewPlay() {
 const RPS = [['piedra', '✊', 'Piedra'], ['papel', '✋', 'Papel'], ['tijera', '✌️', 'Tijera']];
 function newGame(g, prev) {
   const [a, b] = MEMBERS();
-  const starter = prev && prev.starter === a ? b : a; // se alterna quién empieza
+  const starter = prev && prev.starter ? (prev.starter === a ? b : a) : MEMBERS()[L.randInt(2)]; // 1.ª al azar, luego se alterna
   if (g === 'ttt') return { g, b: Array(9).fill(null), turn: starter, starter, res: null };
   if (g === 'c4') return { g, b: Array(L.C4_COLS * L.C4_ROWS).fill(null), turn: starter, starter, res: null, last: -1 };
   if (g === 'rps') return { g, phase: 'p1', first: starter, starter, picks: {} };
@@ -1275,7 +1262,7 @@ function paintGame() { if (S.game && $('#sheet-root.open')) swapSheet(renderGame
 const mark = u => `<span class="mk ${side(u)}">${u === MEMBERS()[0] ? '✕' : '◯'}</span>`;
 function scoreLine(g) {
   const sc = S.gscore[g], [a, b] = MEMBERS();
-  return `<div class="g-score">${av(a, 'xs')} <b>${sc[a]}</b><span>·</span><b>${sc[b]}</b> ${av(b, 'xs')}${sc.draw ? `<small>(${sc.draw} empates)</small>` : ''}</div>`;
+  return `<div class="g-score">${av(a, 'xs')} <b>${sc[a]}</b><span>·</span><b>${sc[b]}</b> ${av(b, 'xs')}${sc.draw ? `<small>(${sc.draw} ${sc.draw === 1 ? 'empate' : 'empates'})</small>` : ''}</div>`;
 }
 function finishRound(g, res) {
   if (!res) return;
@@ -1397,8 +1384,7 @@ function viewSavings() {
         <button class="jar-add" data-act="save-add" data-id="${j.id}" aria-label="Añadir dinero">${ic('plus')}</button>
       </div>`;
     }).join('')}</div>` : `<p class="empty">Una hucha para algo que queráis los dos: un viaje, el sofá nuevo, un colchón para imprevistos… 🐷</p>`}
-    <p class="tip">💡 Lo importante es el total, no quién pone más: cada uno aporta lo que puede.</p>
-    <button class="fab" data-act="jar-new" aria-label="Nueva hucha">${ic('plus')}</button>`;
+    <p class="tip">💡 Lo importante es el total, no quién pone más: cada uno aporta lo que puede.</p>`;
 }
 function jarForm(j) {
   const isNew = !j;
@@ -1530,7 +1516,6 @@ function taskForm(t) {
     <div class="stack">
       <div class="emoji-line"><input class="inp emoji-inp" id="tk-emoji" maxlength="4" value="${esc(t.emoji)}" aria-label="Emoji">
         <input class="inp" id="tk-title" maxlength="50" value="${esc(t.title)}" placeholder="Fregar los platos"></div>
-      <div class="emoji-row">${TASK_EMOJIS.map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="tk-emoji" data-v="${e}">${e}</button>`).join('')}</div>
       <div class="field"><span>¿De quién es?</span>
         <div class="chips" id="tk-who">
           <button type="button" class="chip ${who === me ? 'on' : ''}" data-act="pick" data-v="${me}">${esc(prof(me).emoji)} Mía</button>
@@ -1540,8 +1525,12 @@ function taskForm(t) {
         </div></div>
       <div class="field"><span>¿Se repite?</span>
         <div class="chips" id="tk-repeat">${Object.entries(REPEAT_LABEL).map(([k, l]) => `<button type="button" class="chip ${t.repeat === k ? 'on' : ''}" data-act="pick" data-v="${k}">${l}</button>`).join('')}</div></div>
-      <label class="field"><span>${t.repeat && t.repeat !== 'none' ? 'Próxima vez' : 'Fecha'} <small>(opcional)</small></span><input class="inp" id="tk-due" type="date" value="${t.due || ''}"></label>
-      <div class="field"><span>Xurripoints al hacerla</span>${ptsChips('tk-pts', t.pts || 0, [0, 5, 10, 15, 20, 30, 50])}</div>
+      <details class="more"><summary>Más opciones <small>fecha, puntos, icono</small></summary>
+        <div class="stack">
+          <label class="field"><span>${t.repeat && t.repeat !== 'none' ? 'Próxima vez' : 'Fecha'} <small>(opcional)</small></span><input class="inp" id="tk-due" type="date" value="${t.due || ''}"></label>
+          <div class="field"><span>Xurripoints al hacerla</span>${ptsChips('tk-pts', t.pts || 0, [0, 5, 10, 15, 20, 30, 50])}</div>
+          <div class="emoji-row">${TASK_EMOJIS.map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="tk-emoji" data-v="${e}">${e}</button>`).join('')}</div>
+        </div></details>
       <button class="btn primary big" data-act="task-save" data-id="${isNew ? '' : t.id}">Guardar</button>
       ${isNew ? '' : `<button class="btn soft-berry" data-act="task-delete" data-id="${t.id}">${ic('trash-2')} Borrar tarea</button>`}
     </div>`;
@@ -1571,77 +1560,141 @@ function completeTask(t) {
 }
 
 /* ---------------- Gastos (formulario) ---------------- */
+/** "Tú 55% · Churri 45%" según los ingresos. */
+function propText(inc = splitIncomes()) {
+  const me = ME(), [a] = MEMBERS();
+  const pA = L.pctA('proportional', { members: MEMBERS(), incomes: inc });
+  const mine = Math.round(a === me ? pA : 100 - pA);
+  return `Tú ${mine}% · ${pname()} ${100 - mine}%`;
+}
+/** Lista de formas de repartir (radio). prefix → ids: #prefix-mode, #prefix-custom, #prefix-range. */
+function splitPicker(prefix, sel, includeDefault, customMe = 50) {
+  const me = ME(), pa = PA(), [a, b] = MEMBERS();
+  const inc = splitIncomes();
+  const d = defaultSplit();
+  const sugarOpt = u => { const p = prof(u); return [`sugar:${u}`, p.sugar === 'papi' ? '🕶️' : '💅', `Sugar ${p.sugar === 'papi' ? 'papi' : 'mami'} (${u === me ? 'tú' : p.name})`, u === me ? 'Lo pagas todo tú' : `Lo paga todo ${p.name}`]; };
+  const opts = [
+    ...(includeDefault ? [['default', '⭐', 'Vuestro reparto', cap(splitWords(d.mode, d.sugar, d.customPctA))]] : []),
+    ['equal', '⚖️', 'A medias', '50/50'],
+    ['proportional', '📊', 'Según ingresos', inc[me] > 0 && inc[pa] > 0 ? propText(inc) : 'Falta poner los ingresos de los dos'],
+    sugarOpt(a), sugarOpt(b),
+    ['custom', '🎚️', 'A medida', 'Elegís el porcentaje'],
+  ];
+  return `<div class="radio-list" id="${prefix}-mode">${opts.map(([v, i, t, sub]) => `<button type="button" class="radio ${sel === v ? 'on' : ''}" data-act="pick" data-v="${esc(v)}">
+      <span class="r-ic">${i}</span><span class="r-body"><b>${esc(t)}</b><small>${esc(sub)}</small></span><span class="r-dot"></span></button>`).join('')}</div>
+    <div class="custom-split" id="${prefix}-custom" ${sel === 'custom' ? '' : 'hidden'}>
+      <div class="cs-row"><span>Tú <b id="${prefix}-mine">${customMe}%</b></span><span><b id="${prefix}-theirs">${100 - customMe}%</b> ${esc(pname())}</span></div>
+      <input type="range" id="${prefix}-range" min="0" max="100" step="5" value="${customMe}" aria-label="Parte que pagas tú"></div>`;
+}
+/** Lee el reparto elegido. "⭐ vuestro reparto" se traduce al reparto de la pareja. */
+function readSplit(prefix, incomes = splitIncomes()) {
+  const me = ME(), members = MEMBERS();
+  let v = picked(`${prefix}-mode`) || 'equal';
+  const viaDefault = v === 'default';
+  let customPctA;
+  if (viaDefault) { const d = defaultSplit(); v = d.mode === 'sugar' ? `sugar:${d.sugar}` : d.mode; customPctA = d.customPctA ?? 50; }
+  const [mode, sugar] = v.split(':');
+  if (!viaDefault) { const r = $(`#${prefix}-range`); const myPct = r ? Number(r.value) : 50; customPctA = members[0] === me ? myPct : 100 - myPct; }
+  return { mode, sugar: sugar || null, customPctA, viaDefault, opts: { members, incomes, sugar: sugar || null, customPctA } };
+}
+function splitPreview(amount, mode, opts) {
+  const me = ME(), pa = PA();
+  const pA = L.pctA(mode, opts);
+  const myPct = Math.round(MEMBERS()[0] === me ? pA : 100 - pA);
+  const sh = L.computeShares(Number.isFinite(amount) ? amount : 0, mode, opts);
+  const warn = mode === 'proportional' && !(opts.incomes[me] > 0 && opts.incomes[pa] > 0)
+    ? `<p class="warn">Para «según ingresos» falta poner los ingresos de los dos (cada uno en su perfil). Mientras, sale a medias.</p>` : '';
+  return `<div class="sp-bar"><span class="${side(me)}" style="width:${myPct}%"></span><span class="${side(pa)}" style="width:${100 - myPct}%"></span></div>
+    <div class="sp-legend"><span>${av(me, 'xs')} Tú <b>${eur(sh[me])}</b> <small>${myPct}%</small></span><span><small>${100 - myPct}%</small> <b>${eur(sh[pa])}</b> ${esc(pname())} ${av(pa, 'xs')}</span></div>${warn}`;
+}
+function syncCustom(prefix) {
+  const sel = picked(`${prefix}-mode`);
+  const box = $(`#${prefix}-custom`); if (box) box.hidden = sel !== 'custom';
+  const r = $(`#${prefix}-range`);
+  if (r) { $(`#${prefix}-mine`).textContent = r.value + '%'; $(`#${prefix}-theirs`).textContent = (100 - r.value) + '%'; }
+  return sel;
+}
+
 function expenseForm(e, { template = false } = {}) {
   const isNew = !e;
   const me = ME(), pa = PA();
-  const [a] = MEMBERS();
-  const lastMode = lsGet('xp_last_mode') || 'equal';
-  e = e || { title: '', category: 'super', amount: 0, paidBy: me, mode: lastMode.startsWith('sugar') ? 'equal' : lastMode, date: L.ymd() };
-  const modeV = e.mode === 'sugar' ? `sugar:${e.sugar}` : e.mode;
+  e = e || { title: '', category: 'super', amount: 0, paidBy: me, mode: 'default', date: L.ymd() };
+  const sel = e.mode === 'default' ? 'default' : e.mode === 'sugar' ? `sugar:${e.sugar}` : e.mode;
   const customMe = e.mode !== 'custom' ? 50
     : template ? Math.round(MEMBERS()[0] === me ? (e.customPctA ?? 50) : 100 - (e.customPctA ?? 50))
     : (e.amount ? Math.round(((e.shares || {})[me] || 0) / e.amount * 100) : 50);
-  const sugarChip = u => { const p = prof(u); return `<button type="button" class="chip ${modeV === 'sugar:' + u ? 'on' : ''}" data-act="pick" data-v="sugar:${u}">${p.sugar === 'papi' ? '🕶️ Sugar papi' : '💅 Sugar mami'} <small>${esc(p.name)}</small></button>`; };
+  const cat = catOf(e.category);
   return `<h3 class="sheet-title">${template ? 'Gasto fijo 🔁' : isNew ? 'Nuevo gasto' : 'Editar gasto'}</h3>
     ${template ? `<p class="muted">Se apunta solo cada mes. Los cambios cuentan desde el próximo.</p>` : ''}
     <div class="stack">
-      <div class="amount-field"><input id="ex-amount" inputmode="decimal" placeholder="0,00" value="${e.amount ? eurPlain(e.amount) : ''}" aria-label="Importe"><b>€</b></div>
-      <input class="inp" id="ex-title" maxlength="50" value="${esc(e.title)}" placeholder="¿En qué? (Mercadona, cena, luz…)">
-      <div class="chips scroll" id="ex-cat">${CATS.map(([id, em, lb]) => `<button type="button" class="chip ${e.category === id ? 'on' : ''}" data-act="pick" data-v="${id}">${em} ${lb}</button>`).join('')}</div>
-      <div class="field"><span>¿Quién ha pagado?</span>
-        <div class="seg who" id="ex-paid">
-          <button type="button" class="${e.paidBy === me ? 'on' : ''}" data-act="pick" data-v="${me}">${av(me, 'xs')} Yo</button>
-          <button type="button" class="${e.paidBy === pa ? 'on' : ''}" data-act="pick" data-v="${pa}">${av(pa, 'xs')} ${esc(pname())}</button>
-        </div></div>
-      <div class="field"><span>¿Cómo lo repartís?</span>
-        <div class="chips" id="ex-mode">
-          <button type="button" class="chip ${modeV === 'equal' ? 'on' : ''}" data-act="pick" data-v="equal">⚖️ 50/50</button>
-          <button type="button" class="chip ${modeV === 'proportional' ? 'on' : ''}" data-act="pick" data-v="proportional">📊 Proporcional</button>
-          ${sugarChip(a === me ? me : pa)}${sugarChip(a === me ? pa : me)}
-          <button type="button" class="chip ${modeV === 'custom' ? 'on' : ''}" data-act="pick" data-v="custom">🎚️ A medida</button>
-        </div></div>
-      <div class="custom-split" id="ex-custom" ${modeV === 'custom' ? '' : 'hidden'}>
-        <input type="range" id="ex-range" min="0" max="100" step="5" value="${customMe}" aria-label="Parte que pagas tú">
+      <div class="exp-head">
+        <button type="button" class="cat-btn" id="ex-catbtn" data-act="toggle-panel" data-p="ex-catp" aria-label="Categoría">${cat[1]}</button>
+        <input class="inp" id="ex-title" maxlength="50" value="${esc(e.title)}" placeholder="¿En qué? (súper, cena, luz…)">
       </div>
+      <div class="panel" id="ex-catp" hidden><div class="chips" id="ex-cat">${CATS.map(([id, em, lb]) => `<button type="button" class="chip ${e.category === id ? 'on' : ''}" data-act="pick" data-v="${id}">${em} ${lb}</button>`).join('')}</div></div>
+      <div class="amount-field"><input id="ex-amount" inputmode="decimal" placeholder="0,00" value="${e.amount ? eurPlain(e.amount) : ''}" aria-label="Importe"><b>€</b></div>
+      <p class="sentence">Pagó <button type="button" class="pill" data-act="toggle-panel" data-p="ex-paidp"><span id="ex-paid-lb">tú</span>${ic('chevron-down')}</button>
+        y se reparte <button type="button" class="pill" data-act="toggle-panel" data-p="ex-splitp"><span id="ex-split-lb">…</span>${ic('chevron-down')}</button></p>
+      <div class="panel" id="ex-paidp" hidden><div class="seg who" id="ex-paid">
+        <button type="button" class="${e.paidBy === me ? 'on' : ''}" data-act="pick" data-v="${me}">${av(me, 'xs')} Yo</button>
+        <button type="button" class="${e.paidBy === pa ? 'on' : ''}" data-act="pick" data-v="${pa}">${av(pa, 'xs')} ${esc(pname())}</button>
+      </div></div>
+      <div class="panel" id="ex-splitp" hidden>${splitPicker('ex', sel, true, customMe)}</div>
       <div class="split-preview" id="ex-preview"></div>
       ${template
         ? `<label class="field"><span>Día de cada mes <small>(1-28)</small></span><input class="inp" id="ex-day" type="number" inputmode="numeric" min="1" max="28" value="${e.day || 1}"></label>`
-        : `<label class="field"><span>Fecha</span><input class="inp" id="ex-date" type="date" value="${e.date || L.ymd()}"></label>`}
-      ${isNew ? `<label class="switch-row"><input type="checkbox" id="ex-rec"><span class="sw" aria-hidden="true"></span>
-        <span><b>🔁 Gasto fijo</b><small>Se apunta solo cada mes, el mismo día (alquiler, luz, Netflix…)</small></span></label>` : ''}
+        : `<details class="more" ${e.date && e.date !== L.ymd() ? 'open' : ''}><summary>Más opciones <small>fecha${isNew ? ', gasto fijo' : ''}</small></summary>
+          <div class="stack">
+            <label class="field"><span>Fecha</span><input class="inp" id="ex-date" type="date" value="${e.date || L.ymd()}"></label>
+            ${isNew ? `<label class="switch-row"><input type="checkbox" id="ex-rec"><span class="sw" aria-hidden="true"></span>
+              <span><b>🔁 Gasto fijo</b><small>Se apunta solo cada mes, el mismo día (alquiler, luz, Netflix…)</small></span></label>` : ''}
+          </div></details>`}
       <button class="btn primary big" data-act="exp-save" data-id="${isNew ? '' : e.id}" ${template ? 'data-tpl="1"' : ''}>Guardar</button>
       ${isNew ? '' : template
         ? `<button class="btn soft-berry" data-act="tpl-delete" data-id="${e.id}">${ic('repeat-2')} Dejar de repetir</button>`
         : `<button class="btn soft-berry" data-act="exp-delete" data-id="${e.id}">${ic('trash-2')} Borrar gasto</button>`}
     </div>`;
 }
-function readExpenseSplit() {
-  const me = ME(), pa = PA();
-  const amount = L.parseEur($('#ex-amount').value);
-  const mv = picked('ex-mode') || 'equal';
-  const [mode, sugar] = mv.split(':');
-  const members = MEMBERS();
-  const incomes = { [me]: prof(me).income || 0, [pa]: prof(pa).income || 0 };
-  const myPct = Number($('#ex-range').value);
-  const customPctA = members[0] === me ? myPct : 100 - myPct;
-  const opts = { members, incomes, sugar, customPctA };
-  return { amount, mode, sugar: sugar || null, opts };
+function readExpenseSplit() { return { amount: L.parseEur($('#ex-amount').value), ...readSplit('ex') }; }
+function updateExpensePreview(group) {
+  const me = ME();
+  const { amount, mode, sugar, customPctA, viaDefault, opts } = readExpenseSplit();
+  const sel = syncCustom('ex');
+  const payer = picked('ex-paid') || me;
+  $('#ex-paid-lb').textContent = payer === me ? 'tú' : pname();
+  $('#ex-split-lb').textContent = (viaDefault ? '⭐ ' : '') + splitWords(mode, sugar, customPctA);
+  $('#ex-catbtn').textContent = catOf(picked('ex-cat') || 'otros')[1];
+  // Cerrar el desplegable al elegir (menos "a medida", que necesita el deslizador).
+  if (group && group.id === 'ex-paid') $('#ex-paidp').hidden = true;
+  if (group && group.id === 'ex-cat') $('#ex-catp').hidden = true;
+  if (group && group.id === 'ex-mode' && sel !== 'custom') $('#ex-splitp').hidden = true;
+  $('#ex-preview').innerHTML = splitPreview(amount, mode, opts);
 }
-function updateExpensePreview() {
-  const me = ME(), pa = PA();
-  const { amount, mode, opts } = readExpenseSplit();
-  $('#ex-custom').hidden = mode !== 'custom';
-  const pA = L.pctA(mode, opts);
-  const myPct = Math.round(MEMBERS()[0] === me ? pA : 100 - pA);
-  const amt = Number.isFinite(amount) ? amount : 0;
-  const sh = L.computeShares(amt, mode, opts);
-  let warn = '';
-  if (mode === 'proportional' && !(prof(me).income > 0 && prof(pa).income > 0)) {
-    warn = `<p class="warn">Para repartir proporcional, poned vuestros ingresos en <b>Pareja → perfil</b>. Mientras, sale 50/50.</p>`;
-  }
-  $('#ex-preview').innerHTML = `
-    <div class="sp-bar"><span class="${side(me)}" style="width:${myPct}%"></span><span class="${side(pa)}" style="width:${100 - myPct}%"></span></div>
-    <div class="sp-legend"><span>${av(me, 'xs')} Tú <b>${eur(sh[me])}</b> <small>${myPct}%</small></span><span><small>${100 - myPct}%</small> <b>${eur(sh[pa])}</b> ${esc(pname())} ${av(pa, 'xs')}</span></div>${warn}`;
+/* Reparto por defecto de la pareja */
+function splitDefaultSheet() {
+  const d = defaultSplit(), me = ME(), [a] = MEMBERS();
+  const sel = d.mode === 'sugar' ? `sugar:${d.sugar}` : d.mode;
+  const cA = d.customPctA ?? 50;
+  return `<h3 class="sheet-title">Vuestro reparto ⭐</h3>
+    <p class="muted">Cómo repartís normalmente los gastos. Se usa en los gastos nuevos y en los fijos; al apuntar cada gasto lo podéis cambiar.</p>
+    ${splitPicker('df', sel, false, a === me ? cA : 100 - cA)}
+    <label class="field df-income"><span>Tus ingresos al mes <small>(para «según ingresos»; ${esc(pname())} pone los suyos en su móvil)</small></span>
+      <div class="money-inp"><input class="inp" id="df-income" inputmode="decimal" placeholder="0" value="${prof(me).income ? eurPlain(prof(me).income) : ''}"><b>€</b></div></label>
+    <p class="muted small">Así quedaría un gasto de 100 €:</p>
+    <div class="split-preview" id="df-preview"></div>
+    <button class="btn primary big wide" data-act="split-save">Guardar</button>`;
+}
+function dfIncomes() {
+  const inc = splitIncomes(), typed = L.parseEur($('#df-income').value);
+  if (Number.isFinite(typed)) inc[ME()] = typed;
+  return inc;
+}
+function updateDefaultPreview() {
+  const sel = syncCustom('df');
+  const inc = dfIncomes();
+  const { mode, opts } = readSplit('df', inc);
+  $('.df-income').hidden = sel !== 'proportional';
+  $('#df-preview').innerHTML = splitPreview(10000, mode, opts);
 }
 
 function settleSheet() {
@@ -1660,7 +1713,7 @@ function targetSheet() {
   const [a, b] = MEMBERS();
   const t = taskPctA();
   return `<h3 class="sheet-title">Reparto de tareas ⚖️</h3>
-    <p class="muted">¿Qué parte de la carga de casa lleva cada uno? El botón <b>Repartir</b> intentará acercarse a esto.</p>
+    <p class="muted">¿Qué parte de la carga de casa lleva cada uno? La barra cuenta los puntos de cada tarea × las veces que se repite a la semana. Apuntad también lo invisible: citas, planes, cumpleaños. El botón <b>Repartir</b> intentará acercarse a esto.</p>
     <div class="chips" id="tg-quick">${[50, 60, 40, 70, 30].map(v => `<button type="button" class="chip ${t === v ? 'on' : ''}" data-act="tg-set" data-v="${v}">${v}/${100 - v}</button>`).join('')}</div>
     <div class="tg-row"><span>${av(a, 'xs')} ${esc(prof(a).name)} <b id="tg-a">${t}%</b></span><span><b id="tg-b">${100 - t}%</b> ${esc(prof(b).name)} ${av(b, 'xs')}</span></div>
     <input type="range" id="tg-range" min="0" max="100" step="5" value="${t}" aria-label="Porcentaje">
@@ -1689,7 +1742,36 @@ const ACT = {
     const group = el.parentElement;
     $$('.on', group).forEach(x => x.classList.remove('on'));
     el.classList.add('on');
-    S.sheet && S.sheet.onChange && S.sheet.onChange();
+    S.sheet && S.sheet.onChange && S.sheet.onChange(group);
+  },
+  'toggle-panel': d => {
+    const p = document.getElementById(d.p); if (!p) return;
+    const open = p.hidden;
+    $$('.panel', p.closest('.sheet') || document).forEach(x => { x.hidden = true; });
+    p.hidden = !open;
+  },
+  'add-menu': () => openSheet(addMenu()),
+  'add': d => {
+    const k = d.k;
+    if (k === 'claim' || k === 'reward') openSheet(pointsPicker(k));
+    else if (k === 'thanks') openSheet(thanksSheet());
+    else if (k === 'redeem') openSheet(redeemPicker());
+    else if (k === 'expense') openExpense();
+    else if (k === 'task') openSheet(taskForm());
+    else if (k === 'idea') openSheet(ideaForm());
+    else if (k === 'save') savePick();
+  },
+  'split-default': () => openSheet(splitDefaultSheet(), {
+    ctx: { onChange: updateDefaultPreview },
+    onMount: () => { ['#df-range', '#df-income'].forEach(x => $(x).addEventListener('input', updateDefaultPreview)); updateDefaultPreview(); },
+  }),
+  'split-save': () => {
+    const inc = dfIncomes();
+    const { mode, sugar, customPctA } = readSplit('df', inc);
+    const patch = { 'settings.split': { mode, sugar, customPctA } };
+    if (inc[ME()] !== (prof(ME()).income || 0)) patch[`profiles.${ME()}.income`] = inc[ME()];
+    S.be.updateCouple(patch).catch(err => toast(errMsg(err)));
+    closeSheet(); toast('Reparto guardado ⭐ Se usará en los gastos nuevos y fijos');
   },
   'set-emoji': d => { const inp = document.getElementById(d.target); if (inp) inp.value = d.v; },
   'step': d => { const inp = document.getElementById(d.target); if (inp) inp.value = Math.max(1, Math.min(1000, (parseInt(inp.value, 10) || 0) + Number(d.d))); },
@@ -1862,7 +1944,7 @@ const ACT = {
   'flip': () => flipCoin(),
   'dice-n': d => { S.dice = Number(d.v); S.diceRes = ''; render(); },
   'roll': () => rollDice(),
-  'wheel-preset': d => { S.wheelText = wheelPreset(d.v).join('\n'); S.wheelRes = ''; render(); },
+  'wheel-preset': d => { if (S.spinning) return; S.wheelText = wheelPreset(d.v).join('\n'); S.wheelRes = ''; render(); },
   'spin': () => spinWheel(),
   /* jugar */
   'game-open': d => openGame(d.g),
@@ -2010,22 +2092,23 @@ const ACT = {
     } else openExpense(e);
   },
   'exp-save': d => {
-    const { amount, mode, sugar, opts } = readExpenseSplit();
+    const { amount, mode, sugar, customPctA, viaDefault, opts } = readExpenseSplit();
     if (!Number.isFinite(amount) || amount <= 0) { toast('Escribe el importe 💶'); return; }
     const category = picked('ex-cat') || 'otros';
-    const base = { title: $('#ex-title').value.trim() || catOf(category)[2], category, amount, paidBy: picked('ex-paid') || ME(), mode, sugar: mode === 'sugar' ? sugar : null };
+    const base = { title: $('#ex-title').value.trim() || catOf(category)[2], category, amount, paidBy: picked('ex-paid') || ME() };
+    // Los gastos fijos pueden seguir "⭐ vuestro reparto" (mode 'default'): si lo cambiáis, cambian los próximos meses.
+    const tplSplit = viaDefault ? { mode: 'default', sugar: null, customPctA: 50 } : { mode, sugar: mode === 'sugar' ? sugar : null, customPctA };
     if (d.tpl) { // editar un gasto fijo
       const day = Math.min(28, Math.max(1, parseInt($('#ex-day').value, 10) || 1));
-      S.be.update('recurring', d.id, { ...base, customPctA: opts.customPctA, day, updatedAt: Date.now() }).catch(err => toast(errMsg(err)));
+      S.be.update('recurring', d.id, { ...base, ...tplSplit, day, updatedAt: Date.now() }).catch(err => toast(errMsg(err)));
       closeSheet(); toast('Gasto fijo guardado 🔁'); return;
     }
     const date = $('#ex-date').value || L.ymd();
-    lsSet('xp_last_mode', mode);
     if (!d.id && $('#ex-rec') && $('#ex-rec').checked) { // nuevo gasto fijo: se apunta solo (este mes incluido)
-      S.be.add('recurring', { ...base, customPctA: opts.customPctA, day: Math.min(28, Number(date.slice(8, 10))), startMonth: date.slice(0, 7), lastMonth: null, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
+      S.be.add('recurring', { ...base, ...tplSplit, day: Math.min(28, Number(date.slice(8, 10))), startMonth: date.slice(0, 7), lastMonth: null, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
       closeSheet(); toast(`Gasto fijo: ${eur(amount)} cada mes 🔁`); return;
     }
-    const data = { kind: 'expense', ...base, shares: L.computeShares(amount, mode, opts), date, updatedAt: Date.now() };
+    const data = { kind: 'expense', ...base, mode, sugar: mode === 'sugar' ? sugar : null, shares: L.computeShares(amount, mode, opts), date, updatedAt: Date.now() };
     if (d.id) S.be.update('expenses', d.id, data).catch(err => toast(errMsg(err)));
     else S.be.add('expenses', { ...data, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
     closeSheet(); toast(d.id ? 'Gasto guardado' : `Apuntado: ${eur(amount)} 💸`);
@@ -2052,6 +2135,30 @@ const ACT = {
     closeSheet(); toast('Perfil guardado 💗');
   },
 };
+
+/* ---------------- Botón + (apuntar cualquier cosa) ---------------- */
+function addMenu() {
+  const items = [
+    ['claim', '✅', 'Lo he hecho', 'Tarea o favor · suma puntos', 'mint'],
+    ['thanks', '💛', 'Dar las gracias', 'Sin puntos, con cariño', 'rose'],
+    ['expense', '💸', 'Un gasto', 'Y cómo lo repartís', 'butter'],
+    ['redeem', '🎟️', 'Pedir un favor', 'Canjea tus puntos', 'lilac'],
+    ['task', '🧽', 'Tarea de casa', 'Para uno, libre o por turnos', 'mint'],
+    ['idea', '💡', 'Una idea', 'Peli, plan o comida', 'butter'],
+    ['reward', '✨', `Premiar a ${pname()}`, 'Lo ha hecho tu pareja', 'lilac'],
+    ['save', '🐷', 'Ahorrar', 'Poner en una hucha', 'rose'],
+  ];
+  return `<h3 class="sheet-title">¿Qué quieres apuntar?</h3>
+    <div class="add-grid">${items.map(([k, e, t, sub, c], i) => `<button class="add-tile ${c}" style="--i:${i}" data-act="add" data-k="${k}">
+      <span class="at-e">${e}</span><b>${esc(t)}</b><small>${sub}</small></button>`).join('')}</div>`;
+}
+function savePick() {
+  const jars = S.data.jars || [];
+  if (!jars.length) { openSheet(jarForm()); return; }
+  if (jars.length === 1) { openSheet(saveForm(jars[0], 1)); return; }
+  openSheet(`<h3 class="sheet-title">¿En qué hucha? 🐷</h3><div class="pick-list">${jars.map(j => `<button class="pick-row" data-act="save-add" data-id="${j.id}">
+    <span class="pr-emoji">${esc(j.emoji)}</span><b>${esc(j.title)}</b><small>${eur(L.jarSaved(S.data.saves || [], j.id))}</small></button>`).join('')}</div>`);
+}
 
 function doPoints(type, title, emoji, pts) {
   if (type === 'claim') {
@@ -2085,7 +2192,7 @@ document.addEventListener('click', e => {
 document.addEventListener('submit', e => { if (e.target.id === 'auth-form') submitAuth(e); });
 document.addEventListener('input', e => {
   if (e.target.id === 'join-code') e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (e.target.id === 'wh-opts') {
+  if (e.target.id === 'wh-opts' && !S.spinning) {
     S.wheelText = e.target.value; S.wheelRes = '';
     const opts = L.parseOptions(S.wheelText), w = $('#wheel');
     if (w) w.outerHTML = wheelHtml(opts);

@@ -158,6 +158,7 @@ class DemoBackend {
       couple: {
         ...seed, code: 'DEMO42', members: [A, B], createdAt: now - 20 * D, updatedAt: now,
         goal: { title: 'Escapada juntos', emoji: '🏖️', target: 300, since: now - 20 * D },
+        settings: { ...(seed.settings || {}), split: { mode: 'proportional', sugar: null, customPctA: 50 } },
         profiles: {
           [A]: { name: 'Pepino', emoji: '🥒', sugar: 'papi', income: 210000 },
           [B]: { name: 'Churri', emoji: '🍓', sugar: 'mami', income: 170000 },
@@ -208,7 +209,7 @@ class DemoBackend {
         { id: uid8(), jar: 'colchon', by: B, amount: 5000, note: '', date: ymd(new Date(now - 30 * D)), createdAt: now - 30 * D },
       ],
       recurring: [
-        { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'proportional', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },
+        { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'default', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },
       ],
     };
     this.save();

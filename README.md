@@ -22,7 +22,7 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
 - **Juntos:** ideas de pelis, planes y comida con votos y *match*; **ruleta, dados y cara o cruz** para decidir; y
   **juegos para dos** (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?).
 - **Tareas:** repartidas, libres o por turnos, con una barra que dice quién lleva más carga.
-- **Gastos:** quién pagó y cómo se reparte — **50/50, proporcional, sugar mami, sugar papi o a medida** —,
+- **Dinero:** elegid **vuestro reparto** una vez (a medias, según ingresos, sugar mami/papi o a medida) y cambiadlo en cada gasto si hace falta, como en Splitwise;
   gastos fijos que se apuntan solos cada mes, cuánto hay que cuadrar y **huchas para ahorrar juntos**.
 
 ## Instalar (Android)

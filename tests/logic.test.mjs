@@ -164,4 +164,24 @@ t('piedra, papel o tijera', () => {
   assert.equal(L.shuffle([1, 2, 3, 4]).length, 4);
 });
 
+t('azar justo: moneda, dado, ruleta y baraja salen parejos', () => {
+  // Prueba chi-cuadrado: con estas muestras, un generador justo casi nunca supera el umbral (p ≈ 0,001).
+  const chi2 = (counts, expected) => counts.reduce((s, c) => s + (c - expected) ** 2 / expected, 0);
+  const tally = (n, k, fn) => { const c = Array(k).fill(0); for (let i = 0; i < n; i++) c[fn()]++; return c; };
+  const coin = tally(60000, 2, () => L.randInt(2));
+  assert.ok(chi2(coin, 30000) < 10.8, `moneda ${coin}`);            // gl=1
+  const die = tally(60000, 6, () => L.randInt(6));
+  assert.ok(chi2(die, 10000) < 20.5, `dado ${die}`);                // gl=5
+  const wheel = tally(70000, 7, () => L.randInt(7));
+  assert.ok(chi2(wheel, 10000) < 22.5, `ruleta ${wheel}`);          // gl=6
+  // Baraja: cada elemento acaba en cada posición con la misma frecuencia
+  const pos = Array.from({ length: 4 }, () => Array(4).fill(0));
+  for (let i = 0; i < 40000; i++) L.shuffle([0, 1, 2, 3]).forEach((v, p) => pos[v][p]++);
+  for (const row of pos) assert.ok(chi2(row, 10000) < 16.3, `baraja ${row}`); // gl=3
+  // Rangos correctos
+  for (let i = 0; i < 2000; i++) { const x = L.rand(); assert.ok(x >= 0 && x < 1); const k = L.randInt(3); assert.ok(k >= 0 && k < 3 && Number.isInteger(k)); }
+  assert.equal(L.randInt(1), 0);
+  assert.equal(L.randInt(0), 0);
+});
+
 console.log(`\n${n} pruebas OK`);

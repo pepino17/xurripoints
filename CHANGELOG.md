@@ -3,6 +3,36 @@
 Cambios importantes del proyecto. Formato: versión — fecha — cambios.
 La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions).
 
+## [0.5.0] — 2026-09-28 · Interfaz más limpia, "vuestro reparto" y azar justo
+
+Joan: "que se pueda fijar el reparto de los gastos de una vez (50/50, según ingresos, a medida o sugar mami/papi) y
+luego al apuntar cada gasto poder elegir, como en Splitwise. La interfaz es muy cargada: dejarla más limpia sin quitar
+funciones." + "revisa los juegos y la cara o cruz, que no haya bugs y que la aleatoriedad esté bien".
+
+**Dinero**
+- **⭐ Vuestro reparto**: se elige una vez (Dinero → "Vuestro reparto" o Pareja). Los gastos nuevos salen con él y
+  en cada gasto se puede cambiar. Los **gastos fijos** pueden seguirlo: si lo cambiáis, los próximos meses cambian solos.
+- **Gasto al estilo Splitwise**: importe grande, "Pagó **tú** y se reparte **⭐ como siempre**" (se toca para cambiar),
+  categoría en un botón, y fecha y gasto fijo en **Más opciones**.
+- Resumen de Dinero en una sola tarjeta (para cuadrar · vuestro reparto · este mes); gastos fijos plegados.
+
+**Más limpio sin quitar nada**
+- Barra de abajo: **Inicio · Tareas · ＋ · Dinero · Juntos**. El **＋** central apunta cualquier cosa (lo he hecho,
+  gracias, gasto, favor, tarea, idea, premiar, ahorrar). Fuera los botones flotantes de cada pantalla.
+- **Inicio** solo con: vuestros puntos + meta juntos, **Para ti** (gracias, peticiones y tareas de hoy), las cuentas y
+  la pregunta del día. **Puntos y vales** se abre desde Inicio y **Pareja** desde arriba (con botón de volver).
+- Tareas con la barra de reparto compacta; en los formularios lo secundario va en **Más opciones**.
+
+**Juegos y azar (revisión)**
+- **Azar justo**: moneda, dados, ruleta, barajas y "elegir al azar" usan el generador criptográfico del sistema y
+  enteros sin sesgo. Prueba estadística (chi-cuadrado) en `tests/logic.test.mjs`.
+- 🐞 La moneda siempre enseñaba la misma cara: ahora tiene **dos caras (💗 cara / ✚ cruz)** y la leyenda dice de quién
+  es cada una en "¿A quién le toca?".
+- 🐞 Tocar varias veces la moneda o los dados lanzaba varias tiradas a la vez → ahora una cada vez.
+- 🐞 La ruleta se podía volver a girar o editar mientras giraba (y el resultado podía no cuadrar con la flecha) → bloqueada
+  hasta que para. La ruleta de ideas ya no se pisa si se abre dos veces.
+- Quién empieza la primera partida se sortea (antes siempre la misma persona); luego se alterna. "1 empate" en singular.
+
 ## [0.4.0] — 2026-09-28 · Ahorro juntos, decidir con la suerte y juegos para dos
 
 Joan: "pon parte de ahorro; decidir cosas con ruleta, dados, cara o cruz; y juegos para dos simples para cuando

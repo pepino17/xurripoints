@@ -91,7 +91,24 @@ export function ideaState(idea, members) {
   const ups = members.filter(u => v[u] === 1).length;
   return { match: members.length > 1 && ups === members.length, ups, vetoed: members.some(u => v[u] === -1) };
 }
-export function pickRandom(list, rnd = Math.random) { return list.length ? list[Math.floor(rnd() * list.length)] : null; }
+/* ---------------- Azar justo ----------------
+   Generador criptográfico del sistema (crypto.getRandomValues) en vez de Math.random, y enteros por
+   "rechazo" para que ninguna opción salga más que otra (sin sesgo de módulo). */
+const CRYPTO = globalThis.crypto && globalThis.crypto.getRandomValues ? globalThis.crypto : null;
+function u32() { const b = new Uint32Array(1); CRYPTO.getRandomValues(b); return b[0]; }
+/** Número al azar en [0, 1). */
+export function rand() { return CRYPTO ? u32() / 2 ** 32 : Math.random(); }
+/** Entero al azar en [0, n), todos con la misma probabilidad. */
+export function randInt(n) {
+  n = Math.floor(n);
+  if (!(n > 0)) return 0;
+  if (!CRYPTO) return Math.floor(Math.random() * n);
+  const lim = Math.floor(2 ** 32 / n) * n; // descarta el trozo final que haría unas opciones más probables
+  let x;
+  do { x = u32(); } while (x >= lim);
+  return x % n;
+}
+export function pickRandom(list, rnd) { return list.length ? list[rnd ? Math.floor(rnd() * list.length) : randInt(list.length)] : null; }
 /** Índice que cambia cada día pero es el mismo en los dos móviles (pregunta del día). */
 export function dayIndex(n, day = ymd()) {
   let h = 7;
@@ -261,8 +278,12 @@ export function c4Winner(b) {
 /** Piedra, papel o tijera: 1 si gana a, -1 si gana b, 0 empate. */
 export const RPS_BEATS = { piedra: 'tijera', papel: 'piedra', tijera: 'papel' };
 export function rpsResult(a, b) { return a === b ? 0 : RPS_BEATS[a] === b ? 1 : -1; }
-export function shuffle(list, rnd = Math.random) {
+/** Baraja (Fisher-Yates): todas las ordenaciones igual de probables. */
+export function shuffle(list, rnd) {
   const a = list.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = rnd ? Math.floor(rnd() * (i + 1)) : randInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
   return a;
 }
