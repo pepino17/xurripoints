@@ -80,4 +80,31 @@ t('códigos de pareja: 6 caracteres sin letras confusas', () => {
   for (let i = 0; i < 200; i++) assert.match(L.genCode(), /^[A-HJ-NP-Z2-9]{6}$/);
 });
 
+t('gastos fijos: qué meses faltan por apuntar', () => {
+  assert.equal(L.addMonth('2026-12'), '2027-01');
+  assert.equal(L.addMonth('2026-01', -1), '2025-12');
+  assert.deepEqual(L.recurringDue({ day: 1, startMonth: '2026-09', lastMonth: null }, '2026-09-28'), ['2026-09']);
+  assert.deepEqual(L.recurringDue({ day: 30, startMonth: '2026-09', lastMonth: null }, '2026-09-28'), []);
+  assert.deepEqual(L.recurringDue({ day: 5, startMonth: '2026-07', lastMonth: '2026-07' }, '2026-09-28'), ['2026-08', '2026-09']);
+  assert.deepEqual(L.recurringDue({ day: 5, startMonth: '2026-07', lastMonth: '2026-09' }, '2026-09-28'), []);
+  assert.equal(L.recurringDate('2026-02', 31), '2026-02-28');
+});
+
+t('versiones', () => {
+  assert.ok(L.isNewer('0.3.0', '0.2.9'));
+  assert.ok(L.isNewer('v1.0.0', '0.9.9'));
+  assert.ok(!L.isNewer('0.2.0', '0.2.0'));
+  assert.ok(!L.isNewer('0.1.9', '0.2.0'));
+});
+
+t('puntos ganados esta semana', () => {
+  const now = Date.now(), D = 86400e3;
+  const P = [
+    { to: 'a', amount: 10, status: 'approved', resolvedAt: now - D },
+    { to: 'a', amount: 99, status: 'approved', resolvedAt: now - 9 * D },
+    { to: 'b', amount: 5, status: 'pending', createdAt: now },
+  ];
+  assert.deepEqual(L.weekGains(P, M, now), { a: 10, b: 0 });
+});
+
 console.log(`\n${n} pruebas OK`);

@@ -84,6 +84,10 @@ service cloud.firestore {
       match /tasks/{id} {
         allow read, write: if isMember(code);
       }
+      // Gastos fijos (plantillas que se apuntan solas cada mes).
+      match /recurring/{id} {
+        allow read, write: if isMember(code);
+      }
     }
   }
 }

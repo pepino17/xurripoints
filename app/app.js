@@ -6,7 +6,10 @@
 import { createBackend, hasFirebaseConfig } from './store.js';
 import * as L from './logic.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
+const REPO = 'pepino17/xurripoints';
+/** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
+const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
 
 /* ---------------- Utilidades ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -21,6 +24,19 @@ const icons = () => { try { window.lucide && lucide.createIcons(); } catch (e) {
 const ic = name => `<i data-lucide="${name}"></i>`;
 const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 const vibrate = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
+const isNative = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+/** En Android, Capacitor abre las URL externas en el navegador del sistema (ahí se descarga el APK). */
+function openExternal(url) { if (isNative()) location.href = url; else window.open(url, '_blank', 'noopener'); }
+/** Menú nativo de compartir (WhatsApp, Telegram…). Si no hay, copia el texto. */
+async function shareText(text) {
+  const Sh = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Share;
+  try {
+    if (isNative() && Sh) { await Sh.share({ title: 'Xurripoints', text, dialogTitle: 'Compartir' }); return; }
+    if (navigator.share) { await navigator.share({ title: 'Xurripoints', text }); return; }
+    await navigator.clipboard.writeText(text);
+    toast('Copiado: pégalo en WhatsApp 💬');
+  } catch (e) { /* cancelado */ }
+}
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -84,7 +100,10 @@ const S = {
   authError: '', busy: false,
   tab: 'home', ptab: 'earn', taskFilter: 'all', showDone: false,
   enter: true,            // animación de entrada al cambiar de pestaña
-  unwatch: null, sheet: null, seenPending: null,
+  unwatch: null, sheet: null, seenPending: null, myPending: null,
+  dialog: null,           // función que cierra el diálogo abierto (confirmar / bienvenida)
+  update: null,           // última versión publicada en GitHub (si se sabe)
+  recurringDone: new Set(),
 };
 
 const C = () => S.data.couple;
@@ -114,7 +133,7 @@ async function boot() {
 
 async function onUser(user) {
   if (S.unwatch) { S.unwatch(); S.unwatch = null; }
-  S.user = user; S.data = null; S.code = null; S.seenPending = null;
+  S.user = user; S.data = null; S.code = null; S.seenPending = null; S.myPending = null;
   closeSheet(true);
   if (!user) { S.phase = 'auth'; S.authMode = 'welcome'; render(); return; }
   S.phase = 'loading'; render();
@@ -145,8 +164,9 @@ function watchCouple(code) {
     const was = S.phase;
     S.phase = data.couple.members.length < 2 ? 'wait' : 'app';
     if (was !== 'app' && S.phase === 'app') S.enter = true;
-    if (S.phase === 'app') notifyNewRequests();
+    if (S.phase === 'app') { notifyNewRequests(); runRecurring(); }
     render();
+    if (S.phase === 'app') maybeWelcome();
   }, err => { console.error(err); toast(errMsg(err)); });
 }
 
@@ -163,6 +183,16 @@ function notifyNewRequests() {
     }
   }
   S.seenPending = ids;
+  // …y cuando la pareja contesta a algo que pedí yo.
+  if (S.myPending) {
+    for (const id of S.myPending) {
+      const t = S.data.points.find(x => x.id === id);
+      if (!t || t.resolvedBy === ME()) continue;
+      if (t.status === 'approved') { toast(`✅ ${pname()} ha dicho que sí: ${t.title}${t.type === 'claim' ? ` (+${t.amount})` : ''}`); celebrate(); break; }
+      if (t.status === 'rejected') { toast(`🙈 ${pname()} ha dicho que no: ${t.title}${t.reply ? ` — “${t.reply}”` : ''}`); break; }
+    }
+  }
+  S.myPending = new Set(S.data.points.filter(t => t.status === 'pending' && t.createdBy === ME()).map(t => t.id));
 }
 
 function errMsg(e) {
@@ -256,7 +286,7 @@ async function submitAuth(e) {
     S.busy = false; // onUser se encarga del resto
   } catch (err) {
     S.busy = false; S.authError = errMsg(err); render();
-    $('#au-email').value = email;
+    $('#au-email').value = email; $('#au-pass').value = pass;
   }
 }
 
@@ -338,6 +368,7 @@ function viewShell() {
     <div class="brand"><i class="xc"></i><span>Xurri<em>points</em></span></div>
     <button class="duo" data-act="tab" data-tab="couple" aria-label="Pareja">${av(ME())}${av(PA())}</button>
   </header>
+  ${S.be.kind === 'firebase' && !navigator.onLine ? `<div class="offline">${ic('wifi-off')} Sin conexión · lo que apuntes se sube al volver</div>` : ''}
   ${S.be.kind === 'demo' ? `<button class="demo-bar" data-act="demo-switch">Modo demo · eres <b>${esc(prof(ME()).name)}</b> ${ic('repeat-2')} cambiar a ${esc(pname())}</button>` : ''}
   <main class="view ${S.enter ? 'enter' : ''}" id="view">${views[S.tab]()}</main>
   <nav class="tabs">
@@ -350,11 +381,12 @@ function viewShell() {
 }
 
 /* ---------------- INICIO ---------------- */
-function purseCard(u, bal, res) {
+function purseCard(u, bal, res, week) {
   return `<div class="purse-card ${side(u)}">
     <div class="purse-who">${av(u, 'lg')}<span>${esc(nameOf(u))}</span></div>
     <div class="purse-num">${bal}</div>
     <div class="purse-lb"><i class="xc"></i> xurripoints</div>
+    ${week ? `<div class="purse-week">+${week} esta semana</div>` : ''}
     ${res ? `<div class="purse-res">${res} apartados en vales</div>` : ''}
   </div>`;
 }
@@ -413,7 +445,8 @@ function viewHome() {
   const bal = L.balances(P, MEMBERS());
   const toDecide = pendingForMe();
   const mine = P.filter(t => t.status === 'pending' && t.createdBy === me).sort(byNewest);
-  const recent = P.filter(t => t.status === 'approved').sort((a, b) => (b.resolvedAt || b.createdAt) - (a.resolvedAt || a.createdAt)).slice(0, 5);
+  const wk = L.weekGains(P, MEMBERS());
+  const recent = P.filter(t => t.status === 'approved' || t.status === 'rejected').sort((a, b) => (b.resolvedAt || b.createdAt) - (a.resolvedAt || a.createdAt)).slice(0, 5);
   const today = L.ymd();
   const myTasks = activeTasks().filter(t => (t.assignee === me || !t.assignee) && t.due && t.due <= today).slice(0, 4);
   const net = L.netBalances(S.data.expenses, MEMBERS());
@@ -424,10 +457,11 @@ function viewHome() {
   else money = `<span class="mc-emoji">🙈</span><span><b>Le debes ${eur(-net[me])} a ${esc(pname())}</b><small>Toca para ver los gastos</small></span>`;
 
   return `
+  ${updateBanner()}
   <section class="purse">
-    ${purseCard(me, bal[me], L.reserved(P, me))}
+    ${purseCard(me, bal[me], L.reserved(P, me), wk[me])}
     <div class="purse-heart" aria-hidden="true">💞</div>
-    ${purseCard(pa, bal[pa], L.reserved(P, pa))}
+    ${purseCard(pa, bal[pa], L.reserved(P, pa), wk[pa])}
   </section>
 
   ${toDecide.length ? `<section class="block">
@@ -576,8 +610,8 @@ function modeLabel(e) {
   if (e.mode === 'equal') return '50/50';
   if (e.mode === 'proportional') return 'Proporcional';
   if (e.mode === 'sugar') { const p = prof(e.sugar); return `Sugar ${p.sugar === 'papi' ? 'papi' : 'mami'} ${esc(p.name)}`; }
-  const [a, b] = MEMBERS();
-  const pa = e.amount ? Math.round((e.shares[a] || 0) / e.amount * 100) : 50;
+  const [a] = MEMBERS();
+  const pa = e.shares && e.amount ? Math.round((e.shares[a] || 0) / e.amount * 100) : Math.round(e.customPctA ?? 50);
   return `A medida ${pa}/${100 - pa}`;
 }
 function expenseRow(e) {
@@ -593,7 +627,7 @@ function expenseRow(e) {
   const c = catOf(e.category);
   return `<button class="exp" data-act="exp-edit" data-id="${e.id}">
     <span class="exp-ic">${c[1]}</span>
-    <span class="exp-body"><b>${esc(e.title || c[2])}</b><small>${e.paidBy === me ? 'Pagaste tú' : `Pagó ${esc(prof(e.paidBy).name)}`} · ${modeLabel(e)}</small></span>
+    <span class="exp-body"><b>${esc(e.title || c[2])}</b><small>${e.recurringId ? '🔁 ' : ''}${e.paidBy === me ? 'Pagaste tú' : `Pagó ${esc(prof(e.paidBy).name)}`} · ${modeLabel(e)}</small></span>
     <span class="exp-amt">${eur(e.amount)}<small>tu parte ${eur((e.shares || {})[me] || 0)}</small></span>
   </button>`;
 }
@@ -639,8 +673,9 @@ function viewMoney() {
       <div class="chips">${topCats.map(([c, v]) => `<span class="chip static">${catOf(c)[1]} ${eur(v)}</span>`).join('')}</div>`
       : `<p class="muted small">Sin gastos este mes todavía.</p>`}
     </section>
+    ${recurringSection()}
     ${groups.map(g => `<section class="block"><h2 class="h sm cap">${gLabel(g.k)}</h2><div class="card list">${g.list.map(expenseRow).join('')}</div></section>`).join('')}
-    ${!exps.length ? `<p class="empty">Apunta vuestro primer gasto con el + y elegid cómo repartirlo: 50/50, proporcional, sugar mami/papi o a medida.</p>` : ''}
+    ${!exps.length ? `<p class="empty">Apunta vuestro primer gasto con el + y elegid cómo repartirlo: 50/50, proporcional, sugar mami/papi o a medida. Los fijos (alquiler, luz…) se apuntan solos cada mes.</p>` : ''}
     <button class="fab" data-act="exp-new" aria-label="Nuevo gasto">${ic('plus')}</button>`;
 }
 
@@ -665,6 +700,11 @@ function viewCouple() {
       <button class="set-row" data-act="task-target"><span class="sr-ic">⚖️</span><span class="sr-body"><b>Reparto de tareas</b><small>${esc(prof(a).name)} ${t}% · ${esc(prof(b).name)} ${100 - t}%</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="ptab-go" data-v="earn"><span class="sr-ic">🪙</span><span class="sr-body"><b>Acciones y vales</b><small>${catalog().earn.length} acciones · ${catalog().spend.length} vales · toca el lápiz para editar</small></span>${ic('chevron-right')}</button>
       <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código de pareja</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
+    </section>
+    <section class="card list">
+      <button class="set-row" data-act="welcome"><span class="sr-ic">💡</span><span class="sr-body"><b>¿Cómo funciona?</b><small>La explicación rápida de la app</small></span>${ic('chevron-right')}</button>
+      <button class="set-row" data-act="share-app"><span class="sr-ic">📲</span><span class="sr-body"><b>Pasar la app a alguien</b><small>Envía el enlace de descarga por WhatsApp</small></span>${ic('share-2')}</button>
+      <button class="set-row" data-act="check-update"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>${S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones'}</small></span>${ic('refresh-cw')}</button>
     </section>
     <section class="card list">
       ${S.be.kind === 'demo' ? `
@@ -740,6 +780,115 @@ function celebrate(emojis = ['💗', '✨', '💞', '🪙']) {
 }
 /** Valor elegido dentro de un grupo de chips (.on). */
 function picked(groupId) { const el = document.querySelector(`#${groupId} .on`); return el ? el.dataset.v : null; }
+
+/* ---------------- Diálogos (confirmar y bienvenida) ---------------- */
+/** Confirmación con el estilo de la app (sustituye a confirm()). Devuelve una promesa true/false. */
+function askConfirm({ title, text = '', ok = 'Sí', danger = false }) {
+  if (S.dialog) S.dialog(false);
+  return new Promise(resolve => {
+    const root = $('#dialog-root');
+    root.innerHTML = `<div class="dlg-scrim" data-dlg="0"></div>
+      <div class="dlg" role="alertdialog" aria-modal="true" aria-label="${esc(title)}">
+        <h3 class="dlg-title">${esc(title)}</h3>${text ? `<p class="muted">${esc(text)}</p>` : ''}
+        <div class="dlg-btns"><button class="btn" data-dlg="0">Cancelar</button><button class="btn ${danger ? 'danger' : 'primary'}" data-dlg="1">${esc(ok)}</button></div>
+      </div>`;
+    root.classList.add('open');
+    const done = v => { root.classList.remove('open'); root.innerHTML = ''; root.onclick = null; S.dialog = null; resolve(!!v); };
+    S.dialog = done;
+    root.onclick = e => { const b = e.target.closest('[data-dlg]'); if (b) done(b.dataset.dlg === '1'); };
+  });
+}
+
+const WELCOME = [
+  ['<i class="xc"></i>', 'Ganad xurripoints', 'Haz cosas por tu pareja o por casa y <b>reclámalas</b>. Tu pareja las <b>aprueba</b>… o te dice que no cuela.'],
+  ['🎟️', 'Canjeadlos por vales', '¿Quieres salir con tus amigos? <b>Pide el vale</b>. Si te dice que sí, tus puntos <b>pasan a su hucha</b>.'],
+  ['🧽', 'Repartid las tareas', 'Tuyas, suyas, <b>libres</b> o <b>por turnos</b>. Una barra os dice quién lleva más carga.'],
+  ['💸', 'Y los gastos, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. La app os dice quién debe cuánto.'],
+];
+const DEMO_SLIDE = ['🔁', 'Estás en modo demo', 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y aprobar.'];
+function maybeWelcome() { if (!lsGet('xp_welcome_v1') && !S.dialog) showWelcome(); }
+function showWelcome() {
+  if (S.dialog) S.dialog(false);
+  const slides = S.be && S.be.kind === 'demo' ? [...WELCOME, DEMO_SLIDE] : WELCOME;
+  const root = $('#dialog-root');
+  let i = 0;
+  const paint = () => {
+    const [emo, title, text] = slides[i];
+    const last = i === slides.length - 1;
+    root.innerHTML = `<div class="welcome" role="dialog" aria-modal="true" aria-label="Cómo funciona">
+      <button class="btn link wl-skip" data-wl="close">Saltar</button>
+      <div class="wl-card"><div class="wl-emoji">${emo}</div><h2 class="wl-title">${title}</h2><p class="wl-text">${text}</p></div>
+      <div class="wl-dots">${slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="wl-btns">${i ? `<button class="btn icon" data-wl="prev" aria-label="Anterior">${ic('arrow-left')}</button>` : ''}
+        <button class="btn primary big" data-wl="${last ? 'close' : 'next'}">${last ? '¡Vamos! 💞' : 'Siguiente'}</button></div>
+    </div>`;
+    icons();
+  };
+  const go = step => { i = Math.max(0, Math.min(slides.length - 1, i + step)); paint(); };
+  const close = () => { lsSet('xp_welcome_v1', '1'); root.classList.remove('open'); root.innerHTML = ''; root.onclick = root.ontouchstart = root.ontouchend = null; S.dialog = null; };
+  S.dialog = close;
+  root.classList.add('open');
+  root.onclick = e => { const b = e.target.closest('[data-wl]'); if (b) { const a = b.dataset.wl; if (a === 'close') close(); else go(a === 'next' ? 1 : -1); } };
+  let x0 = null;
+  root.ontouchstart = e => { x0 = e.touches[0].clientX; };
+  root.ontouchend = e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); };
+  paint();
+}
+
+/* ---------------- Gastos fijos ---------------- */
+/** Apunta los gastos fijos que tocan (id fijo por mes → nunca duplica aunque lo hagan los dos móviles). */
+function runRecurring() {
+  const members = MEMBERS();
+  const incomes = Object.fromEntries(members.map(u => [u, prof(u).income || 0]));
+  for (const tpl of S.data.recurring || []) {
+    const months = L.recurringDue(tpl);
+    if (!months.length) continue;
+    const lastM = months[months.length - 1];
+    if (S.recurringDone.has(`${tpl.id}_${lastM}`)) continue;
+    S.recurringDone.add(`${tpl.id}_${lastM}`);
+    S.be.update('recurring', tpl.id, { lastMonth: lastM }).catch(err => toast(errMsg(err)));
+    for (const m of months) {
+      const opts = { members, incomes, sugar: tpl.sugar, customPctA: tpl.customPctA ?? 50 };
+      S.be.set('expenses', `rec_${tpl.id}_${m}`, {
+        kind: 'expense', title: tpl.title, category: tpl.category, amount: tpl.amount, paidBy: tpl.paidBy,
+        mode: tpl.mode, sugar: tpl.mode === 'sugar' ? tpl.sugar : null, shares: L.computeShares(tpl.amount, tpl.mode, opts),
+        date: L.recurringDate(m, tpl.day), recurringId: tpl.id, createdBy: tpl.createdBy || ME(), createdAt: Date.now(),
+      }).catch(err => toast(errMsg(err)));
+    }
+  }
+}
+function recurringSection() {
+  const recs = S.data.recurring || [];
+  if (!recs.length) return '';
+  const me = ME();
+  return `<section class="block"><h2 class="h sm">Gastos fijos 🔁</h2><div class="card list">${recs.map(r => `
+    <button class="exp" data-act="tpl-edit" data-id="${r.id}">
+      <span class="exp-ic">${catOf(r.category)[1]}</span>
+      <span class="exp-body"><b>${esc(r.title)}</b><small>Día ${r.day} · ${r.paidBy === me ? 'Pagas tú' : `Paga ${esc(prof(r.paidBy).name)}`} · ${modeLabel(r)}</small></span>
+      <span class="exp-amt">${eur(r.amount)}<small>al mes</small></span>
+    </button>`).join('')}</div></section>`;
+}
+
+/* ---------------- Actualizaciones (GitHub Releases) ---------------- */
+function updateBanner() {
+  if (!S.update || !L.isNewer(S.update, VERSION)) return '';
+  return `<button class="update-bar" data-act="open-url" data-url="${APK_URL}">${ic('sparkles')}
+    <span><b>Hay una versión nueva (${esc(S.update)})</b><small>Toca para descargarla e instalarla encima</small></span>${ic('download')}</button>`;
+}
+/** Mira la última release publicada (como mucho cada 6 h, salvo que se fuerce). Solo dentro del APK. */
+async function checkUpdate(force = false) {
+  if (!isNative() && !force) return null;
+  if (!force && Date.now() - Number(lsGet('xp_upd_at') || 0) < 6 * 3600e3) { S.update = lsGet('xp_upd_v'); return S.update; }
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!r.ok) return null;
+    const v = String((await r.json()).tag_name || '').replace(/^v/, '');
+    lsSet('xp_upd_at', String(Date.now())); lsSet('xp_upd_v', v);
+    S.update = v;
+    if (S.phase === 'app' && !$('#sheet-root.open') && L.isNewer(v, VERSION)) render();
+    return v;
+  } catch (e) { return null; }
+}
 
 /* ---------------- Puntos: crear, aprobar… ---------------- */
 function addPoints(o) {
@@ -868,16 +1017,19 @@ function completeTask(t) {
 }
 
 /* ---------------- Gastos (formulario) ---------------- */
-function expenseForm(e) {
+function expenseForm(e, { template = false } = {}) {
   const isNew = !e;
   const me = ME(), pa = PA();
   const [a] = MEMBERS();
   const lastMode = lsGet('xp_last_mode') || 'equal';
   e = e || { title: '', category: 'super', amount: 0, paidBy: me, mode: lastMode.startsWith('sugar') ? 'equal' : lastMode, date: L.ymd() };
   const modeV = e.mode === 'sugar' ? `sugar:${e.sugar}` : e.mode;
-  const customMe = e.mode === 'custom' && e.amount ? Math.round((e.shares[me] || 0) / e.amount * 100) : 50;
+  const customMe = e.mode !== 'custom' ? 50
+    : template ? Math.round(MEMBERS()[0] === me ? (e.customPctA ?? 50) : 100 - (e.customPctA ?? 50))
+    : (e.amount ? Math.round(((e.shares || {})[me] || 0) / e.amount * 100) : 50);
   const sugarChip = u => { const p = prof(u); return `<button type="button" class="chip ${modeV === 'sugar:' + u ? 'on' : ''}" data-act="pick" data-v="sugar:${u}">${p.sugar === 'papi' ? '🕶️ Sugar papi' : '💅 Sugar mami'} <small>${esc(p.name)}</small></button>`; };
-  return `<h3 class="sheet-title">${isNew ? 'Nuevo gasto' : 'Editar gasto'}</h3>
+  return `<h3 class="sheet-title">${template ? 'Gasto fijo 🔁' : isNew ? 'Nuevo gasto' : 'Editar gasto'}</h3>
+    ${template ? `<p class="muted">Se apunta solo cada mes. Los cambios cuentan desde el próximo.</p>` : ''}
     <div class="stack">
       <div class="amount-field"><input id="ex-amount" inputmode="decimal" placeholder="0,00" value="${e.amount ? eurPlain(e.amount) : ''}" aria-label="Importe"><b>€</b></div>
       <input class="inp" id="ex-title" maxlength="50" value="${esc(e.title)}" placeholder="¿En qué? (Mercadona, cena, luz…)">
@@ -898,9 +1050,15 @@ function expenseForm(e) {
         <input type="range" id="ex-range" min="0" max="100" step="5" value="${customMe}" aria-label="Parte que pagas tú">
       </div>
       <div class="split-preview" id="ex-preview"></div>
-      <label class="field"><span>Fecha</span><input class="inp" id="ex-date" type="date" value="${e.date || L.ymd()}"></label>
-      <button class="btn primary big" data-act="exp-save" data-id="${isNew ? '' : e.id}">Guardar</button>
-      ${isNew ? '' : `<button class="btn soft-berry" data-act="exp-delete" data-id="${e.id}">${ic('trash-2')} Borrar gasto</button>`}
+      ${template
+        ? `<label class="field"><span>Día de cada mes <small>(1-28)</small></span><input class="inp" id="ex-day" type="number" inputmode="numeric" min="1" max="28" value="${e.day || 1}"></label>`
+        : `<label class="field"><span>Fecha</span><input class="inp" id="ex-date" type="date" value="${e.date || L.ymd()}"></label>`}
+      ${isNew ? `<label class="switch-row"><input type="checkbox" id="ex-rec"><span class="sw" aria-hidden="true"></span>
+        <span><b>🔁 Gasto fijo</b><small>Se apunta solo cada mes, el mismo día (alquiler, luz, Netflix…)</small></span></label>` : ''}
+      <button class="btn primary big" data-act="exp-save" data-id="${isNew ? '' : e.id}" ${template ? 'data-tpl="1"' : ''}>Guardar</button>
+      ${isNew ? '' : template
+        ? `<button class="btn soft-berry" data-act="tpl-delete" data-id="${e.id}">${ic('repeat-2')} Dejar de repetir</button>`
+        : `<button class="btn soft-berry" data-act="exp-delete" data-id="${e.id}">${ic('trash-2')} Borrar gasto</button>`}
     </div>`;
 }
 function readExpenseSplit() {
@@ -999,16 +1157,19 @@ const ACT = {
     toast('Modo demo: arriba puedes cambiar de persona 🔁');
   },
   'demo-switch': () => { const next = pname(); S.be.switchPersona(); toast(`Ahora eres ${next}`); },
-  'demo-reset': () => { if (confirm('¿Borrar todo lo de la demo y volver a los datos de ejemplo?')) { S.be.begin(newCoupleSeed()); S.tab = 'home'; S.enter = true; } },
+  'demo-reset': async () => {
+    if (!await askConfirm({ title: '¿Reiniciar la demo?', text: 'Se borra lo que hayas probado y vuelven los datos de ejemplo.', ok: 'Reiniciar' })) return;
+    S.recurringDone.clear(); S.be.begin(newCoupleSeed()); S.tab = 'home'; S.enter = true;
+  },
   'demo-exit': async () => {
-    if (!confirm('¿Salir del modo demo? Se borran los datos de prueba.')) return;
+    if (!await askConfirm({ title: '¿Salir del modo demo?', text: 'Se borran los datos de prueba.', ok: 'Salir', danger: true })) return;
     await S.be.signOut();
     lsSet('xp_mode', null);
     S.be = await createBackend('cloud');
     S.be.start(onUser);
   },
   'logout': async () => {
-    if (!confirm('¿Cerrar sesión?')) return;
+    if (!await askConfirm({ title: '¿Cerrar sesión?', text: 'Tus datos siguen guardados en la nube.', ok: 'Cerrar sesión' })) return;
     if (S.user && S.be.kind === 'firebase') lsSet('xp_code_' + S.user.uid, null);
     await S.be.signOut();
   },
@@ -1032,12 +1193,17 @@ const ACT = {
     try { await navigator.clipboard.writeText(S.code); toast('Código copiado 📋'); }
     catch (e) { toast(`Tu código: ${S.code}`); }
   },
-  'share-code': async () => {
-    const text = `¡Únete a mí en Xurripoints! 💞 Nuestro código de pareja es: ${S.code}`;
-    try {
-      if (navigator.share) await navigator.share({ title: 'Xurripoints', text });
-      else { await navigator.clipboard.writeText(text); toast('Mensaje copiado: pégalo en WhatsApp 💬'); }
-    } catch (e) { /* cancelado */ }
+  'share-code': () => shareText(`¡Únete a mí en Xurripoints! 💞\n1️⃣ Descarga la app: ${APK_URL}\n2️⃣ Crea tu cuenta y pon nuestro código: ${S.code}`),
+  'share-app': () => shareText(`Te paso Xurripoints 💞, la app de puntos para parejas: tareas, vales y gastos a medias. Descárgala aquí (Android): ${APK_URL}`),
+  'welcome': () => showWelcome(),
+  'open-url': d => openExternal(d.url),
+  'check-update': async () => {
+    if (S.update && L.isNewer(S.update, VERSION)) { openExternal(APK_URL); return; }
+    toast('Buscando…');
+    const v = await checkUpdate(true);
+    if (v == null) toast('No he podido comprobarlo (¿sin internet?)');
+    else if (L.isNewer(v, VERSION)) { toast(`¡Hay versión nueva: ${v}! Toca otra vez para descargarla`); render(); }
+    else toast('Tienes la última versión ✨');
   },
 
   /* puntos */
@@ -1121,8 +1287,8 @@ const ACT = {
     S.be.updateCouple({ [`catalog.${d.kind}`]: list }).catch(err => toast(errMsg(err)));
     closeSheet(); toast('Guardado ✨');
   },
-  'cat-delete': d => {
-    if (!confirm('¿Borrar?')) return;
+  'cat-delete': async d => {
+    if (!await askConfirm({ title: '¿Borrar esta tarjeta?', ok: 'Borrar', danger: true })) return;
     S.be.updateCouple({ [`catalog.${d.kind}`]: catalog()[d.kind].filter(x => x.id !== d.id) }).catch(err => toast(errMsg(err)));
     closeSheet();
   },
@@ -1144,7 +1310,7 @@ const ACT = {
     else S.be.add('tasks', { ...data, doneAt: null, doneBy: null, log: [], createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
     closeSheet(); toast(d.id ? 'Tarea guardada' : 'Tarea añadida 📝');
   },
-  'task-delete': d => { if (!confirm('¿Borrar esta tarea?')) return; S.be.remove('tasks', d.id).catch(err => toast(errMsg(err))); closeSheet(); },
+  'task-delete': async d => { if (!await askConfirm({ title: '¿Borrar esta tarea?', ok: 'Borrar', danger: true })) return; S.be.remove('tasks', d.id).catch(err => toast(errMsg(err))); closeSheet(); },
   'task-check': d => {
     const t = findTask(d.id); if (!t) return;
     if (!L.isActive(t)) { S.be.update('tasks', t.id, { doneAt: null, doneBy: null }).catch(err => toast(errMsg(err))); return; }
@@ -1178,17 +1344,29 @@ const ACT = {
     const { amount, mode, sugar, opts } = readExpenseSplit();
     if (!Number.isFinite(amount) || amount <= 0) { toast('Escribe el importe 💶'); return; }
     const category = picked('ex-cat') || 'otros';
-    const data = {
-      kind: 'expense', title: $('#ex-title').value.trim() || catOf(category)[2], category, amount,
-      paidBy: picked('ex-paid') || ME(), mode, sugar: mode === 'sugar' ? sugar : null,
-      shares: L.computeShares(amount, mode, opts), date: $('#ex-date').value || L.ymd(), updatedAt: Date.now(),
-    };
+    const base = { title: $('#ex-title').value.trim() || catOf(category)[2], category, amount, paidBy: picked('ex-paid') || ME(), mode, sugar: mode === 'sugar' ? sugar : null };
+    if (d.tpl) { // editar un gasto fijo
+      const day = Math.min(28, Math.max(1, parseInt($('#ex-day').value, 10) || 1));
+      S.be.update('recurring', d.id, { ...base, customPctA: opts.customPctA, day, updatedAt: Date.now() }).catch(err => toast(errMsg(err)));
+      closeSheet(); toast('Gasto fijo guardado 🔁'); return;
+    }
+    const date = $('#ex-date').value || L.ymd();
     lsSet('xp_last_mode', mode);
+    if (!d.id && $('#ex-rec') && $('#ex-rec').checked) { // nuevo gasto fijo: se apunta solo (este mes incluido)
+      S.be.add('recurring', { ...base, customPctA: opts.customPctA, day: Math.min(28, Number(date.slice(8, 10))), startMonth: date.slice(0, 7), lastMonth: null, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
+      closeSheet(); toast(`Gasto fijo: ${eur(amount)} cada mes 🔁`); return;
+    }
+    const data = { kind: 'expense', ...base, shares: L.computeShares(amount, mode, opts), date, updatedAt: Date.now() };
     if (d.id) S.be.update('expenses', d.id, data).catch(err => toast(errMsg(err)));
     else S.be.add('expenses', { ...data, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
     closeSheet(); toast(d.id ? 'Gasto guardado' : `Apuntado: ${eur(amount)} 💸`);
   },
-  'exp-delete': d => { if (!confirm('¿Borrar?')) return; S.be.remove('expenses', d.id).catch(err => toast(errMsg(err))); closeSheet(); },
+  'exp-delete': async d => { if (!await askConfirm({ title: '¿Borrar este gasto?', text: 'Las cuentas se recalculan sin él.', ok: 'Borrar', danger: true })) return; S.be.remove('expenses', d.id).catch(err => toast(errMsg(err))); closeSheet(); },
+  'tpl-edit': d => { const r = (S.data.recurring || []).find(x => x.id === d.id); if (r) openExpense(r, { template: true }); },
+  'tpl-delete': async d => {
+    if (!await askConfirm({ title: '¿Dejar de repetir este gasto?', text: 'Los meses ya apuntados se quedan como están.', ok: 'Dejar de repetir', danger: true })) return;
+    S.be.remove('recurring', d.id).catch(err => toast(errMsg(err))); closeSheet();
+  },
   'settle': () => openSheet(settleSheet()),
   'settle-save': d => {
     const amount = L.parseEur($('#st-amount').value);
@@ -1215,8 +1393,8 @@ function doPoints(type, title, emoji, pts) {
     closeSheet(); celebrate(); toast(`¡${pname()} recibe +${pts}! ✨`);
   }
 }
-function openExpense(e) {
-  openSheet(expenseForm(e), {
+function openExpense(e, opt = {}) {
+  openSheet(expenseForm(e, opt), {
     ctx: { onChange: updateExpensePreview },
     onMount: () => {
       ['#ex-amount', '#ex-range'].forEach(s => $(s).addEventListener('input', updateExpensePreview));
@@ -1240,15 +1418,18 @@ document.addEventListener('input', e => { if (e.target.id === 'join-code') e.tar
 
 /* Botón atrás de Android (native.js): cierra la hoja, vuelve a Inicio; si no, deja salir. */
 window.__xpBack = () => {
+  if (S.dialog) { S.dialog(false); return true; }
   if ($('#sheet-root.open')) { closeSheet(); return true; }
   if (S.phase === 'app' && S.tab !== 'home') { S.tab = 'home'; S.enter = true; render(); return true; }
   if (S.phase === 'auth' && S.authMode !== 'welcome') { S.authMode = 'welcome'; render(); return true; }
   return false;
 };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (S.dialog) S.dialog(false); else closeSheet(); } });
+['online', 'offline'].forEach(ev => window.addEventListener(ev, () => { if (S.phase === 'app' && !$('#sheet-root.open')) render(); }));
 
 // Refresca los "hace X min" y el cambio de día si la app se queda abierta.
 setInterval(() => { if (S.phase === 'app' && !$('#sheet-root.open')) render(); }, 60e3);
 
 render();
 boot();
+checkUpdate();

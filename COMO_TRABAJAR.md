@@ -40,7 +40,9 @@ Guía para cualquier asistente (o persona) que retome el proyecto. Léela junto 
 1. `git add` de lo tocado y commit con el estilo `vX.Y.Z: resumen`.
 2. `git push origin main`.
 3. Confirmar que el APK compila: `gh run list --repo pepino17/xurripoints --limit 1` (y `gh run watch <id>`).
-4. Con el run en verde, el APK queda en `releases/latest` como `Xurripoints-vX.Y.Z.apk`.
+4. Con el run en verde, el APK queda en `releases/latest` como `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk`.
+   Enlace permanente para testers: `https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk`.
    Un push que solo toque `**.md`/`docs/**` **no** recompila.
+5. **Nunca** subas la clave de firma (`*.p12`): el repo es público. Ver `CONTEXTO.md` → Firma del APK.
 
 _Si cambias cómo se trabaja, actualiza este documento._

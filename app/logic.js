@@ -109,6 +109,44 @@ export function parseEur(str) {
   return Math.round(parseFloat(s) * 100);
 }
 
+/* ---------------- Gastos fijos (se repiten cada mes) ----------------
+   Plantilla: { day (1-28), startMonth 'YYYY-MM', lastMonth 'YYYY-MM'|null, … }.
+   Cada mes se crea el gasto con id fijo `rec_<plantilla>_<YYYY-MM>` → si los dos móviles lo crean
+   a la vez escriben el MISMO documento (no hay duplicados). */
+export function addMonth(ym, n = 1) {
+  let [y, m] = ym.split('-').map(Number);
+  m += n;
+  y += Math.floor((m - 1) / 12);
+  m = (((m - 1) % 12) + 12) % 12 + 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+/** Meses que faltan por apuntar de una plantilla hasta hoy (máx. 24 de golpe). */
+export function recurringDue(tpl, today = ymd()) {
+  const cur = today.slice(0, 7), d = Number(today.slice(8, 10));
+  let m = tpl.lastMonth ? addMonth(tpl.lastMonth) : tpl.startMonth;
+  const out = [];
+  for (let i = 0; m && m <= cur && i < 24; i++, m = addMonth(m)) {
+    if (m < cur || (tpl.day || 1) <= d) out.push(m);
+  }
+  return out;
+}
+export function recurringDate(month, day) { return `${month}-${String(Math.min(28, Math.max(1, day || 1))).padStart(2, '0')}`; }
+
+/** ¿La versión a (p. ej. "0.3.0") es más nueva que b? */
+export function isNewer(a, b) {
+  const pa = String(a || '').replace(/^v/, '').split('.').map(Number), pb = String(b || '').replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+}
+/** Puntos que ha recibido cada uno (aprobados) en los últimos 7 días. */
+export function weekGains(points, members, now = Date.now()) {
+  const g = Object.fromEntries(members.map(u => [u, 0]));
+  for (const t of points) {
+    if (t.status === 'approved' && t.to in g && (t.resolvedAt || t.createdAt) >= now - 7 * 86400e3) g[t.to] += t.amount;
+  }
+  return g;
+}
+
 /* ---------------- Tareas ----------------
    Tarea: { title, pts, assignee (uid|null=libre), rotate (por turnos), repeat, due, doneAt }
    "Carga semanal" = Σ peso × veces por semana. Peso = pts (mínimo 5 para que las tareas sin puntos cuenten). */

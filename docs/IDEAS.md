@@ -6,7 +6,9 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - **Avisos push** cuando la pareja pide aprobar algo (hoy solo se ve al abrir la app). Opción real:
   Firebase Cloud Messaging + una Cloud Function (requiere plan Blaze, de pago por uso; con una pareja ≈ 0 €).
 - **Recordatorios locales** de tareas del día (plugin `@capacitor/local-notifications`, sin servidor).
-- **Gastos fijos** que se repiten (alquiler, luz, Netflix) con su reparto guardado.
+- ~~**Gastos fijos** que se repiten~~ → hecho en v0.2.0.
+- **Versión web** en GitHub Pages para testers con iPhone (misma app, en Safari).
+- Borrar mi cuenta / salir de la pareja (con cuidado: el historial es de los dos).
 
 ## Economía de puntos
 - Restar puntos / "multas" suaves (llegar tarde, dejar la ropa tirada) — que las acepte la otra persona.

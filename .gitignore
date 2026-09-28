@@ -26,3 +26,7 @@ firebase-debug.log
 .DS_Store
 Thumbs.db
 .claude/settings.local.json
+
+# Firma estable del APK: NO se sube (el repo es público). Copia de seguridad local + secreto de GitHub.
+android/app/xurripoints.p12
+android/app/xurripoints.p12.pass

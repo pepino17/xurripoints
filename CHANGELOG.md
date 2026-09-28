@@ -3,6 +3,33 @@
 Cambios importantes del proyecto. Formato: versión — fecha — cambios.
 La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions).
 
+## [0.2.0] — 2026-09-28 · Revisión general, gastos fijos y lista para testers
+
+Joan: "revisa la app en general, mejórala" y "un link en GitHub para descargar que siempre baje la última versión".
+
+**Descarga y actualizaciones**
+- **Enlace permanente** que siempre baja la última: `…/releases/latest/download/Xurripoints.apk` (cada release
+  publica también `Xurripoints.apk` con nombre fijo). Botón **Descargar app** + QR en el README. Repo **público**.
+- **Firma estable**: todas las versiones se firman con la misma clave (secreto de GitHub, no está en el código)
+  → **se actualiza encima sin desinstalar**. La versión del APK sale del CHANGELOG (versionCode sube siempre).
+  ⚠️ Quien tenga la v0.1.0 tiene que desinstalarla **una última vez** (estaba firmada con una clave aleatoria).
+- **Aviso de versión nueva** dentro de la app (mira GitHub como mucho cada 6 h) y fila **Versión** en Pareja.
+- **Pasar la app a alguien** (Pareja): menú nativo de compartir con el enlace. La invitación de pareja
+  incluye ahora el enlace de descarga + el código.
+
+**Mejoras**
+- **Gastos fijos** 🔁 (alquiler, luz, Netflix…): interruptor al crear un gasto; se apuntan **solos cada mes**
+  el mismo día. Se editan o se dejan de repetir desde Gastos. Nunca se duplican aunque los dos móviles los
+  creen a la vez (id fijo por mes).
+- **Bienvenida** de 4 tarjetas (5 en demo) la primera vez; reabrible en Pareja → ¿Cómo funciona?
+- **Avisos cuando la pareja contesta** a lo que pediste ("ha dicho que sí/no" + su respuesta). Los rechazos
+  aparecen también en "Últimos movimientos".
+- **"+X esta semana"** en la hucha de cada uno.
+- **Confirmaciones con el estilo de la app** (antes salía el aviso gris del sistema).
+- Aviso de **sin conexión** (modo Firebase).
+- Bordes de pantalla más seguros en Android 15+ (Capacitor 8 SystemBars).
+- Al fallar el inicio de sesión ya no se borra la contraseña escrita.
+
 ## [0.1.0] — 2026-09-28 · Primera versión
 
 Joan: "una app para parejas donde se contabilizan las cosas: ganas churri points y los cedes a tu pareja

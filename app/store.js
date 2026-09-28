@@ -10,9 +10,9 @@
      getMyCoupleCode()              → código de pareja guardado en users/{uid} (o null)
      createCouple(profile, seed)    → crea la pareja y devuelve el código
      joinCouple(code, profile)      → se une a una pareja existente (máx. 2 miembros)
-     watch(code, onData, onError)   → onData({couple, points, expenses, tasks}); devuelve "dejar de escuchar"
+     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring}); devuelve "dejar de escuchar"
      updateCouple(patch)            → admite rutas con puntos: {'profiles.X.name': 'Ana'}
-     add(col, data) → id  ·  update(col, id, patch)  ·  remove(col, id)
+     add(col, data) → {id, done}  ·  set(col, id, data) (id fijo, idempotente)  ·  update(col, id, patch)  ·  remove(col, id)
    Las escrituras NO se esperan en la interfaz: Firestore las aplica al momento en local
    (funciona sin conexión) y las sube cuando hay red.
    ================================================================ */
@@ -23,7 +23,7 @@ export function hasFirebaseConfig() {
   return !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/PEGA|TU_/i.test(firebaseConfig.apiKey));
 }
 
-const COLS = ['points', 'expenses', 'tasks'];
+const COLS = ['points', 'expenses', 'tasks', 'recurring'];
 
 /* ---------------- Firebase ---------------- */
 class FirebaseBackend {
@@ -92,7 +92,7 @@ class FirebaseBackend {
   watch(code, onData, onError) {
     const { fb } = this;
     this.code = code;
-    const data = { couple: null, points: [], expenses: [], tasks: [] };
+    const data = { couple: null, points: [], expenses: [], tasks: [], recurring: [] };
     const seen = new Set();
     const emit = key => { seen.add(key); if (seen.has('couple') && COLS.every(c => seen.has(c))) onData({ ...data }); };
     const unsubs = [
@@ -112,6 +112,7 @@ class FirebaseBackend {
     const p = this.fb.setDoc(ref, data);
     return { id: ref.id, done: p };
   }
+  set(col, id, data) { return this.fb.setDoc(this.fb.doc(this.db, 'couples', this.code, col, id), data); }
   update(col, id, patch) { return this.fb.updateDoc(this.fb.doc(this.db, 'couples', this.code, col, id), patch); }
   remove(col, id) { return this.fb.deleteDoc(this.fb.doc(this.db, 'couples', this.code, col, id)); }
 }
@@ -132,6 +133,7 @@ class DemoBackend {
     this.onUser = null;
     this.listeners = new Set();
     try { this.data = JSON.parse(localStorage.getItem(DEMO_KEY)) || null; } catch (e) { this.data = null; }
+    if (this.data) COLS.forEach(c => { if (!Array.isArray(this.data[c])) this.data[c] = []; }); // demos antiguas
   }
   get uid() { return this.data ? this.data.me : null; }
   save() {
@@ -141,7 +143,7 @@ class DemoBackend {
   }
   snapshot() {
     const d = this.data;
-    return { couple: structuredClone(d.couple), points: structuredClone(d.points), expenses: structuredClone(d.expenses), tasks: structuredClone(d.tasks) };
+    return { couple: structuredClone(d.couple), ...Object.fromEntries(COLS.map(c => [c, structuredClone(d[c])])) };
   }
   start(onUser) { this.onUser = onUser; onUser(this.data ? { uid: this.data.me, email: 'modo demo' } : null); }
   /** Crea la demo con datos de ejemplo para que se vea viva desde el principio. */
@@ -184,6 +186,9 @@ class DemoBackend {
         { id: uid8(), title: 'Cambiar las sábanas', emoji: '🛏️', pts: 10, assignee: null, rotate: false, repeat: 'weekly', due: ymd(new Date(now + 4 * D)), doneAt: null, log: [], createdBy: A, createdAt: now - 8 * D },
         { id: uid8(), title: 'Pedir cita veterinario', emoji: '🐾', pts: 5, assignee: A, rotate: false, repeat: 'none', due: null, doneAt: null, log: [], createdBy: B, createdAt: now - 2 * D },
       ],
+      recurring: [
+        { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'proportional', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },
+      ],
     };
     this.save();
     this.onUser && this.onUser({ uid: A, email: 'modo demo' });
@@ -213,6 +218,14 @@ class DemoBackend {
     this.data[col].push({ id, ...structuredClone(data) });
     this.save();
     return { id, done: Promise.resolve() };
+  }
+  set(col, id, data) {
+    const list = this.data[col];
+    const i = list.findIndex(x => x.id === id);
+    const doc = { id, ...structuredClone(data) };
+    if (i >= 0) list[i] = doc; else list.push(doc);
+    this.save();
+    return Promise.resolve();
   }
   update(col, id, patch) {
     const it = this.data[col].find(x => x.id === id);

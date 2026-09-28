@@ -2,5 +2,12 @@
   "appId": "com.pepino17.xurripoints",
   "appName": "Xurripoints",
   "webDir": "app",
-  "backgroundColor": "#FFF3EC"
+  "backgroundColor": "#FFF3EC",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "LIGHT",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
 }

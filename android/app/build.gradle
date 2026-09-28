@@ -1,5 +1,23 @@
 apply plugin: 'com.android.application'
 
+// La versión del APK sale SIEMPRE de la cabecera del CHANGELOG (como en DopaQuest).
+// versionCode = mayor·10000 + menor·100 + parche (0.2.0 → 200): siempre sube → se actualiza encima.
+def xpVersion = { ->
+    def f = rootProject.file('../CHANGELOG.md')
+    if (f.exists()) {
+        def m = (f.getText('UTF-8') =~ /\[(\d+)\.(\d+)\.(\d+)\]/)
+        if (m.find()) return [m.group(1) as int, m.group(2) as int, m.group(3) as int]
+    }
+    return [0, 0, 1]
+}()
+
+// Firma ESTABLE (misma clave siempre) para poder ACTUALIZAR el APK sin desinstalar.
+// El repo es público → la clave NO está en git: GitHub Actions la crea desde los secretos
+// ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASS. En local: android/app/xurripoints.p12 + .p12.pass (ignorados).
+def xpKeystore = file('xurripoints.p12')
+def xpKeyPass = System.getenv('XP_KEYSTORE_PASS') ?: (file('xurripoints.p12.pass').exists() ? file('xurripoints.p12.pass').text.trim() : null)
+def xpSigned = xpKeystore.exists() && xpKeyPass
+
 android {
     namespace = "com.pepino17.xurripoints"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +25,8 @@ android {
         applicationId "com.pepino17.xurripoints"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode xpVersion[0] * 10000 + xpVersion[1] * 100 + xpVersion[2]
+        versionName xpVersion.join('.')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +34,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        stable {
+            if (xpSigned) {
+                storeFile xpKeystore
+                storeType "PKCS12"
+                storePassword xpKeyPass
+                keyAlias "xurripoints"
+                keyPassword xpKeyPass
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (xpSigned) signingConfig signingConfigs.stable
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (xpSigned) signingConfig signingConfigs.stable
         }
     }
 }

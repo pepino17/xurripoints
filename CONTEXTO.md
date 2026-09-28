@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-28** (v0.1.0).
+> Última actualización: **2026-09-28** (v0.2.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas. Tiene una moneda propia (los *xurripoints*) que se gana cuidando
@@ -18,10 +18,14 @@ para **tareas** y **gastos** con varios modos de reparto (50/50, proporcional, s
 
 ## Estado
 - v0.1.0 hecha y verificada en navegador (modo demo): puntos, vales, aprobar/rechazar, tareas (turnos,
-  repetición, reparto automático), gastos (todos los modos), liquidar, perfiles. 8 pruebas de lógica en verde.
+  repetición, reparto automático), gastos (todos los modos), liquidar, perfiles.
+- v0.2.0 (revisión): gastos fijos, bienvenida, avisos de respuesta, aviso de versión nueva, compartir la app,
+  confirmaciones propias, firma estable. 11 pruebas de lógica en verde. Verificado en navegador.
+- **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
+  (botón + QR en el README). Repo **público** desde 2026-09-28 para que los testers puedan descargar.
 - **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`) y pasar la config → entonces se
   pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
-- Repo: `pepino17/xurripoints` (privado). APK en Releases → `Xurripoints-vX.Y.Z.apk`.
+- Repo: `pepino17/xurripoints` (público). Cada release publica `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk` (nombre fijo).
 
 ## Arquitectura
 ```
@@ -53,13 +57,23 @@ firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
   sugar, shares:{uid:céntimos}, date:'YYYY-MM-DD', createdBy, createdAt }`
   - Las `shares` se congelan al guardar (si cambian los ingresos, los gastos viejos no cambian).
   - Liquidación: `paidBy` = quien paga, `shares = { quien cobra: importe }`.
+- `couples/{C}/recurring/{id}` (gastos fijos) → `{ title, category, amount, paidBy, mode, sugar, customPctA, day(1-28),
+  startMonth:'YYYY-MM', lastMonth }`. Cada mes se crea `expenses/rec_<id>_<YYYY-MM>` (id fijo → sin duplicados)
+  con `recurringId`. Lo hace `runRecurring()` al recibir datos.
 - `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat:'none'|'daily'|'weekly'|'monthly',
   due, doneAt, doneBy, log:[{by, at}] (últimas 30), createdBy, createdAt }`
 
 **Reglas de datos:** añadir campos es seguro; cambiar el significado de uno existente NO (habría que migrar
 los datos de las dos personas). Dinero siempre en **céntimos**.
 
+## Firma del APK (actualizar sin desinstalar)
+- Clave PKCS12 fija, **fuera de git** (el repo es público): secretos de GitHub `ANDROID_KEYSTORE_B64` y
+  `ANDROID_KEYSTORE_PASS`; el workflow la escribe en `android/app/xurripoints.p12` y `build.gradle` firma con ella.
+- Copia local (ignorada): `android/app/xurripoints.p12` + `xurripoints.p12.pass`. **No borrarla**: si se pierde
+  la clave, todos tendrán que desinstalar una vez. Generada con Python `cryptography` (no hay JDK en el PC).
+- versionCode = mayor·10000 + menor·100 + parche, sacado del CHANGELOG (como DopaQuest).
+
 ## Siguientes pasos sugeridos
 1. Conectar Firebase (Joan) y probar con los dos móviles.
-2. Avisos cuando la pareja pide aprobar algo (ver `docs/IDEAS.md`).
-3. Gastos fijos que se repiten.
+2. Avisos push cuando la pareja pide aprobar algo (ver `docs/IDEAS.md`).
+3. Recordatorios locales de las tareas del día.
