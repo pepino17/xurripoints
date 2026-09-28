@@ -1,6 +1,6 @@
 {
   "name": "xurripoints",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Xurripoints — la moneda de la pareja: puntos, vales, tareas y gastos compartidos. App Android vía Capacitor + Firebase.",

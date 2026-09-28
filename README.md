@@ -19,10 +19,11 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
 ## Qué hace
 - **Xurripoints:** las tareas de casa dan puntos; se canjean por **vales** (favores: que te cubran una tarea,
   elegir la peli, una siesta sin ruido…). Todo suma a una **meta juntos**. Los mimos no se cobran: para eso está **Gracias** 💛.
-- **Planes:** apuntad pelis, planes y comida, votad y la app os dice en qué coincidís (o elige por vosotros).
+- **Juntos:** ideas de pelis, planes y comida con votos y *match*; **ruleta, dados y cara o cruz** para decidir; y
+  **juegos para dos** (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?).
 - **Tareas:** repartidas, libres o por turnos, con una barra que dice quién lleva más carga.
 - **Gastos:** quién pagó y cómo se reparte — **50/50, proporcional, sugar mami, sugar papi o a medida** —,
-  gastos fijos que se apuntan solos cada mes y cuánto se debe cada uno.
+  gastos fijos que se apuntan solos cada mes, cuánto hay que cuadrar y **huchas para ahorrar juntos**.
 
 ## Instalar (Android)
 1. Pulsa **Descargar app** desde el móvil (o escanea el QR).

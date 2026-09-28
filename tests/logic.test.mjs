@@ -130,4 +130,38 @@ t('planes: match cuando los dos votan que sí', () => {
   assert.equal(L.dayIndex(40, '2026-09-28'), L.dayIndex(40, '2026-09-28'));
 });
 
+t('ahorro y ruleta', () => {
+  assert.equal(L.jarSaved([{ jar: 'x', amount: 5000 }, { jar: 'x', amount: -1000 }, { jar: 'y', amount: 99 }], 'x'), 4000);
+  assert.deepEqual(L.parseOptions('Pizza, Sushi\n  \nTacos'), ['Pizza', 'Sushi', 'Tacos']);
+  // la opción elegida queda arriba: (centro + giro) múltiplo de 360
+  for (const [prev, i, n] of [[0, 0, 4], [725, 2, 3], [1800, 5, 6]]) {
+    const r = L.wheelTarget(prev, i, n);
+    const center = i * (360 / n) + 180 / n;
+    assert.equal(((center + r) % 360 + 360) % 360, 0);
+    assert.ok(r > prev);
+  }
+});
+
+t('tres en raya y conecta 4', () => {
+  assert.deepEqual(L.tttWinner(['a', 'a', 'a', null, 'b', 'b', null, null, null]).line, [0, 1, 2]);
+  assert.equal(L.tttWinner(['a', 'b', 'a', 'a', 'b', 'b', 'b', 'a', 'a']).who, 'draw');
+  assert.equal(L.tttWinner(Array(9).fill(null)), null);
+  let b = Array(42).fill(null);
+  for (let k = 0; k < 4; k++) b = L.c4Drop(b, 3, 'a').board; // vertical
+  assert.equal(L.c4Winner(b).who, 'a');
+  let d = Array(42).fill(null);
+  [[0, 'a'], [1, 'b'], [1, 'a'], [2, 'b'], [2, 'b'], [2, 'a'], [3, 'b'], [3, 'b'], [3, 'b'], [3, 'a']].forEach(([c, w]) => { d = L.c4Drop(d, c, w).board; });
+  assert.equal(L.c4Winner(d).who, 'a'); // diagonal
+  let full = Array(42).fill(null);
+  for (let k = 0; k < 6; k++) full = L.c4Drop(full, 0, 'a').board;
+  assert.equal(L.c4Drop(full, 0, 'b'), null); // columna llena
+});
+
+t('piedra, papel o tijera', () => {
+  assert.equal(L.rpsResult('piedra', 'tijera'), 1);
+  assert.equal(L.rpsResult('piedra', 'papel'), -1);
+  assert.equal(L.rpsResult('papel', 'papel'), 0);
+  assert.equal(L.shuffle([1, 2, 3, 4]).length, 4);
+});
+
 console.log(`\n${n} pruebas OK`);

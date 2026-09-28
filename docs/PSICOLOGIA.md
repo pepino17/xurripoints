@@ -42,6 +42,17 @@ cariño y, sobre todo, **comprar permisos**). La v0.3 los corrige y añade funci
   cumpleaños): la dimensión cognitiva del trabajo doméstico (Daminger, 2019).
 - **🌿 "Para que la app sume"** (en Pareja): 7 consejos breves para usarla sin llevar la cuenta.
 
+## Funciones añadidas después (v0.4) y cómo encajan
+
+- **Ahorro juntos (huchas):** se muestra el **total de los dos** y la barra común; quién pone qué solo aparece en el
+  detalle y hay opción "los dos a medias". Poner el dinero en común se asocia a relaciones más satisfechas
+  (Olson et al., 2023). Mensaje: "lo importante es el total, no quién pone más".
+- **Decidir con la suerte** (moneda, dados, ruleta): quita fricción a decisiones pequeñas y neutraliza el
+  "¿quién elige hoy?" sin que nadie pierda.
+- **Juegos para dos:** el juego compartido es tiempo de calidad positivo (más interacciones positivas, Gottman, 1994).
+  El marcador es solo de la partida y no se guarda: se juega por reírse, no para llevar la cuenta. "¿Quién es más
+  probable…?" y "Esto o aquello" usan preguntas amables, nunca para dejar mal al otro.
+
 ## Reglas de diseño (obligatorias para futuras versiones)
 
 1. **Nada de castigos**: ni multas, ni restar puntos, ni rachas que se pierden con culpa.

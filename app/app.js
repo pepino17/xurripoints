@@ -5,8 +5,9 @@
    ================================================================ */
 import { createBackend, hasFirebaseConfig } from './store.js';
 import * as L from './logic.js';
+import { THIS_OR_THAT, WHO_MORE, DIE_PIPS } from './content.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -143,6 +144,10 @@ const S = {
   authError: '', busy: false,
   tab: 'home', ptab: 'earn', taskFilter: 'all', showDone: false,
   itab: 'planes', showDoneIdeas: false, qShift: 0, seenThanks: null,
+  jtab: 'ideas', mtab: 'exp',             // Juntos: ideas · decidir · jugar  ·  Gastos: gastos · ahorro
+  coinMode: 'coin', coinRes: '', dice: 1, lastDice: [3, 5], diceRes: '',
+  wheelText: '', wheelRot: 0, wheelRes: '', deferred: false,
+  game: null, gscore: {},
   enter: true,            // animación de entrada al cambiar de pestaña
   unwatch: null, sheet: null, seenPending: null, myPending: null,
   dialog: null,           // función que cierra el diálogo abierto (confirmar / bienvenida)
@@ -269,6 +274,8 @@ function errMsg(e) {
 
 /* ---------------- Render principal ---------------- */
 function render() {
+  const a = document.activeElement;
+  if (S.phase === 'app' && a && a.closest && a.closest('#view') && /^(INPUT|TEXTAREA)$/.test(a.tagName)) { S.deferred = true; return; }
   const app = $('#app');
   const y = window.scrollY;
   document.body.dataset.phase = S.phase;
@@ -407,7 +414,7 @@ function viewWait() {
 function pendingForMe() { return S.data.points.filter(t => L.effStatus(t) === 'pending' && t.createdBy !== ME()).sort(byNewest); }
 
 function viewShell() {
-  const views = { home: viewHome, points: viewPoints, tasks: viewTasks, money: viewMoney, plans: viewPlans, couple: viewCouple };
+  const views = { home: viewHome, points: viewPoints, tasks: viewTasks, money: viewMoney, plans: viewJuntos, couple: viewCouple };
   const nPending = pendingForMe().length;
   const today = L.ymd();
   const nTasks = S.data.tasks.filter(t => L.isActive(t) && t.assignee === ME() && t.due && t.due <= today).length;
@@ -427,7 +434,7 @@ function viewShell() {
     ${tab('points', 'coins', 'Puntos')}
     ${tab('tasks', 'list-checks', 'Tareas', nTasks)}
     ${tab('money', 'wallet', 'Gastos')}
-    ${tab('plans', 'popcorn', 'Planes')}
+    ${tab('plans', 'party-popper', 'Juntos')}
   </nav>`;
 }
 
@@ -694,17 +701,19 @@ function expenseRow(e) {
 }
 
 function viewMoney() {
+  const segs = `<div class="seg">${[['exp', '💸 Gastos'], ['save', '🐷 Ahorro']].map(([k, l]) => `<button class="${S.mtab === k ? 'on' : ''}" data-act="mtab" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (S.mtab === 'save') return `<h1 class="page-title">Gastos</h1>${segs}${viewSavings()}`;
   const me = ME(), pa = PA();
   const net = L.netBalances(S.data.expenses, MEMBERS());
   let debt;
   if (Math.abs(net[me]) < 1) {
     debt = `<div class="debt-line">${av(me, 'lg')}<span class="debt-heart">🤝</span>${av(pa, 'lg')}</div>
-      <p class="debt-big">Estáis en paz</p><p class="muted">Nadie le debe nada a nadie ✨</p>`;
+      <p class="debt-big">Cuentas en paz</p><p class="muted">Todo cuadrado ✨</p>`;
   } else {
     const debtor = net[me] < 0 ? me : pa, creditor = debtor === me ? pa : me;
     debt = `<div class="debt-line">${av(debtor, 'lg')}<span class="debt-arrow">${ic('arrow-right')}</span>${av(creditor, 'lg')}</div>
       <p class="debt-big">${eur(Math.abs(net[me]))}</p>
-      <p class="muted">${debtor === me ? `Le debes a ${esc(pname())}` : `${esc(pname())} te debe`}</p>
+      <p class="muted">Para cuadrar: ${debtor === me ? `tú → ${esc(pname())}` : `${esc(pname())} → tú`} · sin prisa</p>
       <button class="btn primary" data-act="settle">${ic('hand-coins')} Liquidar</button>`;
   }
   const exps = [...S.data.expenses].sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.createdAt - x.createdAt));
@@ -725,7 +734,7 @@ function viewMoney() {
   }
   const gLabel = k => { if (!k) return 'Sin fecha'; const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
 
-  return `<h1 class="page-title">Gastos</h1>
+  return `<h1 class="page-title">Gastos</h1>${segs}
     <section class="card debt-card">${debt}</section>
     <section class="card month-card">
       <div class="h-row"><h2 class="h sm">Este mes</h2><b class="month-total">${eur(total)}</b></div>
@@ -867,8 +876,8 @@ const WELCOME = [
   ['<i class="xc"></i>', 'Apuntad lo que hacéis', 'Las tareas de casa dan <b>xurripoints</b>. Tu pareja te da las <b>gracias</b>… y si se le pasa, cuenta sola en 24 h.'],
   ['🎟️', 'Canjeadlos por favores', '¿Que te cubra una tarea, elegir la peli, una siesta sin ruido? <b>Pide el vale</b>. Son favores, <b>no permisos</b>.'],
   ['🎯', 'Sumáis para una meta juntos', 'Todo lo que hacéis los dos llena una <b>meta común</b> (una escapada, una cena…). No es una competición.'],
-  ['🍿', 'Decidid sin discutir', 'En <b>Planes</b> apuntáis pelis, planes y comida, votáis y la app os dice en qué <b>coincidís</b>. O que elija por vosotros.'],
-  ['💸', 'Y los gastos, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. Tareas repartidas con una barra de carga.'],
+  ['🍿', 'Decidid y jugad juntos', 'En <b>Juntos</b>: ideas de pelis y planes con <b>match</b>, <b>ruleta, dados, cara o cruz</b> y <b>juegos para dos</b>.'],
+  ['💸', 'Gastos y ahorro, sin dramas', '<b>50/50</b>, <b>proporcional</b>, <b>sugar mami o papi</b>, o a medida. Y <b>huchas</b> para ahorrar juntos.'],
   ['💛', 'Es un juego, no un contrato', 'Los mimos no se cobran: para eso está <b>Gracias</b>. Si un día no apetece apuntar nada, no pasa nada.'],
 ];
 const DEMO_SLIDE = ['🔁', 'Estás en modo demo', 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y aprobar.'];
@@ -1027,6 +1036,12 @@ function questionCard() {
 
 /* ---------------- PLANES (decidir juntos) ---------------- */
 const findIdea = id => (S.data.ideas || []).find(x => x.id === id);
+function viewJuntos() {
+  const tabs = [['ideas', '💡 Ideas'], ['decide', '🎲 Decidir'], ['play', '🎮 Jugar']];
+  const body = S.jtab === 'decide' ? viewDecide() : S.jtab === 'play' ? viewPlay() : viewPlans();
+  return `<h1 class="page-title">Juntos</h1>
+    <div class="seg">${tabs.map(([k, l]) => `<button class="${S.jtab === k ? 'on' : ''}" data-act="jtab" data-v="${k}">${l}</button>`).join('')}</div>${body}`;
+}
 function viewPlans() {
   const members = MEMBERS(), me = ME();
   const all = (S.data.ideas || []).filter(x => x.list === S.itab);
@@ -1035,8 +1050,7 @@ function viewPlans() {
   const others = open.filter(x => !L.ideaState(x, members).match).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const toVote = open.filter(x => !(x.votes || {})[me]);
   const done = all.filter(x => x.doneAt).sort((a, b) => b.doneAt - a.doneAt);
-  return `<h1 class="page-title">Planes</h1>
-    <div class="seg">${IDEA_LISTS.map(([k, e, l]) => `<button class="${S.itab === k ? 'on' : ''}" data-act="itab" data-v="${k}">${e} ${l}</button>`).join('')}</div>
+  return `<div class="chips">${IDEA_LISTS.map(([k, e, l]) => `<button class="chip ${S.itab === k ? 'on' : ''}" data-act="itab" data-v="${k}">${e} ${l}</button>`).join('')}</div>
     <section class="card decide">
       <p><b>¿No os decidís?</b><small>${matches.length ? `Coincidís en ${matches.length} ${matches.length === 1 ? 'idea' : 'ideas'} 💞` : 'Votad las ideas: cuando los dos decís que sí, hay match 💞'}</small></p>
       <div class="row-btns">
@@ -1136,6 +1150,297 @@ function openRoulette() {
     else { el.textContent = final.title; el.parentElement.classList.add('landed'); $('#rl-btns').hidden = false; celebrate(['🎲', '💞', '✨']); }
   };
   spin();
+}
+
+/* ---------------- JUNTOS · Decidir (moneda, dados, ruleta) ---------------- */
+const WHEEL_COLORS = ['#FFD3E0', '#E0D8FF', '#FFE7A0', '#C9EFDD', '#FFD9C2', '#F3D2F0'];
+function wheelPreset(k) {
+  const open = list => (S.data.ideas || []).filter(x => x.list === list && !x.doneAt).map(x => x.title).slice(0, 12);
+  if (k === 'who') return [prof(ME()).name, pname()];
+  if (k === 'cena') return open('comida').length >= 2 ? open('comida') : ['Pizza', 'Sushi', 'Tacos', 'Pasta'];
+  if (k === 'peli') return open('pelis').length >= 2 ? open('pelis') : ['Comedia', 'Acción', 'Romántica', 'Documental'];
+  if (k === 'plan') return open('planes').length >= 2 ? open('planes') : ['Paseo', 'Cine', 'Juegos de mesa', 'Cena fuera'];
+  return ['Sí', 'No'];
+}
+function wheelHtml(opts) {
+  const n = Math.max(opts.length, 1), seg = 360 / n;
+  const color = i => WHEEL_COLORS[(i === n - 1 && n % WHEEL_COLORS.length === 1) ? 1 : i % WHEEL_COLORS.length];
+  const bg = opts.length ? `conic-gradient(${opts.map((_, i) => `${color(i)} ${i * seg}deg ${(i + 1) * seg}deg`).join(',')})` : 'var(--line)';
+  const max = n <= 4 ? 16 : n <= 8 ? 12 : 9;
+  const short = t => (t.length > max ? t.slice(0, max - 1) + '…' : t);
+  return `<div class="wheel" id="wheel" style="background:${bg};transform:rotate(${S.wheelRot}deg)">
+    ${opts.map((o, i) => `<span class="wl-label" style="transform:rotate(${i * seg + seg / 2}deg)"><em>${esc(short(o))}</em></span>`).join('')}</div>`;
+}
+function dieHtml(v, k) { return `<span class="die" id="die${k}">${Array.from({ length: 9 }, (_, p) => `<i class="${DIE_PIPS[v].includes(p) ? 'on' : ''}"></i>`).join('')}</span>`; }
+function viewDecide() {
+  const opts = L.parseOptions(S.wheelText);
+  return `<p class="hint">Para cuando no os ponéis de acuerdo… que decida la suerte 🍀</p>
+  <section class="card tool">
+    <div class="tool-head"><span class="tool-e">🪙</span><b>Cara o cruz</b></div>
+    <div class="chips">${[['coin', 'Cara o cruz'], ['who', '¿A quién le toca?']].map(([k, l]) => `<button class="chip ${S.coinMode === k ? 'on' : ''}" data-act="coin-mode" data-v="${k}">${l}</button>`).join('')}</div>
+    <button class="coin-flip" data-act="flip" aria-label="Lanzar la moneda"><span class="cf-coin" id="cf-coin"><i class="xc"></i></span></button>
+    <p class="tool-res" id="cf-res">${S.coinRes ? `<b>${esc(S.coinRes)}</b>` : 'Toca la moneda'}</p>
+  </section>
+  <section class="card tool">
+    <div class="tool-head"><span class="tool-e">🎲</span><b>Dados</b></div>
+    <div class="chips">${[1, 2].map(n => `<button class="chip ${S.dice === n ? 'on' : ''}" data-act="dice-n" data-v="${n}">${n} ${n === 1 ? 'dado' : 'dados'}</button>`).join('')}</div>
+    <button class="dice-row" data-act="roll" aria-label="Tirar los dados">${Array.from({ length: S.dice }, (_, k) => dieHtml(S.lastDice[k] || 1, k)).join('')}</button>
+    <p class="tool-res" id="dice-res">${S.diceRes ? `<b>${esc(S.diceRes)}</b>` : 'Toca los dados'}</p>
+  </section>
+  <section class="card tool">
+    <div class="tool-head"><span class="tool-e">🎡</span><b>Ruleta</b></div>
+    <div class="chips scroll">${[['who', '🙋 ¿Quién?'], ['cena', '🍽️ ¿Qué cenamos?'], ['peli', '🎬 ¿Qué vemos?'], ['plan', '📍 ¿Qué hacemos?'], ['yesno', '👍 Sí o no']]
+      .map(([k, l]) => `<button class="chip" data-act="wheel-preset" data-v="${k}">${l}</button>`).join('')}</div>
+    <textarea class="inp" id="wh-opts" rows="3" placeholder="Escribe opciones: una por línea o separadas por comas">${esc(S.wheelText)}</textarea>
+    <div class="wheel-wrap"><span class="wheel-pointer" aria-hidden="true"></span>${wheelHtml(opts)}
+      <button class="wheel-hub" data-act="spin" ${opts.length < 2 ? 'disabled' : ''}>¡Girar!</button></div>
+    <p class="tool-res" id="wh-res">${S.wheelRes ? `🎉 <b>${esc(S.wheelRes)}</b>` : opts.length < 2 ? 'Pon al menos 2 opciones' : 'Toca ¡Girar!'}</p>
+  </section>`;
+}
+function flipCoin() {
+  const el = $('#cf-coin'); if (!el) return;
+  const heads = Math.random() < 0.5;
+  el.classList.remove('flip-h', 'flip-t'); void el.offsetWidth;
+  el.classList.add(heads ? 'flip-h' : 'flip-t');
+  $('#cf-res').textContent = '…';
+  setTimeout(() => {
+    const u = heads ? MEMBERS()[0] : MEMBERS()[1];
+    S.coinRes = S.coinMode === 'who' ? (u === ME() ? 'Te toca a ti 🙋' : `Le toca a ${pname()} 👉`) : heads ? 'Cara' : 'Cruz';
+    const r = $('#cf-res'); if (r) r.innerHTML = `<b>${esc(S.coinRes)}</b>`;
+    vibrate(20);
+  }, 1100);
+}
+function rollDice() {
+  const n = S.dice; let k = 0;
+  const tick = () => {
+    const vals = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * 6));
+    vals.forEach((v, i) => { const d = $(`#die${i}`); if (d) d.outerHTML = dieHtml(v, i); });
+    $$('.die').forEach(d => d.classList.add('rolling'));
+    if (++k < 10) { setTimeout(tick, 55 + k * 8); return; }
+    $$('.die').forEach(d => d.classList.remove('rolling'));
+    S.lastDice = vals;
+    S.diceRes = n > 1 ? `${vals[0]} + ${vals[1]} = ${vals[0] + vals[1]}` : `Ha salido un ${vals[0]}`;
+    const r = $('#dice-res'); if (r) r.innerHTML = `<b>${esc(S.diceRes)}</b>`;
+    vibrate(20);
+  };
+  tick();
+}
+function spinWheel() {
+  const opts = L.parseOptions(S.wheelText);
+  if (opts.length < 2) { toast('Pon al menos 2 opciones ✍️'); return; }
+  const i = Math.floor(Math.random() * opts.length);
+  const seg = 360 / opts.length;
+  S.wheelRot = L.wheelTarget(S.wheelRot, i, opts.length, 5, (Math.random() - 0.5) * seg * 0.6);
+  const w = $('#wheel'); if (w) w.style.transform = `rotate(${S.wheelRot}deg)`;
+  S.wheelRes = '';
+  const r = $('#wh-res'); if (r) r.textContent = 'Girando…';
+  const hub = $('.wheel-hub'); if (hub) hub.disabled = true;
+  setTimeout(() => {
+    S.wheelRes = opts[i];
+    const res = $('#wh-res'); if (res) res.innerHTML = `🎉 <b>${esc(opts[i])}</b>`;
+    const h = $('.wheel-hub'); if (h) h.disabled = false;
+    celebrate(['🎡', '✨', '💞']);
+  }, 3400);
+}
+
+/* ---------------- JUNTOS · Jugar (en el mismo móvil) ---------------- */
+const GAMES = [
+  ['ttt', '❌⭕', 'Tres en raya', 'El clásico. Rápido y sin trampas.'],
+  ['c4', '🟣🩷', 'Conecta 4', 'Cuatro en línea antes que tu churri.'],
+  ['rps', '✊✋✌️', 'Piedra, papel o tijera', 'Elige en secreto y pásale el móvil.'],
+  ['tot', '🤔', 'Esto o aquello', '¿Coincidís? Cada uno elige en secreto.'],
+  ['who', '🫵', '¿Quién es más probable…?', 'A la de tres, señalad a quién. Risas aseguradas.'],
+];
+function viewPlay() {
+  return `<p class="hint">Juegos para dos en el mismo móvil, para cuando os aburrís juntos 😄</p>
+    <div class="games">${GAMES.map(([k, e, t, d], i) => `<button class="game-card" style="--i:${i}" data-act="game-open" data-g="${k}">
+      <span class="gc-e">${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`;
+}
+const RPS = [['piedra', '✊', 'Piedra'], ['papel', '✋', 'Papel'], ['tijera', '✌️', 'Tijera']];
+function newGame(g, prev) {
+  const [a, b] = MEMBERS();
+  const starter = prev && prev.starter === a ? b : a; // se alterna quién empieza
+  if (g === 'ttt') return { g, b: Array(9).fill(null), turn: starter, starter, res: null };
+  if (g === 'c4') return { g, b: Array(L.C4_COLS * L.C4_ROWS).fill(null), turn: starter, starter, res: null, last: -1 };
+  if (g === 'rps') return { g, phase: 'p1', first: starter, starter, picks: {} };
+  if (g === 'tot') return { g, deck: L.shuffle(THIS_OR_THAT).slice(0, 7), i: 0, phase: 'p1', first: starter, starter, picks: {}, hits: 0 };
+  return { g, deck: L.shuffle(WHO_MORE), i: 0 };
+}
+function openGame(g) {
+  S.game = newGame(g);
+  if (!S.gscore[g]) S.gscore[g] = { [MEMBERS()[0]]: 0, [MEMBERS()[1]]: 0, draw: 0 };
+  openSheet(renderGame(), { ctx: { game: true } });
+}
+function paintGame() { if (S.game && $('#sheet-root.open')) swapSheet(renderGame()); }
+const mark = u => `<span class="mk ${side(u)}">${u === MEMBERS()[0] ? '✕' : '◯'}</span>`;
+function scoreLine(g) {
+  const sc = S.gscore[g], [a, b] = MEMBERS();
+  return `<div class="g-score">${av(a, 'xs')} <b>${sc[a]}</b><span>·</span><b>${sc[b]}</b> ${av(b, 'xs')}${sc.draw ? `<small>(${sc.draw} empates)</small>` : ''}</div>`;
+}
+function finishRound(g, res) {
+  if (!res) return;
+  S.gscore[g][res.who === 'draw' ? 'draw' : res.who]++;
+  if (res.who !== 'draw') celebrate(['🏆', '✨', '💞']);
+}
+function renderGame() {
+  const G = S.game, [a, b] = MEMBERS(), nm = u => esc(prof(u).name);
+  const title = GAMES.find(x => x[0] === G.g)[2];
+  if (G.g === 'ttt' || G.g === 'c4') {
+    const res = G.res;
+    const status = res ? (res.who === 'draw' ? 'Empate 🤝' : `¡Gana ${nm(res.who)}! 🏆`) : `Turno de ${nm(G.turn)} ${G.g === 'ttt' ? mark(G.turn) : `<span class="disc ${side(G.turn)} sm"></span>`}`;
+    const board = G.g === 'ttt'
+      ? `<div class="ttt">${G.b.map((c, i) => `<button class="cell ${c ? side(c) : ''} ${res && res.line.includes(i) ? 'win' : ''}" data-act="g-ttt" data-i="${i}" ${c || res ? 'disabled' : ''}>${c ? mark(c) : ''}</button>`).join('')}</div>`
+      : `<div class="c4">${G.b.map((c, i) => `<button class="c4-cell" data-act="g-c4" data-c="${i % L.C4_COLS}" ${res ? 'disabled' : ''} aria-label="Columna ${i % L.C4_COLS + 1}">
+          <span class="disc ${c ? side(c) : ''} ${res && res.line.includes(i) ? 'win' : ''} ${i === G.last ? 'drop' : ''}"></span></button>`).join('')}</div>`;
+    return `<h3 class="sheet-title">${title}</h3>${scoreLine(G.g)}<p class="g-status">${status}</p>${board}
+      ${res ? `<button class="btn primary big wide" data-act="g-again">Otra partida</button>` : ''}`;
+  }
+  if (G.g === 'rps' || G.g === 'tot') {
+    const p1 = G.first, p2 = p1 === a ? b : a;
+    const item = G.g === 'tot' ? G.deck[G.i] : null;
+    const head = G.g === 'rps' ? `<h3 class="sheet-title">${title}</h3>${scoreLine('rps')}`
+      : `<h3 class="sheet-title">${title}</h3><p class="muted">Ronda ${Math.min(G.i + 1, G.deck.length)} de ${G.deck.length} · coincidencias: <b>${G.hits}</b></p>`;
+    const options = () => G.g === 'rps' ? RPS.map(([k, e, l]) => `<button class="pick-big" data-act="g-pick" data-v="${k}"><span>${e}</span>${l}</button>`).join('')
+      : item.map((o, k) => `<button class="pick-big tot" data-act="g-pick" data-v="${k}">${esc(o)}</button>`).join('');
+    if (G.phase === 'end') {
+      return `${head}<div class="big-emoji">${G.hits >= 5 ? '💞' : G.hits >= 3 ? '😊' : '🤭'}</div>
+        <p class="g-status">Coincidís en ${G.hits} de ${G.deck.length}</p>
+        <p class="muted center">${G.hits >= 5 ? '¡Sois almas gemelas (al menos en esto)!' : G.hits >= 3 ? 'Ni tan iguales ni tan distintos: perfecto.' : 'Los opuestos se atraen, ¿no? 😄'}</p>
+        <button class="btn primary big wide" data-act="g-again">Otra ronda</button>`;
+    }
+    if (G.phase === 'p1' || G.phase === 'p2') {
+      const who = G.phase === 'p1' ? p1 : p2, other = who === a ? b : a;
+      return `${head}<p class="g-status">${av(who, 'xs')} ${nm(who)}, elige en secreto</p>
+        <p class="muted center">Que ${nm(other)} no mire 🙈</p>
+        ${G.g === 'tot' ? `<p class="tot-q">¿Qué prefieres?</p>` : ''}<div class="picks">${options()}</div>`;
+    }
+    if (G.phase === 'pass') {
+      return `${head}<div class="big-emoji">🤫</div><p class="g-status">¡Elegido!</p>
+        <p class="muted center">Pásale el móvil a ${nm(p2)}</p>
+        <button class="btn primary big wide" data-act="g-ready">Soy ${nm(p2)}, ¡listo!</button>`;
+    }
+    // revelar
+    const pa1 = G.picks[p1], pa2 = G.picks[p2];
+    if (G.g === 'rps') {
+      const r = L.rpsResult(pa1, pa2);
+      const e = k => RPS.find(x => x[0] === k)[1];
+      return `${head}<div class="reveal"><span>${av(p1, 'xs')}<b>${e(pa1)}</b></span><em>vs</em><span><b>${e(pa2)}</b>${av(p2, 'xs')}</span></div>
+        <p class="g-status">${r === 0 ? 'Empate 🤝' : `¡Gana ${nm(r === 1 ? p1 : p2)}! 🏆`}</p>
+        <button class="btn primary big wide" data-act="g-again">Otra</button>`;
+    }
+    const same = pa1 === pa2;
+    return `${head}<div class="reveal tot"><span>${av(p1, 'xs')} ${esc(item[pa1])}</span><span>${av(p2, 'xs')} ${esc(item[pa2])}</span></div>
+      <p class="g-status">${same ? '¡Coincidís! 💞' : 'Esta vez no 🙃'}</p>
+      <button class="btn primary big wide" data-act="g-next">${G.i + 1 < G.deck.length ? 'Siguiente' : 'Ver resultado'}</button>`;
+  }
+  // ¿Quién es más probable…?
+  const q = G.deck[G.i % G.deck.length];
+  return `<h3 class="sheet-title">${title}</h3>
+    <div class="who-card"><small>¿Quién es más probable que…</small><b>${esc(q)}?</b></div>
+    <p class="muted center">A la de tres, los dos señaláis 👉 1… 2… ¡3!</p>
+    <div class="row-btns center-row">${av(a, 'lg')}${av(b, 'lg')}</div>
+    <button class="btn primary big wide" data-act="g-next">Siguiente 🔀</button>`;
+}
+function playTtt(i) {
+  const G = S.game; if (!G || G.res || G.b[i]) return;
+  G.b[i] = G.turn;
+  G.res = L.tttWinner(G.b);
+  if (G.res) finishRound('ttt', G.res); else G.turn = G.turn === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0];
+  vibrate(10); paintGame();
+}
+function playC4(c) {
+  const G = S.game; if (!G || G.res) return;
+  const r = L.c4Drop(G.b, c, G.turn);
+  if (!r) { toast('Esa columna está llena'); return; }
+  G.b = r.board; G.last = r.index;
+  G.res = L.c4Winner(G.b);
+  if (G.res) finishRound('c4', G.res); else G.turn = G.turn === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0];
+  vibrate(10); paintGame();
+}
+function gamePick(v) {
+  const G = S.game; if (!G) return;
+  const [a, b] = MEMBERS(), p1 = G.first, p2 = p1 === a ? b : a;
+  const val = G.g === 'tot' ? Number(v) : v;
+  if (G.phase === 'p1') { G.picks[p1] = val; G.phase = 'pass'; }
+  else if (G.phase === 'p2') {
+    G.picks[p2] = val; G.phase = 'reveal';
+    if (G.g === 'rps') { const r = L.rpsResult(G.picks[p1], G.picks[p2]); finishRound('rps', { who: r === 0 ? 'draw' : r === 1 ? p1 : p2 }); }
+    else if (G.picks[p1] === G.picks[p2]) { G.hits++; celebrate(['💞', '✨']); }
+  }
+  vibrate(10); paintGame();
+}
+function gameNext() {
+  const G = S.game; if (!G) return;
+  if (G.g === 'who') { G.i++; paintGame(); return; }
+  G.i++;
+  if (G.i >= G.deck.length) G.phase = 'end';
+  else { G.phase = 'p1'; G.picks = {}; G.first = G.first === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0]; }
+  paintGame();
+}
+
+/* ---------------- Ahorro (huchas) ---------------- */
+const findJar = id => (S.data.jars || []).find(j => j.id === id);
+function viewSavings() {
+  const jars = [...(S.data.jars || [])].sort((x, y) => (x.createdAt || 0) - (y.createdAt || 0));
+  const saves = S.data.saves || [];
+  const total = saves.reduce((t, x) => t + (x.amount || 0), 0);
+  return `<section class="card save-total"><small>Ahorrado entre los dos</small><b>${eur(total)}</b>
+      <small>${jars.length ? `en ${jars.length} ${jars.length === 1 ? 'hucha' : 'huchas'}` : 'Cread vuestra primera hucha con el +'}</small></section>
+    ${jars.length ? `<div class="stack">${jars.map(j => {
+      const saved = L.jarSaved(saves, j.id);
+      const pct = j.target ? Math.min(100, Math.round(saved / j.target * 100)) : null;
+      return `<div class="jar ${pct === 100 ? 'full' : ''}">
+        <button class="jar-main" data-act="jar-open" data-id="${j.id}"><span class="jar-e">${esc(j.emoji)}</span>
+          <span class="jar-body"><b>${esc(j.title)}</b>
+            ${pct != null ? `<span class="goal-bar"><span style="width:${pct}%"></span></span>` : ''}
+            <small>${eur(saved)}${j.target ? ` de ${eur(j.target)} · ${pct}%` : ''}</small></span></button>
+        <button class="jar-add" data-act="save-add" data-id="${j.id}" aria-label="Añadir dinero">${ic('plus')}</button>
+      </div>`;
+    }).join('')}</div>` : `<p class="empty">Una hucha para algo que queráis los dos: un viaje, el sofá nuevo, un colchón para imprevistos… 🐷</p>`}
+    <p class="tip">💡 Lo importante es el total, no quién pone más: cada uno aporta lo que puede.</p>
+    <button class="fab" data-act="jar-new" aria-label="Nueva hucha">${ic('plus')}</button>`;
+}
+function jarForm(j) {
+  const isNew = !j;
+  j = j || { title: '', emoji: '✈️', target: 0 };
+  return `<h3 class="sheet-title">${isNew ? 'Nueva hucha 🐷' : 'Editar hucha'}</h3>
+    <div class="stack">
+      <div class="emoji-line"><input class="inp emoji-inp" id="jr-emoji" maxlength="4" value="${esc(j.emoji)}" aria-label="Emoji">
+        <input class="inp" id="jr-title" maxlength="40" value="${esc(j.title)}" placeholder="Viaje, sofá nuevo, imprevistos…"></div>
+      <div class="emoji-row">${['✈️', '🛋️', '🏠', '🚗', '💍', '🐶', '🎄', '🛟', '🎁', '👶'].map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="jr-emoji" data-v="${e}">${e}</button>`).join('')}</div>
+      <label class="field"><span>Objetivo <small>(opcional)</small></span><div class="money-inp"><input class="inp" id="jr-target" inputmode="decimal" placeholder="0" value="${j.target ? eurPlain(j.target) : ''}"><b>€</b></div></label>
+      <button class="btn primary big" data-act="jar-save" data-id="${isNew ? '' : j.id}">Guardar</button>
+      ${isNew ? '' : `<button class="btn soft-berry" data-act="jar-delete" data-id="${j.id}">${ic('trash-2')} Borrar hucha</button>`}
+    </div>`;
+}
+function jarSheet(j) {
+  const saves = (S.data.saves || []).filter(x => x.jar === j.id).sort(byNewest);
+  const saved = L.jarSaved(S.data.saves || [], j.id);
+  const pct = j.target ? Math.min(100, Math.round(saved / j.target * 100)) : null;
+  return `<div class="big-emoji">${esc(j.emoji)}</div><h3 class="sheet-title center">${esc(j.title)}</h3>
+    <p class="save-big center">${eur(saved)}</p>
+    ${pct != null ? `<span class="goal-bar"><span style="width:${pct}%"></span></span><p class="muted center">${pct}% de ${eur(j.target)}${pct === 100 ? ' · ¡Conseguido! 🎉' : ` · faltan ${eur(j.target - saved)}`}</p>` : ''}
+    <div class="row-btns"><button class="btn mint" data-act="save-add" data-id="${j.id}">${ic('plus')} Añadir</button>
+      <button class="btn" data-act="save-add" data-id="${j.id}" data-dir="out">${ic('minus')} Sacar</button></div>
+    ${saves.length ? `<div class="card list jar-moves">${saves.map(x => `<div class="hist"><span class="h-emoji">${x.amount >= 0 ? '🐷' : '💸'}</span>
+      <span class="h-body"><b>${x.note ? esc(x.note) : x.amount >= 0 ? 'Aportación' : 'Retirada'}</b><small>${x.by === ME() ? 'Tú' : esc(prof(x.by).name)} · ${esc(dueLabel(x.date))}</small></span>
+      <span class="h-amt ${x.amount >= 0 ? 'plus' : 'minus'}">${x.amount >= 0 ? '+' : '−'}${eur(Math.abs(x.amount))}</span></div>`).join('')}</div>` : ''}
+    <button class="btn link wide" data-act="jar-edit" data-id="${j.id}">${ic('pencil')} Editar hucha</button>`;
+}
+function saveForm(j, sign) {
+  const me = ME(), pa = PA();
+  return `<h3 class="sheet-title">${sign > 0 ? 'Añadir a' : 'Sacar de'} ${esc(j.emoji)} ${esc(j.title)}</h3>
+    <div class="stack">
+      <div class="amount-field"><input id="sv-amount" inputmode="decimal" placeholder="0,00" aria-label="Importe"><b>€</b></div>
+      <div class="field"><span>${sign > 0 ? '¿Quién pone?' : '¿Quién lo saca?'}</span>
+        <div class="seg who" id="sv-who">
+          <button type="button" class="on" data-act="pick" data-v="${me}">${av(me, 'xs')} Yo</button>
+          <button type="button" data-act="pick" data-v="${pa}">${av(pa, 'xs')} ${esc(pname())}</button>
+          ${sign > 0 ? `<button type="button" data-act="pick" data-v="both">💞 Los dos</button>` : ''}
+        </div></div>
+      <input class="inp" id="sv-note" maxlength="60" placeholder="Nota (opcional): paga extra, cumpleaños…">
+      <button class="btn ${sign > 0 ? 'primary' : ''} big" data-act="save-do" data-id="${j.id}" data-sign="${sign}">${sign > 0 ? '🐷 Añadir' : 'Sacar'}</button>
+    </div>`;
 }
 
 /* ---------------- Puntos: crear, aprobar… ---------------- */
@@ -1550,6 +1855,62 @@ const ACT = {
   'tips': () => openSheet(tipsSheet()),
   'q-next': () => { S.qShift++; render(); },
   'itab': d => { S.itab = d.v; render(); },
+  'jtab': d => { S.jtab = d.v; S.enter = true; render(); },
+  'mtab': d => { S.mtab = d.v; S.enter = true; render(); },
+  /* decidir */
+  'coin-mode': d => { S.coinMode = d.v; S.coinRes = ''; render(); },
+  'flip': () => flipCoin(),
+  'dice-n': d => { S.dice = Number(d.v); S.diceRes = ''; render(); },
+  'roll': () => rollDice(),
+  'wheel-preset': d => { S.wheelText = wheelPreset(d.v).join('\n'); S.wheelRes = ''; render(); },
+  'spin': () => spinWheel(),
+  /* jugar */
+  'game-open': d => openGame(d.g),
+  'g-ttt': d => playTtt(Number(d.i)),
+  'g-c4': d => playC4(Number(d.c)),
+  'g-pick': d => gamePick(d.v),
+  'g-ready': () => { S.game.phase = 'p2'; paintGame(); },
+  'g-next': () => gameNext(),
+  'g-again': () => { const g = S.game.g; S.game = newGame(g, S.game); paintGame(); },
+  /* ahorro */
+  'jar-new': () => openSheet(jarForm()),
+  'jar-edit': d => { const j = findJar(d.id); if (j) openSheet(jarForm(j)); },
+  'jar-save': d => {
+    const title = $('#jr-title').value.trim();
+    if (!title) { toast('Ponle un nombre a la hucha ✍️'); return; }
+    const t = L.parseEur($('#jr-target').value);
+    const data = { title: title.slice(0, 40), emoji: $('#jr-emoji').value.trim() || '🐷', target: Number.isFinite(t) && t > 0 ? t : 0 };
+    if (d.id) S.be.update('jars', d.id, data).catch(err => toast(errMsg(err)));
+    else S.be.add('jars', { ...data, createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
+    closeSheet(); toast(d.id ? 'Hucha guardada 🐷' : 'Hucha creada 🐷 ¡A llenarla juntos!');
+  },
+  'jar-delete': async d => {
+    if (!await askConfirm({ title: '¿Borrar esta hucha?', text: 'Se borran también sus movimientos (el dinero real no se toca 😉).', ok: 'Borrar', danger: true })) return;
+    S.be.remove('jars', d.id).catch(err => toast(errMsg(err)));
+    (S.data.saves || []).filter(x => x.jar === d.id).forEach(x => S.be.remove('saves', x.id).catch(() => { }));
+    closeSheet();
+  },
+  'jar-open': d => { const j = findJar(d.id); if (j) openSheet(jarSheet(j)); },
+  'save-add': d => { const j = findJar(d.id); if (j) openSheet(saveForm(j, d.dir === 'out' ? -1 : 1)); },
+  'save-do': d => {
+    const amount = L.parseEur($('#sv-amount').value);
+    if (!Number.isFinite(amount) || amount <= 0) { toast('Escribe el importe 💶'); return; }
+    const j = findJar(d.id); if (!j) return;
+    const sign = Number(d.sign) || 1;
+    const who = picked('sv-who') || ME();
+    const note = $('#sv-note').value.trim().slice(0, 60);
+    const before = L.jarSaved(S.data.saves || [], j.id);
+    const base = { jar: j.id, note, date: L.ymd(), createdAt: Date.now() };
+    if (who === 'both') {
+      const half = Math.round(amount / 2);
+      MEMBERS().forEach((u, k) => S.be.add('saves', { ...base, by: u, amount: sign * (k === 0 ? half : amount - half) }).done.catch(err => toast(errMsg(err))));
+    } else S.be.add('saves', { ...base, by: who, amount: sign * amount }).done.catch(err => toast(errMsg(err)));
+    closeSheet();
+    const after = before + sign * amount;
+    if (sign > 0 && j.target && before < j.target && after >= j.target) { celebrate(['🐷', '🎉', '💞', '✨']); toast(`¡Hucha llena! ${j.title} ${j.emoji} 🎉`); }
+    else if (sign > 0) { celebrate(['🐷', '💶', '✨']); toast(`+${eur(amount)} a ${j.title} 🐷`); }
+    else toast(`Sacado ${eur(amount)} de ${j.title}`);
+  },
   'toggle-done-ideas': () => { S.showDoneIdeas = !S.showDoneIdeas; render(); },
   'idea-new': () => openSheet(ideaForm()),
   'idea-open': d => { const x = findIdea(d.id); if (x) openSheet(ideaForm(x)); },
@@ -1722,7 +2083,17 @@ document.addEventListener('click', e => {
   fn(el.dataset, el, e);
 });
 document.addEventListener('submit', e => { if (e.target.id === 'auth-form') submitAuth(e); });
-document.addEventListener('input', e => { if (e.target.id === 'join-code') e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+document.addEventListener('input', e => {
+  if (e.target.id === 'join-code') e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (e.target.id === 'wh-opts') {
+    S.wheelText = e.target.value; S.wheelRes = '';
+    const opts = L.parseOptions(S.wheelText), w = $('#wheel');
+    if (w) w.outerHTML = wheelHtml(opts);
+    const hub = $('.wheel-hub'); if (hub) hub.disabled = opts.length < 2;
+    const r = $('#wh-res'); if (r) r.textContent = opts.length < 2 ? 'Pon al menos 2 opciones' : 'Toca ¡Girar!';
+  }
+});
+document.addEventListener('focusout', () => { if (S.deferred) setTimeout(() => { const a = document.activeElement; if (!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.closest('#view'))) { S.deferred = false; render(); } }, 0); });
 
 /* Botón atrás de Android (native.js): cierra la hoja, vuelve a Inicio; si no, deja salir. */
 window.__xpBack = () => {

@@ -210,3 +210,59 @@ export function autoAssign(tasks, members, targetPctA = 50) {
   }
   return out;
 }
+
+/* ---------------- Ahorro (huchas) ---------------- */
+/** Lo ahorrado en una hucha: suma de aportaciones (las retiradas son negativas). */
+export function jarSaved(saves, jarId) { return saves.filter(s => s.jar === jarId).reduce((t, s) => t + (s.amount || 0), 0); }
+
+/* ---------------- Decidir: ruleta ---------------- */
+/** Opciones escritas una por línea o separadas por comas (máx. 12). */
+export function parseOptions(text) { return String(text || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean).slice(0, 12); }
+/** Giro final (grados, sentido horario) para que la opción i de n quede bajo la flecha de arriba. */
+export function wheelTarget(prevRot, i, n, turns = 5, jitter = 0) {
+  const seg = 360 / n;
+  const center = i * seg + seg / 2 + jitter;
+  const base = prevRot - (((prevRot % 360) + 360) % 360);
+  return base + turns * 360 + ((360 - center) % 360 + 360) % 360;
+}
+
+/* ---------------- Juegos para dos ---------------- */
+export const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+/** Tres en raya: {who, line} si alguien gana, {who:'draw'} si empate, null si sigue. */
+export function tttWinner(b) {
+  for (const [x, y, z] of TTT_LINES) if (b[x] && b[x] === b[y] && b[x] === b[z]) return { who: b[x], line: [x, y, z] };
+  return b.every(Boolean) ? { who: 'draw', line: [] } : null;
+}
+export const C4_COLS = 7, C4_ROWS = 6;
+/** Conecta 4: deja caer una ficha en la columna. Devuelve {board, index} o null si está llena. */
+export function c4Drop(board, col, who) {
+  for (let r = C4_ROWS - 1; r >= 0; r--) {
+    const i = r * C4_COLS + col;
+    if (!board[i]) { const nb = board.slice(); nb[i] = who; return { board: nb, index: i }; }
+  }
+  return null;
+}
+export function c4Winner(b) {
+  const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+  for (let r = 0; r < C4_ROWS; r++) for (let c = 0; c < C4_COLS; c++) {
+    const w = b[r * C4_COLS + c];
+    if (!w) continue;
+    for (const [dr, dc] of dirs) {
+      const line = [r * C4_COLS + c];
+      for (let k = 1, rr = r + dr, cc = c + dc; k < 4; k++, rr += dr, cc += dc) {
+        if (rr < 0 || rr >= C4_ROWS || cc < 0 || cc >= C4_COLS || b[rr * C4_COLS + cc] !== w) break;
+        line.push(rr * C4_COLS + cc);
+      }
+      if (line.length === 4) return { who: w, line };
+    }
+  }
+  return b.every(Boolean) ? { who: 'draw', line: [] } : null;
+}
+/** Piedra, papel o tijera: 1 si gana a, -1 si gana b, 0 empate. */
+export const RPS_BEATS = { piedra: 'tijera', papel: 'piedra', tijera: 'papel' };
+export function rpsResult(a, b) { return a === b ? 0 : RPS_BEATS[a] === b ? 1 : -1; }
+export function shuffle(list, rnd = Math.random) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}

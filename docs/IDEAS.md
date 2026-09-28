@@ -10,6 +10,15 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - **Versión web** en GitHub Pages para testers con iPhone (misma app, en Safari).
 - Borrar mi cuenta / salir de la pareja (con cuidado: el historial es de los dos).
 
+## Juntos (juegos y decidir)
+- Juegos **a distancia** (cada uno en su móvil, sincronizado): tres en raya, conecta 4, preguntas.
+- Más juegos: memory de parejas, trivial "¿cuánto me conoces?", dibujar y adivinar.
+- Ruleta con vuestras listas guardadas (sin tener que escribirlas).
+
+## Ahorro
+- Aportación fija cada mes a una hucha (como los gastos fijos).
+- Unir una hucha con la **Meta juntos** (p. ej. escapada = puntos + dinero).
+
 ## Economía de puntos
 - Vales con cantidad limitada ("solo 2 al mes") o con fecha de caducidad.
 - Logros de equipo (nunca individuales): "10 planes hechos juntos", "primera meta conseguida"…

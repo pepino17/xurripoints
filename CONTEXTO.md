@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-28** (v0.3.0).
+> Última actualización: **2026-09-28** (v0.4.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas. Tiene una moneda propia (los *xurripoints*) que se gana cuidando
@@ -24,6 +24,9 @@ para **tareas** y **gastos** con varios modos de reparto (50/50, proporcional, s
 - v0.3.0 (revisión psicológica, `docs/PSICOLOGIA.md`): vales = favores (no permisos), mimos sin precio (→ Gracias),
   confianza por defecto (cuenta sola en 24 h), Meta juntos, Planes (ideas + votos + match + azar), pregunta del día,
   lenguaje sin reproche. **Las 8 reglas de diseño de `docs/PSICOLOGIA.md` son obligatorias.**
+- v0.4.0: **Ahorro** (huchas en Gastos) y pestaña **Juntos** = Ideas · Decidir (moneda, dados, ruleta) · Jugar
+  (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?). Juegos en el mismo móvil,
+  sin guardar nada en la nube. Textos de los juegos en `app/content.js`. 16 pruebas de lógica.
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** desde 2026-09-28 para que los testers puedan descargar.
 - **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`) y pasar la config → entonces se
@@ -68,6 +71,8 @@ firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
 - En `couples/{C}`: `goal: { title, emoji, target, since }` (Meta juntos: suma los puntos NUEVOS aprobados de los dos desde `since`)
   y `goalsDone: [ {title, emoji, target, doneAt} ]`.
 - Reclamaciones (`claim`) pendientes con más de 24 h cuentan como aprobadas (`L.effStatus`); en la base siguen `pending`.
+- `couples/{C}/jars/{id}` (huchas) → `{ title, emoji, target(céntimos, 0 = sin objetivo), createdBy, createdAt }`.
+- `couples/{C}/saves/{id}` (movimientos de hucha) → `{ jar, by, amount(céntimos, negativo = sacar), note, date, createdAt }`.
 - `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat:'none'|'daily'|'weekly'|'monthly',
   due, doneAt, doneBy, log:[{by, at}] (últimas 30), createdBy, createdAt }`
 

@@ -3,6 +3,22 @@
 Cambios importantes del proyecto. Formato: versión — fecha — cambios.
 La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions).
 
+## [0.4.0] — 2026-09-28 · Ahorro juntos, decidir con la suerte y juegos para dos
+
+Joan: "pon parte de ahorro; decidir cosas con ruleta, dados, cara o cruz; y juegos para dos simples para cuando
+estés aburrido con ella".
+
+- **🐷 Ahorro** (Gastos → Ahorro): **huchas** con objetivo opcional (viaje, sofá, imprevistos…). Añadir o sacar
+  dinero indicando quién pone (**yo, mi pareja o los dos a medias**), con nota. Total ahorrado entre los dos,
+  barra de progreso y celebración al llenarla. Sin comparar quién pone más.
+- La pestaña **Planes** pasa a llamarse **Juntos**, con tres apartados:
+  - **💡 Ideas**: lo de antes (pelis, planes, comida con votos y match).
+  - **🎲 Decidir**: **cara o cruz** (o "¿a quién le toca?"), **dados** (1 o 2) y **ruleta** que gira de verdad, con
+    atajos: ¿quién?, ¿qué cenamos?, ¿qué vemos?, ¿qué hacemos? (usa vuestras ideas) o sí/no.
+  - **🎮 Jugar** (en el mismo móvil): **tres en raya**, **conecta 4**, **piedra, papel o tijera** (elección secreta
+    pasándose el móvil), **esto o aquello** (¿coincidís?) y **¿quién es más probable…?**. Marcador de la partida.
+- En Gastos, "Le debes…" pasa a "Para cuadrar: tú → Churri · sin prisa" (como en Inicio).
+
 ## [0.3.0] — 2026-09-28 · Revisión psicológica: que sume, no que lleve la cuenta
 
 Joan: "estudia la app como profesional de psicología de pareja: debe ayudar a convivir y hacer las cosas fáciles,

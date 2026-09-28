@@ -10,7 +10,7 @@
      getMyCoupleCode()              → código de pareja guardado en users/{uid} (o null)
      createCouple(profile, seed)    → crea la pareja y devuelve el código
      joinCouple(code, profile)      → se une a una pareja existente (máx. 2 miembros)
-     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks}); devuelve "dejar de escuchar"
+     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks, jars, saves}); devuelve "dejar de escuchar"
      updateCouple(patch)            → admite rutas con puntos: {'profiles.X.name': 'Ana'}
      add(col, data) → {id, done}  ·  set(col, id, data) (id fijo, idempotente)  ·  update(col, id, patch)  ·  remove(col, id)
    Las escrituras NO se esperan en la interfaz: Firestore las aplica al momento en local
@@ -23,7 +23,7 @@ export function hasFirebaseConfig() {
   return !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/PEGA|TU_/i.test(firebaseConfig.apiKey));
 }
 
-const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks'];
+const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves'];
 
 /* ---------------- Firebase ---------------- */
 class FirebaseBackend {
@@ -196,6 +196,16 @@ class DemoBackend {
       thanks: [
         { id: uid8(), from: B, to: A, text: 'Por hacerme la cena cuando llegué tarde', emoji: '🍝', createdAt: now - 5 * H, seenAt: null, reaction: null },
         { id: uid8(), from: A, to: B, text: 'Por escucharme ayer', emoji: '🎧', createdAt: now - 2 * D, seenAt: now - 2 * D, reaction: '❤️' },
+      ],
+      jars: [
+        { id: 'japon', title: 'Viaje a Japón', emoji: '✈️', target: 300000, createdBy: A, createdAt: now - 60 * D },
+        { id: 'colchon', title: 'Colchón para imprevistos', emoji: '🛟', target: 0, createdBy: B, createdAt: now - 40 * D },
+      ],
+      saves: [
+        { id: uid8(), jar: 'japon', by: A, amount: 20000, note: 'Primer empujón', date: ymd(new Date(now - 50 * D)), createdAt: now - 50 * D },
+        { id: uid8(), jar: 'japon', by: B, amount: 20000, note: '', date: ymd(new Date(now - 49 * D)), createdAt: now - 49 * D },
+        { id: uid8(), jar: 'japon', by: A, amount: 15000, note: 'Paga extra 🎉', date: ymd(new Date(now - 10 * D)), createdAt: now - 10 * D },
+        { id: uid8(), jar: 'colchon', by: B, amount: 5000, note: '', date: ymd(new Date(now - 30 * D)), createdAt: now - 30 * D },
       ],
       recurring: [
         { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'proportional', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },
