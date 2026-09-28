@@ -968,3 +968,11 @@ details.more .stack { margin-top: 0; }
 .custom-split { padding: 0 4px; }
 .sheet .split-preview + .btn.wide { margin-top: 16px; }
 .demo-bar { width: auto; margin: 0 auto 6px; display: flex; max-width: max-content; }
+
+/* ---------------- v0.6 ---------------- */
+.wait-join { margin-top: 18px; text-align: left; }
+.wait-join .join { margin-top: 4px; }
+.typical { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.typical b { font: 700 1.05rem var(--display); font-variation-settings: "SOFT" 100; }
+.typical small { color: var(--ink-2); font-size: .82rem; line-height: 1.4; }
+.typical .row-btns { justify-content: flex-start; margin-top: 4px; }

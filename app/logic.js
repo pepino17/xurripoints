@@ -35,6 +35,7 @@ export function addPeriod(s, repeat) {
   }
   return ymd(d);
 }
+export function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
 /** Próxima fecha de una tarea que se repite, al completarla hoy (salta los periodos atrasados). */
 export function nextDue(due, repeat, today = ymd()) {
   if (!repeat || repeat === 'none') return null;
@@ -199,6 +200,19 @@ export function weekTogether(points, now = Date.now()) {
 export const REPEAT_PER_WEEK = { daily: 7, weekly: 1, monthly: 0.25, none: 1 };
 export function taskWeight(t) { return Math.max(Number(t.pts) || 0, 5) * (REPEAT_PER_WEEK[t.repeat || 'none'] ?? 1); }
 export function isActive(t) { return (t.repeat && t.repeat !== 'none') || !t.doneAt; }
+/** Días (YYYY-MM-DD) en los que toca una tarea desde `from` durante `days` días (para los recordatorios).
+    Una tarea atrasada cuenta hoy. Sin fecha → ningún día. */
+export function taskDays(t, from = ymd(), days = 7) {
+  if (!isActive(t) || !t.due) return [];
+  const end = addDays(from, days);
+  const repeats = t.repeat && t.repeat !== 'none';
+  if (!repeats) { const d = t.due < from ? from : t.due; return d < end ? [d] : []; }
+  const out = [];
+  let cur = t.due;
+  if (cur < from) { out.push(from); cur = nextDue(t.due, t.repeat, from); }
+  for (let i = 0; cur < end && i < 40; i++, cur = addPeriod(cur, t.repeat)) if (!out.includes(cur)) out.push(cur);
+  return out;
+}
 export function taskLoad(tasks, members) {
   const load = Object.fromEntries(members.map(u => [u, 0]));
   let free = 0;

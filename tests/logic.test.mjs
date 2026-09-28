@@ -184,4 +184,15 @@ t('azar justo: moneda, dado, ruleta y baraja salen parejos', () => {
   assert.equal(L.randInt(0), 0);
 });
 
+t('recordatorios: qué días toca cada tarea', () => {
+  const from = '2026-09-28';
+  assert.deepEqual(L.taskDays({ repeat: 'daily', due: '2026-09-28' }, from, 3), ['2026-09-28', '2026-09-29', '2026-09-30']);
+  assert.deepEqual(L.taskDays({ repeat: 'weekly', due: '2026-09-20' }, from, 8), ['2026-09-28', '2026-10-04']); // atrasada → hoy
+  assert.deepEqual(L.taskDays({ repeat: 'none', due: '2026-09-30' }, from, 7), ['2026-09-30']);
+  assert.deepEqual(L.taskDays({ repeat: 'none', due: '2026-10-30' }, from, 7), []);
+  assert.deepEqual(L.taskDays({ repeat: 'none', due: '2026-09-01', doneAt: 1 }, from, 7), []); // hecha
+  assert.deepEqual(L.taskDays({ repeat: 'weekly', due: null }, from, 7), []);                  // sin fecha
+  assert.equal(L.addDays('2026-12-31', 1), '2027-01-01');
+});
+
 console.log(`\n${n} pruebas OK`);

@@ -39,7 +39,8 @@ class FirebaseBackend {
   }
   get uid() { return this.auth.currentUser ? this.auth.currentUser.uid : null; }
   start(onUser) {
-    this.fb.onAuthStateChanged(this.auth, u => onUser(u ? { uid: u.uid, email: u.email } : null));
+    if (this.unsubAuth) this.unsubAuth(); // si se reutiliza el motor, un solo oyente
+    this.unsubAuth = this.fb.onAuthStateChanged(this.auth, u => onUser(u ? { uid: u.uid, email: u.email } : null));
   }
   signUp(email, pass) { return this.fb.createUserWithEmailAndPassword(this.auth, email, pass); }
   signIn(email, pass) { return this.fb.signInWithEmailAndPassword(this.auth, email, pass); }
@@ -262,8 +263,14 @@ class DemoBackend {
   }
 }
 
+// Firebase solo se puede iniciar UNA vez por sesión (initializeApp/initializeAuth fallan si se repiten).
+// Si se entra y se sale de la demo, se reutiliza el mismo motor.
+let firebaseSingleton = null;
 export async function createBackend(mode) {
   if (mode === 'demo' || !hasFirebaseConfig()) return new DemoBackend();
-  const fb = await import('./vendor/firebase.js');
-  return new FirebaseBackend(fb);
+  if (!firebaseSingleton) {
+    const fb = await import('./vendor/firebase.js');
+    firebaseSingleton = new FirebaseBackend(fb);
+  }
+  return firebaseSingleton;
 }

@@ -7,7 +7,7 @@ import { createBackend, hasFirebaseConfig } from './store.js';
 import * as L from './logic.js';
 import { THIS_OR_THAT, WHO_MORE, DIE_PIPS } from './content.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -134,6 +134,9 @@ const catOf = id => CATS.find(c => c[0] === id) || CATS[CATS.length - 1];
 const AVATARS = ['🐻', '🐰', '🦊', '🐱', '🐶', '🐼', '🐨', '🐸', '🦄', '🐧', '🐯', '🐹', '🍓', '🥑', '🥒', '🌻', '🌙', '⭐', '🍩', '🧁', '🍑', '🌈'];
 const TASK_EMOJIS = ['🧽', '🗑️', '🛁', '🧺', '🛒', '🍳', '🛏️', '🧹', '🐾', '🪴', '🧾', '🚗', '👕', '🪟', '🧸', '📦'];
 const ITEM_EMOJIS = ['🍝', '🧽', '💆', '🌹', '☕', '🍻', '📺', '😴', '🎮', '🍕', '💤', '⚽', '🛍️', '🌟', '🎁', '💌', '🍷', '🎬', '🏖️', '🧁'];
+/** Tareas típicas para empezar de cero con un toque (libres; luego se reparten). */
+const TYPICAL_TASKS = [['🧽', 'Fregar los platos', 10, 'daily'], ['🗑️', 'Bajar la basura', 5, 'daily'], ['🛒', 'Hacer la compra', 15, 'weekly'],
+  ['🛁', 'Limpiar el baño', 20, 'weekly'], ['🧺', 'Poner lavadoras', 10, 'weekly'], ['🛏️', 'Cambiar las sábanas', 10, 'weekly'], ['🧹', 'Pasar la aspiradora', 15, 'weekly']];
 const REPEAT_LABEL = { none: 'Una vez', daily: 'Cada día', weekly: 'Cada semana', monthly: 'Cada mes' };
 
 /* ---------------- Estado ---------------- */
@@ -154,6 +157,7 @@ const S = {
   dialog: null,           // función que cierra el diálogo abierto (confirmar / bienvenida)
   update: null,           // última versión publicada en GitHub (si se sabe)
   recurringDone: new Set(),
+  closeTimer: null, notifySig: '', loadError: '',
 };
 
 const C = () => S.data.couple;
@@ -215,8 +219,8 @@ async function onUser(user) {
     watchCouple(code);
   } catch (e) {
     console.error(e);
-    toast(errMsg(e));
-    S.phase = 'pair'; render();
+    S.loadError = errMsg(e);
+    S.phase = 'offline'; render();
   }
 }
 
@@ -236,7 +240,7 @@ function watchCouple(code) {
     if (was !== 'app' && S.phase === 'app') S.enter = true;
     if (S.phase === 'app') { notifyNewRequests(); runRecurring(); }
     render();
-    if (S.phase === 'app') maybeWelcome();
+    if (S.phase === 'app') { maybeWelcome(); syncReminders(); }
   }, err => { console.error(err); toast(errMsg(err)); });
 }
 
@@ -304,11 +308,22 @@ function render() {
   else if (S.phase === 'auth') app.innerHTML = viewAuth();
   else if (S.phase === 'pair') app.innerHTML = viewPair();
   else if (S.phase === 'wait') app.innerHTML = viewWait();
+  else if (S.phase === 'offline') app.innerHTML = viewOffline();
   else app.innerHTML = viewShell();
   icons();
   if (S.enter) { S.enter = false; window.scrollTo(0, 0); } else window.scrollTo(0, y);
 }
 
+function viewOffline() {
+  return `<div class="auth wait">
+    <div class="big-coin sm"><i class="xc"></i></div>
+    <h1 class="h1">No he podido cargar vuestra pareja</h1>
+    <p class="muted">${esc(S.loadError || 'Sin conexión.')}</p>
+    <p class="muted small">Revisa internet y vuelve a probar. Tus datos están a salvo.</p>
+    <button class="btn primary big" data-act="retry">${ic('refresh-cw')} Reintentar</button>
+    <button class="btn link" data-act="logout">Cerrar sesión</button>
+  </div>`;
+}
 function viewLoading() {
   return `<div class="center-screen"><div class="big-coin spin"><i class="xc"></i></div><p class="muted">Contando xurripoints…</p></div>`;
 }
@@ -427,6 +442,10 @@ function viewWait() {
       <button class="btn primary" data-act="share-code">${ic('send')} Enviar</button>
     </div>
     <p class="muted small">Esperando a tu pareja… <span class="dots"><i></i><i></i><i></i></span></p>
+    <details class="more wait-join"><summary>¿Tu pareja ya creó la suya? <small>únete con su código</small></summary>
+      <div class="join"><input class="inp code-inp" id="join-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" autocomplete="off">
+        <button class="btn mint" data-act="wait-join">Unirme</button></div>
+    </details>
     <button class="btn link" data-act="logout">Cerrar sesión</button>
   </div>`;
 }
@@ -653,7 +672,11 @@ function viewTasks() {
     ${nFree ? `<button class="btn link sm" data-act="task-auto">${ic('shuffle')} Repartir ${nFree === 1 ? 'la tarea libre' : `las ${nFree} libres`} de forma justa</button>` : ''}
     <div class="chips scroll">${filters.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="task-filter" data-v="${k}">${esc(l)}</button>`).join('')}</div>
     ${groups.map(([title, list]) => list.length ? `<section class="block"><h2 class="h sm">${title}</h2><div class="stack tight">${list.map(taskRow).join('')}</div></section>` : '').join('')}
-    ${!act.length ? `<p class="empty">No hay tareas aquí.<br><button class="btn sm soft" data-act="task-new">${ic('plus')} Añadir una</button></p>` : ''}
+    ${!S.data.tasks.length ? `<section class="card typical"><b>¿Empezáis con las típicas? 🧽</b>
+        <small>${TYPICAL_TASKS.map(t => t[0] + ' ' + t[1]).join(' · ')}</small>
+        <div class="row-btns"><button class="btn primary sm" data-act="task-typical">Añadirlas (${TYPICAL_TASKS.length})</button>
+        <button class="btn sm soft" data-act="task-new">${ic('plus')} Una a una</button></div></section>`
+      : !act.length ? `<p class="empty">No hay tareas aquí.<br><button class="btn sm soft" data-act="task-new">${ic('plus')} Añadir una</button></p>` : ''}
     ${done.length ? `<section class="block">
       <button class="btn link sm" data-act="toggle-done">${S.showDone ? 'Ocultar' : 'Ver'} hechas (${done.length})</button>
       ${S.showDone ? `<div class="stack tight">${done.map(taskRow).join('')}</div>` : ''}
@@ -755,6 +778,7 @@ function viewCouple() {
       <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código de pareja</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
     </section>
     <section class="card list">
+      <button class="set-row" data-act="notify-sheet"><span class="sr-ic">🔔</span><span class="sr-body"><b>Recordatorio diario</b><small>${notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado'}</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="welcome"><span class="sr-ic">💡</span><span class="sr-body"><b>¿Cómo funciona?</b><small>La explicación rápida de la app</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="tips"><span class="sr-ic">🌿</span><span class="sr-body"><b>Para que la app sume</b><small>7 ideas para usarla sin llevar la cuenta</small></span>${ic('chevron-right')}</button>
       <button class="set-row" data-act="share-app"><span class="sr-ic">📲</span><span class="sr-body"><b>Pasar la app a alguien</b><small>Envía el enlace de descarga por WhatsApp</small></span>${ic('share-2')}</button>
@@ -777,6 +801,7 @@ function viewCouple() {
    ================================================================ */
 function openSheet(html, { onMount, ctx } = {}) {
   const root = $('#sheet-root');
+  clearTimeout(S.closeTimer); root.classList.remove('closing');
   root.innerHTML = `<div class="scrim" data-act="sheet-close"></div>
     <div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>
       <button class="btn icon ghost sheet-x" data-act="sheet-close" aria-label="Cerrar">${ic('x')}</button>
@@ -801,7 +826,7 @@ function closeSheet(instant) {
   document.body.classList.remove('noscroll');
   if (instant) { root.classList.remove('open', 'closing'); root.innerHTML = ''; return; }
   root.classList.add('closing');
-  setTimeout(() => { root.classList.remove('open', 'closing'); root.innerHTML = ''; }, 180);
+  S.closeTimer = setTimeout(() => { root.classList.remove('open', 'closing'); root.innerHTML = ''; }, 180);
 }
 function toast(msg, opts = {}) {
   const root = $('#toast-root');
@@ -1736,6 +1761,42 @@ const ACT = {
   'task-filter': d => { S.taskFilter = d.v; render(); },
   'toggle-done': () => { S.showDone = !S.showDone; render(); },
   'sheet-close': () => closeSheet(),
+  'retry': () => { if (S.user) onUser(S.user); },
+  'wait-join': async (d, el) => {
+    const code = $('#join-code').value.trim().toUpperCase();
+    if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
+    if (code === S.code) { toast('Ese es tu propio código 😉 Pásaselo a tu pareja.'); return; }
+    const p = (S.data && S.data.couple && S.data.couple.profiles && S.data.couple.profiles[ME()]) || { name: 'Churri', emoji: '🐻', sugar: 'mami', income: 0 };
+    el.disabled = true;
+    try {
+      await S.be.joinCouple(code, p);
+      if (S.unwatch) { S.unwatch(); S.unwatch = null; }
+      S.enter = true; watchCouple(code); celebrate();
+    } catch (err) { toast(errMsg(err)); el.disabled = false; }
+  },
+  'task-typical': () => {
+    const now = Date.now(), today = L.ymd();
+    TYPICAL_TASKS.forEach(([emoji, title, pts, repeat], i) => S.be.add('tasks', {
+      title, emoji, pts, repeat, assignee: null, rotate: false, due: today, doneAt: null, doneBy: null, log: [], createdBy: ME(), createdAt: now + i,
+    }).done.catch(err => toast(errMsg(err))));
+    toast(`${TYPICAL_TASKS.length} tareas añadidas 🧽 Pulsad «Repartir» para dividirlas`);
+  },
+  'notify-sheet': () => openSheet(notifySheet()),
+  'notify-save': async () => {
+    const h = Number(picked('nt-hour') || 20);
+    if (isNative()) {
+      const ok = window.__xpNotify && await window.__xpNotify.enable();
+      if (!ok) { toast('Sin permiso de notificaciones. Actívalo en Ajustes del móvil → Apps → Xurripoints.'); return; }
+    }
+    lsSet('xp_notify', String(h)); S.notifySig = '';
+    syncReminders();
+    closeSheet(); render(); toast(`Recordatorio a las ${h}:00 🔔`);
+  },
+  'notify-off': () => {
+    lsSet('xp_notify', null); S.notifySig = '';
+    if (window.__xpNotify) window.__xpNotify.clear();
+    closeSheet(); render(); toast('Recordatorio desactivado');
+  },
 
   /* controles genéricos */
   'pick': (d, el) => {
@@ -1812,6 +1873,7 @@ const ACT = {
 
   /* emparejar */
   'pair-create': async (d, el) => {
+    if (!needName()) return;
     const p = readProfile();
     el.disabled = true;
     try {
@@ -1825,6 +1887,7 @@ const ACT = {
   'pair-join': async (d, el) => {
     const code = $('#join-code').value.trim().toUpperCase();
     if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
+    if (!needName()) return;
     const p = readProfile();
     el.disabled = true;
     try { await S.be.joinCouple(code, p); S.enter = true; watchCouple(code); celebrate(); }
@@ -1982,6 +2045,7 @@ const ACT = {
     const who = picked('sv-who') || ME();
     const note = $('#sv-note').value.trim().slice(0, 60);
     const before = L.jarSaved(S.data.saves || [], j.id);
+    if (sign < 0 && amount > before) { toast(`Solo hay ${eur(before)} en esta hucha`); return; }
     const base = { jar: j.id, note, date: L.ymd(), createdAt: Date.now() };
     if (who === 'both') {
       const half = Math.round(amount / 2);
@@ -2064,7 +2128,13 @@ const ACT = {
   'task-delete': async d => { if (!await askConfirm({ title: '¿Borrar esta tarea?', ok: 'Borrar', danger: true })) return; S.be.remove('tasks', d.id).catch(err => toast(errMsg(err))); closeSheet(); },
   'task-check': d => {
     const t = findTask(d.id); if (!t) return;
-    if (!L.isActive(t)) { S.be.update('tasks', t.id, { doneAt: null, doneBy: null }).catch(err => toast(errMsg(err))); return; }
+    if (!L.isActive(t)) {
+      S.be.update('tasks', t.id, { doneAt: null, doneBy: null }).catch(err => toast(errMsg(err)));
+      const claim = S.data.points.find(p => p.taskId === t.id && p.createdBy === ME() && L.effStatus(p) === 'pending');
+      if (claim) S.be.update('points', claim.id, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: ME() }).catch(() => { });
+      toast(claim ? 'Tarea reabierta (y anulados sus puntos pendientes)' : 'Tarea reabierta');
+      return;
+    }
     completeTask(t);
   },
   'task-auto': () => {
@@ -2131,10 +2201,69 @@ const ACT = {
   'profile-edit': () => openSheet(`<h3 class="sheet-title">Tu perfil</h3><div class="stack">${profileFields(prof(ME()))}
     <button class="btn primary big" data-act="profile-save">Guardar</button></div>`),
   'profile-save': () => {
+    if (!needName()) return;
     S.be.updateCouple({ [`profiles.${ME()}`]: readProfile() }).catch(err => toast(errMsg(err)));
     closeSheet(); toast('Perfil guardado 💗');
   },
 };
+
+/* ---------------- Nombre obligatorio ---------------- */
+function needName() {
+  const inp = $('#pf-name');
+  if (inp && !inp.value.trim()) { toast('Pon tu nombre o un mote ✍️'); inp.focus(); return false; }
+  return true;
+}
+
+/* ---------------- Recordatorio diario (notificaciones locales) ---------------- */
+const notifyHour = () => { const v = lsGet('xp_notify'); return v == null ? null : Number(v); };
+function notifySheet() {
+  const h = notifyHour();
+  return `<h3 class="sheet-title">Recordatorio diario 🔔</h3>
+    <p class="muted">Un aviso al día con <b>lo que os toca</b> y lo que <b>espera tu respuesta</b>. Solo si hay algo: si no, no molesta.</p>
+    <div class="field"><span>¿A qué hora?</span>
+      <div class="chips" id="nt-hour">${[9, 14, 19, 20, 21, 22].map(x => `<button type="button" class="chip ${(h ?? 20) === x ? 'on' : ''}" data-act="pick" data-v="${x}">${x}:00</button>`).join('')}</div></div>
+    ${isNative() ? '' : `<p class="warn">Los avisos funcionan en la app de Android (aquí, en el navegador, no suenan).</p>`}
+    <p class="muted small">Sin servidor: el móvil programa los avisos de los próximos días cada vez que abres la app.</p>
+    <div class="stack"><button class="btn primary big" data-act="notify-save">${h != null ? 'Guardar' : 'Activar'}</button>
+      ${h != null ? `<button class="btn" data-act="notify-off">Desactivar</button>` : ''}</div>`;
+}
+/** Avisos de los próximos 7 días: tareas que te tocan (o libres) y, hoy, lo que espera tu respuesta. */
+function buildReminders(hour) {
+  const me = ME(), today = L.ymd(), now = Date.now();
+  const other = PA();
+  // Días en los que me toca cada tarea. Por turnos: la próxima es de quien le toca ahora y luego se alterna.
+  const myDays = new Map();
+  for (const t of S.data.tasks) {
+    if (!L.isActive(t)) continue;
+    let days = L.taskDays(t, today, 7);
+    if (t.rotate) days = days.filter((_, i) => (i % 2 === 0 ? t.assignee : (t.assignee === me ? other : me)) === me);
+    else if (t.assignee && t.assignee !== me) days = [];
+    if (days.length) myDays.set(t, days);
+  }
+  const pend = pendingForMe().length;
+  const out = [];
+  for (let k = 0; k < 7; k++) {
+    const day = L.addDays(today, k);
+    const at = L.parseYmd(day); at.setHours(hour, 0, 0, 0);
+    if (at.getTime() <= now + 60e3) continue;
+    const names = [...myDays].filter(([, days]) => days.includes(day)).map(([t]) => t.title);
+    const bits = [];
+    if (names.length) bits.push(`Toca: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` y ${names.length - 3} más` : ''}`);
+    if (k === 0 && pend) bits.push(`${pend} ${pend === 1 ? 'cosa espera' : 'cosas esperan'} tu respuesta`);
+    if (!bits.length) continue;
+    out.push({ id: 2100 + k, at: at.getTime(), title: k === 0 && pend ? `💌 ${pname()} te espera` : '🧽 Hoy en casa', body: bits.join(' · ') });
+  }
+  return out;
+}
+function syncReminders() {
+  const h = notifyHour();
+  if (h == null || !isNative() || !window.__xpNotify || S.phase !== 'app') return;
+  const list = buildReminders(h);
+  const sig = JSON.stringify(list);
+  if (sig === S.notifySig) return; // solo si cambia algo
+  S.notifySig = sig;
+  window.__xpNotify.sync(list);
+}
 
 /* ---------------- Botón + (apuntar cualquier cosa) ---------------- */
 function addMenu() {
