@@ -1,0 +1,25 @@
+{
+  "name": "xurripoints",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Xurripoints — la moneda de la pareja: puntos, vales, tareas y gastos compartidos. App Android vía Capacitor + Firebase.",
+  "scripts": {
+    "build": "esbuild src/firebase.js --bundle --format=esm --minify --target=es2020 --outfile=app/vendor/firebase.js",
+    "sync": "npm run build && cap sync android",
+    "open": "cap open android",
+    "serve": "npx http-server app -p 5173 -c-1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/status-bar": "^8.0.3",
+    "firebase": "^12.19.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "esbuild": "^0.28.2"
+  }
+}

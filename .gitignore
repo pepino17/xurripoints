@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Android — artefactos de build (el proyecto android/ SÍ se versiona)
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/app/release/
+.gradle/
+# Copia de la web que genera `cap sync` (se regenera en cada build)
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# Firmas (NUNCA subir claves)
+*.keystore
+*.jks
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

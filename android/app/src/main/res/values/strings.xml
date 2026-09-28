@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Xurripoints</string>
+    <string name="title_activity_main">Xurripoints</string>
+    <string name="package_name">com.pepino17.xurripoints</string>
+    <string name="custom_url_scheme">com.pepino17.xurripoints</string>
+</resources>

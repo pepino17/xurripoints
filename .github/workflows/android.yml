@@ -1,0 +1,85 @@
+name: Build Xurripoints APK
+
+# Compila un APK de depuración en la nube (gratis) y lo publica en Releases.
+# Se dispara al hacer push a main o manualmente (Run workflow).
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:            # un push solo de docs/CHANGELOG no recompila el APK
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Java (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Igual que en DopaQuest: usamos el SDK que ya trae ubuntu-latest (más estable que setup-android).
+      - name: Instalar componentes del SDK (API 36 — lo que pide Capacitor 8)
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          echo "sdk.dir=$SDK" > android/local.properties
+
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts   # sharp (solo para generar iconos en local) no hace falta aquí
+
+      - name: Pruebas de la lógica
+        run: node tests/logic.test.mjs
+
+      - name: Empaquetar Firebase y sincronizar Capacitor
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Compilar APK (debug)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Versión (de la cabecera del CHANGELOG)
+        id: ver
+        run: |
+          VERSION=$(grep -m1 -oE '\[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '[]')
+          if [ -z "$VERSION" ]; then VERSION="0.0.0"; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Renombrar APK con la versión
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk "Xurripoints-v${{ steps.ver.outputs.version }}.apk"
+
+      - name: Publicar en Releases (la última siempre en /releases/latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Xurripoints v${{ steps.ver.outputs.version }}
+          body: |
+            Última versión de Xurripoints para Android.
+            **Descarga:** `Xurripoints-v${{ steps.ver.outputs.version }}.apk` (abajo, en Assets).
+          files: Xurripoints-v${{ steps.ver.outputs.version }}.apk
+          make_latest: true
+
+      - name: Subir APK (copia como artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xurripoints-apk
+          path: Xurripoints-v${{ steps.ver.outputs.version }}.apk
+          if-no-files-found: error

@@ -1,0 +1,15 @@
+{
+  "name": "Xurripoints",
+  "short_name": "Xurripoints",
+  "description": "La moneda de la pareja: puntos, vales, tareas y gastos compartidos.",
+  "lang": "es",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF3EC",
+  "theme_color": "#FFF3EC",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

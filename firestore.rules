@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// Reglas de seguridad de Xurripoints (Firestore).
+// Idea: cada pareja es un documento couples/{código} con `members` (máx. 2 uids).
+// Solo sus miembros pueden leer y escribir lo de dentro. Para unirse hay que conocer el código
+// y solo se puede mientras la pareja tenga 1 miembro.
+// Publicarlas: Firebase → Firestore Database → Reglas → pegar este archivo → Publicar
+// (o `npx firebase-tools deploy --only firestore:rules`). Ver docs/FIREBASE.md.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function coupleData(code) { return get(/databases/$(database)/documents/couples/$(code)).data; }
+    function isMember(code) { return signedIn() && me() in coupleData(code).members; }
+
+    // Cada usuario guarda aquí a qué pareja pertenece.
+    match /users/{uid} {
+      allow read, write: if signedIn() && me() == uid;
+    }
+
+    match /couples/{code} {
+      // Leer: los miembros, o cualquiera con el código mientras falte la pareja (para unirse).
+      // resource == null → el código aún no existe (lo comprueba quien crea una pareja).
+      allow get: if signedIn() && (resource == null || me() in resource.data.members || resource.data.members.size() < 2);
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.code == code
+        && request.resource.data.members == [me()];
+
+      allow update: if signedIn() && (
+        // Un miembro edita perfiles, catálogo, ajustes… pero no los miembros ni el código.
+        (me() in resource.data.members
+          && request.resource.data.members == resource.data.members
+          && request.resource.data.code == resource.data.code)
+        ||
+        // Alguien se une: solo se añade a sí mismo y solo toca su propio perfil.
+        (resource.data.members.size() == 1
+          && !(me() in resource.data.members)
+          && request.resource.data.members == resource.data.members.concat([me()])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'profiles', 'updatedAt'])
+          && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()]))
+      );
+      allow delete: if false;
+
+      // Movimientos de xurripoints. Nadie puede aprobarse a sí mismo.
+      match /points/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code)
+          && request.resource.data.createdBy == me()
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.amount <= 100000
+          && (
+            // reclamar: pendiente, para mí
+            (request.resource.data.type == 'claim' && request.resource.data.status == 'pending'
+              && request.resource.data.from == null && request.resource.data.to == me())
+            // pedir vale: pendiente, de mí a mi pareja
+            || (request.resource.data.type == 'redeem' && request.resource.data.status == 'pending'
+              && request.resource.data.from == me() && request.resource.data.to != me())
+            // premiar: aprobado al momento, para mi pareja
+            || (request.resource.data.type == 'reward' && request.resource.data.status == 'approved'
+              && request.resource.data.from == null && request.resource.data.to != me())
+            // regalar: aprobado al momento, de mí a mi pareja
+            || (request.resource.data.type == 'gift' && request.resource.data.status == 'approved'
+              && request.resource.data.from == me() && request.resource.data.to != me())
+          );
+        allow update: if isMember(code)
+          && resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'resolvedBy', 'reply'])
+          && (
+            // la pareja decide
+            (me() != resource.data.createdBy && request.resource.data.status in ['approved', 'rejected'])
+            // quien lo pidió puede anularlo
+            || (me() == resource.data.createdBy && request.resource.data.status == 'cancelled')
+          );
+        allow delete: if false;
+      }
+
+      match /expenses/{id} {
+        allow read, write: if isMember(code);
+      }
+      match /tasks/{id} {
+        allow read, write: if isMember(code);
+      }
+    }
+  }
+}
