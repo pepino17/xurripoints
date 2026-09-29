@@ -3,9 +3,10 @@ rules_version = '2';
 // Reglas de seguridad de Xurripoints (Firestore).
 // Idea: cada pareja es un documento couples/{código} con `members` (máx. 2 uids).
 // Solo sus miembros pueden leer y escribir lo de dentro. Para unirse hay que conocer el código
-// y solo se puede mientras la pareja tenga 1 miembro.
+// y solo se puede mientras la pareja tenga 1 miembro y no esté cerrada (nadie ha salido).
 // Publicarlas: Firebase → Firestore Database → Reglas → pegar este archivo → Publicar
 // (o `npx firebase-tools deploy --only firestore:rules`). Ver docs/FIREBASE.md.
+// Pruebas: tests/rules.test.mjs (se ejecutan con el emulador en GitHub Actions: .github/workflows/rules.yml).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -13,6 +14,14 @@ service cloud.firestore {
     function me() { return request.auth.uid; }
     function coupleData(code) { return get(/databases/$(database)/documents/couples/$(code)).data; }
     function isMember(code) { return signedIn() && me() in coupleData(code).members; }
+    // Único miembro (esperando pareja, o la otra persona ya salió): puede borrarlo todo.
+    function isSoleMember(code) { return isMember(code) && coupleData(code).members.size() == 1; }
+    // Ids "normales" (los que crea la app): así un id raro nunca llega a pintarse en la pantalla del otro.
+    function okId(id) { return id.matches('^[A-Za-z0-9_-]{1,80}$'); }
+    function isInt(v, lo, hi) { return v is int && v >= lo && v <= hi; }
+    function isStr(v, max) { return v is string && v.size() <= max; }
+    function optStr(d, k, max) { return !(k in d) || d[k] == null || isStr(d[k], max); }
+    function optInt(d, k, lo, hi) { return !(k in d) || isInt(d[k], lo, hi); }
 
     // Cada usuario guarda aquí a qué pareja pertenece.
     match /users/{uid} {
@@ -20,51 +29,76 @@ service cloud.firestore {
     }
 
     match /couples/{code} {
+      // Números del documento de la pareja que se pintan en pantalla: siempre enteros.
+      function validCouple(d) {
+        return (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
+          && (!('settings' in d) || !('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100));
+      }
+
       // Leer: los miembros, o cualquiera con el código mientras falte la pareja (para unirse).
       // resource == null → el código aún no existe (lo comprueba quien crea una pareja).
-      allow get: if signedIn() && (resource == null || me() in resource.data.members || resource.data.members.size() < 2);
+      allow get: if signedIn() && (resource == null || me() in resource.data.members
+        || (resource.data.members.size() < 2 && !('closedAt' in resource.data)));
       allow list: if false;
 
       allow create: if signedIn()
         && request.resource.data.code == code
-        && request.resource.data.members == [me()];
+        && request.resource.data.members == [me()]
+        && validCouple(request.resource.data);
 
       allow update: if signedIn() && (
         // Un miembro edita perfiles, catálogo, ajustes… pero no los miembros ni el código.
         (me() in resource.data.members
           && request.resource.data.members == resource.data.members
-          && request.resource.data.code == resource.data.code)
+          && request.resource.data.code == resource.data.code
+          && validCouple(request.resource.data))
         ||
-        // Alguien se une: solo se añade a sí mismo y solo toca su propio perfil.
+        // Alguien se une: solo se añade a sí mismo y solo toca su propio perfil. Nunca a una pareja cerrada.
         (resource.data.members.size() == 1
+          && !('closedAt' in resource.data)
           && !(me() in resource.data.members)
           && request.resource.data.members == resource.data.members.concat([me()])
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'profiles', 'updatedAt'])
           && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()]))
+        ||
+        // Salir de la pareja: me quito yo, la pareja queda cerrada y de mi perfil se van los ingresos.
+        (me() in resource.data.members
+          && resource.data.members.size() == 2
+          && request.resource.data.members == resource.data.members.removeAll([me()])
+          && request.resource.data.code == resource.data.code
+          && 'closedAt' in request.resource.data
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'profiles', 'formerMembers', 'closedAt', 'updatedAt'])
+          && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()])
+          && !('income' in request.resource.data.profiles[me()]))
       );
-      allow delete: if false;
+      // Borrar la pareja entera: solo quien se ha quedado solo (primero borra lo de dentro).
+      allow delete: if signedIn() && me() in resource.data.members && resource.data.members.size() == 1;
 
       // Movimientos de xurripoints. Nadie puede aprobarse a sí mismo.
       match /points/{id} {
         allow read: if isMember(code);
-        allow create: if isMember(code)
+        allow create: if isMember(code) && okId(id)
           && request.resource.data.createdBy == me()
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 100000
+          && optStr(request.resource.data, 'title', 80)
           && (
             // reclamar: pendiente, para mí
             (request.resource.data.type == 'claim' && request.resource.data.status == 'pending'
               && request.resource.data.from == null && request.resource.data.to == me())
             // pedir vale: pendiente, de mí a mi pareja
             || (request.resource.data.type == 'redeem' && request.resource.data.status == 'pending'
-              && request.resource.data.from == me() && request.resource.data.to != me())
-            // premiar: aprobado al momento, para mi pareja
+              && request.resource.data.from == me() && request.resource.data.to != me()
+              && request.resource.data.to in coupleData(code).members)
+            // "lo ha hecho mi pareja": aprobado al momento, para mi pareja
             || (request.resource.data.type == 'reward' && request.resource.data.status == 'approved'
-              && request.resource.data.from == null && request.resource.data.to != me())
+              && request.resource.data.from == null && request.resource.data.to != me()
+              && request.resource.data.to in coupleData(code).members)
             // regalar: aprobado al momento, de mí a mi pareja
             || (request.resource.data.type == 'gift' && request.resource.data.status == 'approved'
-              && request.resource.data.from == me() && request.resource.data.to != me())
+              && request.resource.data.from == me() && request.resource.data.to != me()
+              && request.resource.data.to in coupleData(code).members)
           );
         allow update: if isMember(code)
           && resource.data.status == 'pending'
@@ -75,37 +109,95 @@ service cloud.firestore {
             // quien lo pidió puede anularlo
             || (me() == resource.data.createdBy && request.resource.data.status == 'cancelled')
           );
-        allow delete: if false;
+        allow delete: if isSoleMember(code);
       }
 
+      // Gastos y liquidaciones (dinero en céntimos, enteros).
       match /expenses/{id} {
-        allow read, write: if isMember(code);
+        function validExpense(d) {
+          return d.kind in ['expense', 'settle']
+            && isInt(d.amount, 0, 100000000)
+            && d.paidBy is string
+            && d.shares is map
+            && optStr(d, 'title', 80);
+        }
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id) && validExpense(request.resource.data);
       }
       match /tasks/{id} {
-        allow read, write: if isMember(code);
+        function validTask(d) {
+          return isStr(d.title, 80)
+            && optInt(d, 'pts', 0, 1000)
+            && (!('log' in d) || (d.log is list && d.log.size() <= 30));
+        }
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id) && validTask(request.resource.data);
       }
       // Gastos fijos (plantillas que se apuntan solas cada mes).
       match /recurring/{id} {
-        allow read, write: if isMember(code);
+        function validRecurring(d) {
+          return isStr(d.title, 80) && isInt(d.amount, 0, 100000000) && isInt(d.day, 1, 28);
+        }
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id) && validRecurring(request.resource.data);
       }
       // Planes: ideas de pelis, planes y comida que votáis los dos.
       match /ideas/{id} {
-        allow read, write: if isMember(code);
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id)
+          && isStr(request.resource.data.title, 120)
+          && request.resource.data.list in ['pelis', 'planes', 'comida'];
       }
-      // Ahorro: huchas y sus aportaciones/retiradas.
+      // Ahorro: huchas y sus aportaciones/retiradas (céntimos; retirada = negativo).
       match /jars/{id} {
-        allow read, write: if isMember(code);
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id)
+          && isStr(request.resource.data.title, 60)
+          && isInt(request.resource.data.target, 0, 10000000000);
       }
       match /saves/{id} {
-        allow read, write: if isMember(code);
+        allow read, delete: if isMember(code);
+        allow create, update: if isMember(code) && okId(id)
+          && request.resource.data.jar is string
+          && isInt(request.resource.data.amount, -10000000000, 10000000000);
       }
       // Tarro de gracias (sin puntos). Lo escribe quien agradece; quien lo recibe solo marca "visto"/reacción.
       match /thanks/{id} {
         allow read: if isMember(code);
-        allow create: if isMember(code) && request.resource.data.from == me() && request.resource.data.to != me();
+        allow create: if isMember(code) && okId(id)
+          && request.resource.data.from == me() && request.resource.data.to != me()
+          && isStr(request.resource.data.text, 200);
         allow update: if isMember(code) && resource.data.to == me()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'reaction']);
-        allow delete: if isMember(code) && resource.data.from == me();
+        allow delete: if isMember(code) && (resource.data.from == me() || isSoleMember(code));
+      }
+      // Propuestas: lo que afecta a los dos (repartos, precios, volver a los puntos). Uno propone, el otro decide.
+      match /proposals/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && okId(id)
+          && request.resource.data.by == me()
+          && request.resource.data.status == 'pending'
+          && request.resource.data.kind in ['split', 'taskPct', 'catalog', 'points-on']
+          && isStr(request.resource.data.text, 200);
+        allow update: if isMember(code)
+          && resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'resolvedBy'])
+          && (
+            (me() != resource.data.by && request.resource.data.status in ['accepted', 'rejected'])
+            || (me() == resource.data.by && request.resource.data.status == 'cancelled')
+          );
+        allow delete: if isSoleMember(code);
+      }
+      // Avisos de cambios (borrar/editar gastos, tareas, huchas…). Lo escribe quien cambia; el otro marca
+      // "visto" o "recuperado". No se pueden borrar ni reescribir (nada cambia a escondidas).
+      match /log/{id} {
+        allow read: if isMember(code);
+        allow create: if isMember(code) && okId(id)
+          && request.resource.data.by == me()
+          && isStr(request.resource.data.text, 200);
+        allow update: if isMember(code) && resource.data.by != me()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'restoredAt']);
+        allow delete: if isSoleMember(code);
       }
     }
   }

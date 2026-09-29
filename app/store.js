@@ -13,6 +13,8 @@
      watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks, jars, saves}); devuelve "dejar de escuchar"
      updateCouple(patch)            → admite rutas con puntos: {'profiles.X.name': 'Ana'}
      add(col, data) → {id, done}  ·  set(col, id, data) (id fijo, idempotente)  ·  update(col, id, patch)  ·  remove(col, id)
+     leaveCouple()                  → salgo de la pareja (si soy el último, se borra todo)
+     deleteAccount(password)        → sale de la pareja, borra users/{uid} y la cuenta (solo Firebase)
    Las escrituras NO se esperan en la interfaz: Firestore las aplica al momento en local
    (funciona sin conexión) y las sube cuando hay red.
    ================================================================ */
@@ -23,18 +25,32 @@ export function hasFirebaseConfig() {
   return !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId && !/PEGA|TU_/i.test(firebaseConfig.apiKey));
 }
 
-const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves'];
+// proposals = cambios de reglas comunes que el otro acepta · log = avisos de cambios (borrar, editar…)
+const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log'];
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
+
+/* Lo útil de la demo se guarda aparte al salir de ella, para llevarlo a la pareja real (logic.demoToSeed). */
+const DEMO_STASH = 'xurripoints_demo_stash';
+export function peekDemoStash() { try { return JSON.parse(localStorage.getItem(DEMO_STASH)) || null; } catch (e) { return null; } }
+export function dropDemoStash() { try { localStorage.removeItem(DEMO_STASH); } catch (e) { /* nada */ } }
 
 /* ---------------- Firebase ---------------- */
-class FirebaseBackend {
-  constructor(fb) {
+/** Opciones solo para las pruebas (tests/store.test.mjs, con los emuladores): nombre de app, config,
+    persistencia en memoria y conectar a los emuladores. La app usa los valores por defecto. */
+export class FirebaseBackend {
+  constructor(fb, { name, config = firebaseConfig, persistence, emulator } = {}) {
     this.kind = 'firebase';
     this.fb = fb;
-    this.app = fb.initializeApp(firebaseConfig);
-    this.auth = fb.initializeAuth(this.app, { persistence: [fb.indexedDBLocalPersistence, fb.browserLocalPersistence] });
+    this.app = fb.initializeApp(config, name);
+    this.auth = fb.initializeAuth(this.app, { persistence: persistence || [fb.indexedDBLocalPersistence, fb.browserLocalPersistence] });
     let localCache;
-    try { localCache = fb.persistentLocalCache({ tabManager: fb.persistentSingleTabManager() }); } catch (e) { localCache = undefined; }
+    try { localCache = emulator ? undefined : fb.persistentLocalCache({ tabManager: fb.persistentSingleTabManager() }); } catch (e) { localCache = undefined; }
     this.db = fb.initializeFirestore(this.app, localCache ? { localCache } : {});
+    if (emulator) {
+      fb.connectAuthEmulator(this.auth, `http://${emulator.auth}`, { disableWarnings: true });
+      const [host, port] = emulator.firestore.split(':');
+      fb.connectFirestoreEmulator(this.db, host, Number(port));
+    }
     this.code = null;
   }
   get uid() { return this.auth.currentUser ? this.auth.currentUser.uid : null; }
@@ -78,14 +94,21 @@ class FirebaseBackend {
     const { fb } = this;
     code = String(code || '').trim().toUpperCase();
     const ref = this.coupleRef(code);
-    await fb.runTransaction(this.db, async tx => {
-      const s = await tx.get(ref);
-      if (!s.exists()) throw new Error('No existe ninguna pareja con ese código.');
-      const d = s.data();
-      if (d.members.includes(this.uid)) return;
-      if (d.members.length >= 2) throw new Error('Esa pareja ya está completa.');
-      tx.update(ref, { members: [...d.members, this.uid], [`profiles.${this.uid}`]: profile, updatedAt: Date.now() });
-    });
+    try {
+      await fb.runTransaction(this.db, async tx => {
+        const s = await tx.get(ref);
+        if (!s.exists()) throw new Error('No existe ninguna pareja con ese código.');
+        const d = s.data();
+        if (d.members.includes(this.uid)) return;
+        if (d.closedAt) throw new Error('Esa pareja ya no está activa.');
+        if (d.members.length >= 2) throw new Error('Esa pareja ya está completa.');
+        tx.update(ref, { members: [...d.members, this.uid], [`profiles.${this.uid}`]: profile, updatedAt: Date.now() });
+      });
+    } catch (e) {
+      // Las reglas no dejan ni leer una pareja completa o cerrada si no eres de ella: se explica claro.
+      if (e && e.code === 'permission-denied') throw new Error('Esa pareja ya está completa o ya no está activa.');
+      throw e;
+    }
     await fb.setDoc(this.userRef(), { couple: code }, { merge: true });
     this.code = code;
     return code;
@@ -99,7 +122,8 @@ class FirebaseBackend {
     const unsubs = [
       fb.onSnapshot(this.coupleRef(code), s => { data.couple = s.exists() ? s.data() : null; emit('couple'); }, onError),
       ...COLS.map(col => fb.onSnapshot(fb.collection(this.db, 'couples', code, col), qs => {
-        data[col] = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Solo ids "normales" (los que crea la app): un id raro no llega nunca a pintarse en la pantalla.
+        data[col] = qs.docs.filter(d => SAFE_ID.test(d.id)).map(d => ({ id: d.id, ...d.data() }));
         emit(col);
       }, onError)),
     ];
@@ -116,6 +140,55 @@ class FirebaseBackend {
   set(col, id, data) { return this.fb.setDoc(this.fb.doc(this.db, 'couples', this.code, col, id), data); }
   update(col, id, patch) { return this.fb.updateDoc(this.fb.doc(this.db, 'couples', this.code, col, id), patch); }
   remove(col, id) { return this.fb.deleteDoc(this.fb.doc(this.db, 'couples', this.code, col, id)); }
+
+  /** Salir de la pareja. Quien se queda conserva el historial común; de mí solo queda el nombre y el
+      avatar (los ingresos se borran). Nadie más puede unirse a una pareja cerrada.
+      Si soy el último miembro, se borra todo. */
+  async leaveCouple() {
+    const { fb } = this, me = this.uid;
+    const code = this.code || await this.getMyCoupleCode();
+    if (!code) return;
+    this.code = code;
+    const ref = this.coupleRef(code);
+    let last = false;
+    await fb.runTransaction(this.db, async tx => {
+      const s = await tx.get(ref);
+      if (!s.exists()) return;
+      const d = s.data();
+      if (!d.members.includes(me)) return;
+      if (d.members.length <= 1) { last = true; return; }
+      const p = (d.profiles || {})[me] || {};
+      tx.update(ref, {
+        members: d.members.filter(u => u !== me),
+        formerMembers: [...(d.formerMembers || []), me],
+        closedAt: Date.now(),
+        [`profiles.${me}`]: { name: p.name || '¿?', emoji: p.emoji || '🙂', left: true },
+        updatedAt: Date.now(),
+      });
+    });
+    if (last) await this.deleteAll(code);
+    await fb.setDoc(this.userRef(), { couple: null }, { merge: true });
+    this.code = null;
+  }
+  /** Borra la pareja entera (solo se puede siendo el único miembro: ver firestore.rules). */
+  async deleteAll(code = this.code) {
+    const { fb } = this;
+    for (const col of COLS) {
+      const qs = await fb.getDocs(fb.collection(this.db, 'couples', code, col));
+      await Promise.all(qs.docs.map(d => fb.deleteDoc(d.ref)));
+    }
+    await fb.deleteDoc(this.coupleRef(code));
+  }
+  /** Borrar mi cuenta: pide la contraseña (Firebase exige haber entrado hace poco), sale de la pareja,
+      borra users/{uid} y la cuenta. */
+  async deleteAccount(password) {
+    const { fb } = this, u = this.auth.currentUser;
+    if (!u) return;
+    await fb.reauthenticateWithCredential(u, fb.EmailAuthProvider.credential(u.email, password));
+    await this.leaveCouple();
+    await fb.deleteDoc(this.userRef());
+    await fb.deleteUser(u);
+  }
 }
 
 /* ---------------- Demo (un solo dispositivo) ---------------- */
@@ -212,6 +285,13 @@ class DemoBackend {
       recurring: [
         { id: 'alquiler', title: 'Alquiler', category: 'casa', amount: 75000, paidBy: A, mode: 'default', sugar: null, customPctA: 50, day: 1, startMonth: t.slice(0, 7), lastMonth: null, createdBy: A, createdAt: now - 20 * D },
       ],
+      // Una propuesta de ejemplo: Churri propone subir un vale (se acepta o se habla).
+      proposals: (() => {
+        const it = ((seed.catalog || {}).spend || []).find(x => x.title === 'Elijo yo la cena');
+        return it ? [{ id: uid8(), kind: 'catalog', value: { op: 'upsert', kind: 'spend', item: { ...it, pts: 20 } },
+          text: `Vale «${it.title}»: ${it.pts} → 20 puntos`, by: B, createdAt: now - 2 * H, status: 'pending', resolvedAt: null, resolvedBy: null }] : [];
+      })(),
+      log: [],
     };
     this.save();
     this.onUser && this.onUser({ uid: A, email: 'modo demo' });
@@ -223,7 +303,30 @@ class DemoBackend {
     this.save();
     this.onUser && this.onUser({ uid: this.data.me, email: 'modo demo' });
   }
-  signOut() { this.data = null; try { localStorage.removeItem(DEMO_KEY); } catch (e) { } this.onUser && this.onUser(null); return Promise.resolve(); }
+  /** Salir de la demo. Con keep, lo útil se guarda aparte para llevarlo a la pareja real. */
+  signOut({ keep = false } = {}) {
+    try {
+      if (keep && this.data) localStorage.setItem(DEMO_STASH, JSON.stringify(this.data));
+      localStorage.removeItem(DEMO_KEY);
+    } catch (e) { /* sin almacenamiento */ }
+    this.data = null;
+    this.onUser && this.onUser(null);
+    return Promise.resolve();
+  }
+  /** En la demo, "salir de la pareja" te convierte en la otra persona para ver lo que le queda a quien se queda. */
+  leaveCouple() {
+    const c = this.data.couple, me = this.data.me;
+    const rest = c.members.filter(u => u !== me);
+    if (!rest.length) return this.signOut();
+    c.members = rest;
+    c.formerMembers = [...(c.formerMembers || []), me];
+    c.closedAt = Date.now();
+    c.profiles[me] = { name: c.profiles[me].name, emoji: c.profiles[me].emoji, left: true };
+    this.data.me = rest[0];
+    this.save();
+    this.onUser && this.onUser({ uid: this.data.me, email: 'modo demo' });
+    return Promise.resolve();
+  }
   async getMyCoupleCode() { return this.data ? this.data.couple.code : null; }
   watch(code, onData) {
     this.listeners.add(onData);

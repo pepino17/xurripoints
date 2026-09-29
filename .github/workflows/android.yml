@@ -1,6 +1,6 @@
 name: Build Xurripoints APK
 
-# Compila un APK de depuración en la nube (gratis) y lo publica en Releases.
+# Compila el APK en la nube (gratis; release firmado con la clave estable) y lo publica en Releases.
 # Se dispara al hacer push a main o manualmente (Run workflow).
 on:
   push:
@@ -56,14 +56,6 @@ jobs:
         run: |
           if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > android/app/xurripoints.p12; echo "Firma estable: OK"; else echo "::warning::Sin ANDROID_KEYSTORE_B64 → firma de depuración aleatoria (habrá que desinstalar para actualizar)"; fi
 
-      - name: Compilar APK (debug)
-        env:
-          XP_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
       - name: Versión (de la cabecera del CHANGELOG)
         id: ver
         run: |
@@ -71,10 +63,39 @@ jobs:
           if [ -z "$VERSION" ]; then VERSION="0.0.0"; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # Si la versión ya está publicada, un push la PISARÍA (pasó con la v0.6.0, que salió como v0.5.0).
+      - name: ¿Es una versión nueva?
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.ver.outputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error::La versión ${{ steps.ver.outputs.version }} ya está publicada. Súbela en CHANGELOG.md, package.json y app/app.js."
+            exit 1
+          fi
+
+      # Release firmado con la clave estable (se instala encima de las versiones anteriores).
+      # Si faltan los secretos de la clave, se hace uno de depuración para no romper el build.
+      - name: Compilar APK
+        id: apk
+        env:
+          XP_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          cd android
+          chmod +x gradlew
+          if [ -f app/xurripoints.p12 ] && [ -n "$XP_KEYSTORE_PASS" ]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace
+            echo "path=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Sin clave de firma → APK de depuración"
+            ./gradlew assembleDebug --no-daemon --stacktrace
+            echo "path=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Renombrar APK con la versión (+ copia con nombre fijo para el enlace permanente)
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk "Xurripoints-v${{ steps.ver.outputs.version }}.apk"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "Xurripoints.apk"
+          cp "${{ steps.apk.outputs.path }}" "Xurripoints-v${{ steps.ver.outputs.version }}.apk"
+          cp "${{ steps.apk.outputs.path }}" "Xurripoints.apk"
 
       - name: Publicar en Releases (la última siempre en /releases/latest)
         uses: softprops/action-gh-release@v2

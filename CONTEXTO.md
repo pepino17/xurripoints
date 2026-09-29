@@ -1,39 +1,43 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-28** (v0.5.0).
+> Última actualización: **2026-09-29** (v0.7.0).
 
 ## Qué es
-**Xurripoints**: app Android para parejas. Tiene una moneda propia (los *xurripoints*) que se gana cuidando
-de la pareja/casa y se gasta en **vales** (salir con amigos, siesta…). Además incluye un "Splitwise" de pareja
-para **tareas** y **gastos** con varios modos de reparto (50/50, proporcional, sugar mami, sugar papi, a medida).
+**Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
+compartidos (un "Splitwise" de pareja con 50/50, según ingresos, sugar mami/papi o a medida), ahorro, planes,
+juegos y **gracias**. Tiene además una moneda propia (los *xurripoints*) que se gana con **tareas de casa** y se
+gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 
-## Decisiones tomadas con Joan (2026-09-28)
-- **Dos móviles sincronizados con Firebase** (no un solo móvil). Cuenta con email + contraseña; se emparejan con
-  un **código de 6 caracteres**. Mientras no haya config de Firebase, la app arranca en **modo demo**.
-- **Catálogo + aprobación:** reclamar una acción o pedir un vale necesita que la pareja lo apruebe.
-  Premiar y regalar son al momento.
-- Al canjear un vale, los puntos **pasan a la pareja** (economía cerrada: "le cedo mis puntos para que me diga vale").
-- Nombre visible: **Xurripoints**. Estilo **tierno pastel** (crema, rosa, lila, mantequilla).
+## Decisiones tomadas con Joan
+- (2026-09-28) **Dos móviles sincronizados con Firebase**. Cuenta con email + contraseña; se emparejan con un
+  **código de 6 caracteres**. Mientras no haya config de Firebase, la app arranca en **modo demo** ("versión de prueba").
+- (2026-09-28) Reclamar una tarea cuenta sola en 24 h si la pareja no contesta (confianza por defecto); pedir un
+  vale necesita respuesta. Al aceptar un vale, los puntos **pasan a la pareja**.
+- (2026-09-28) Estilo **tierno pastel** (crema, rosa, lila, mantequilla). Las 8 reglas de `docs/PSICOLOGIA.md` son obligatorias.
+- (2026-09-29) **"No quitar funciones, pero que sea fácil"**: lo secundario va plegado, en "Más" o en hojas.
+- (2026-09-29) **Lo común se propone**: reparto de gastos, reparto de tareas, precios del catálogo y volver a
+  activar los puntos cambian solo cuando la pareja acepta. Borrar/cambiar cosas de dinero y tareas se avisa y se puede deshacer.
 
 ## Estado
-- v0.1.0 hecha y verificada en navegador (modo demo): puntos, vales, aprobar/rechazar, tareas (turnos,
-  repetición, reparto automático), gastos (todos los modos), liquidar, perfiles.
-- v0.2.0 (revisión): gastos fijos, bienvenida, avisos de respuesta, aviso de versión nueva, compartir la app,
-  confirmaciones propias, firma estable. 11 pruebas de lógica en verde. Verificado en navegador.
-- v0.3.0 (revisión psicológica, `docs/PSICOLOGIA.md`): vales = favores (no permisos), mimos sin precio (→ Gracias),
-  confianza por defecto (cuenta sola en 24 h), Meta juntos, Planes (ideas + votos + match + azar), pregunta del día,
-  lenguaje sin reproche. **Las 8 reglas de diseño de `docs/PSICOLOGIA.md` son obligatorias.**
-- v0.4.0: **Ahorro** (huchas en Gastos) y pestaña **Juntos** = Ideas · Decidir (moneda, dados, ruleta) · Jugar
-  (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?). Juegos en el mismo móvil,
-  sin guardar nada en la nube. Textos de los juegos en `app/content.js`. 16 pruebas de lógica.
-- v0.5.0: interfaz limpia (barra Inicio · Tareas · ＋ · Dinero · Juntos; Puntos y vales desde Inicio; Pareja arriba),
-  **vuestro reparto** por defecto (`couple.settings.split`), gasto estilo Splitwise, azar criptográfico (`L.rand`,
-  `L.randInt`) y arreglos en moneda/dados/ruleta/juegos. 17 pruebas.
+- v0.1–v0.6 (2026-09-28): puntos, vales, tareas, gastos, gastos fijos, ahorro, Juntos (ideas, decidir, jugar),
+  revisión psicológica, recordatorio diario. Detalle en `CHANGELOG.md`.
+- **v0.7.0 (2026-09-29)**: análisis como usuario, desarrollador y psicólogo aplicado entero:
+  - Más fácil: ＋ con 4 grandes + "Más"; Inicio sin marcador (manda la meta juntos); Decidir en tarjetas; Pareja en bloques;
+    letra mínima ~13 px y gris con contraste 5:1; desplegables que no se cierran solos.
+  - Tutorial: bienvenida en 5 pasos con dibujitos (`xp_welcome_v2`), **Primeros pasos** en Inicio (`L.firstSteps`) y
+    **ayuda por pantalla** (tarjeta la 1.ª vez + botón ?).
+  - Psicología: **propuestas**, **avisos de cambios** con recuperar/deshacer e historial, **modo sin puntos**,
+    **salir de la pareja** y **borrar cuenta**, frases arregladas (fuera "Deseo libre", "noche de chicas/chicos"…).
+  - Técnica: prueba de versión (CHANGELOG = package.json = app.js), el build falla si la versión ya está publicada,
+    **APK release** firmado, reglas con validación de tipos + **pruebas de reglas en CI** (emulador), ids y números seguros.
+  - 22 pruebas de lógica + pruebas de reglas (`tests/rules.test.mjs`, en GitHub Actions). Verificado en navegador (demo).
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
-  (botón + QR en el README). Repo **público** desde 2026-09-28 para que los testers puedan descargar.
-- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`) y pasar la config → entonces se
-  pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
+  (botón + QR en el README). Repo **público** para que los testers puedan descargar.
+- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`), pegar **las reglas nuevas** y pasar la
+  config → se pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
+  Hasta entonces, salir de la pareja / borrar cuenta / propuestas en la nube solo están probados con la demo y con
+  el emulador de reglas (no con un Firebase real).
 - Repo: `pepino17/xurripoints` (público). Cada release publica `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk` (nombre fijo).
 
 ## Arquitectura
@@ -41,57 +45,77 @@ para **tareas** y **gastos** con varios modos de reparto (50/50, proporcional, s
 app/                  ← la web que empaqueta Capacitor (sin bundler, ES modules)
   index.html          carcasa + scripts
   app.js              interfaz: pantallas, hojas (bottom sheets), acciones data-act → ACT
-  logic.js            lógica pura (saldos, repartos, tareas). Probada en tests/logic.test.mjs
-  store.js            datos: FirebaseBackend y DemoBackend con la MISMA interfaz
+  logic.js            lógica pura (saldos, repartos, tareas, propuestas, primeros pasos…). Probada en tests/logic.test.mjs
+  store.js            datos: FirebaseBackend y DemoBackend con la MISMA interfaz (incl. leaveCouple/deleteAccount)
+  content.js          textos de los juegos
   firebase-config.js  config de la web app de Firebase (no es secreta)
-  native.js           Capacitor: barra de estado + botón atrás
+  native.js           Capacitor: barra de estado, botón atrás y notificaciones locales
   vendor/firebase.js  SDK de Firebase empaquetado con esbuild (npm run build ← src/firebase.js)
-  vendor/lucide.min.js iconos
+  vendor/lucide.min.js iconos (lucide 0.544)
   fonts/ fonts.css    Fraunces (títulos y números) + Lexend (texto), locales
 android/              proyecto nativo de Capacitor 8 (se versiona)
 assets/               imágenes fuente de icono/splash (scripts/make-assets.mjs + npx capacitor-assets generate --android)
 firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
-.github/workflows/android.yml  compila el APK y lo publica en Releases
+tests/logic.test.mjs  pruebas de la lógica + versión igual en los 3 sitios
+tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflows/rules.yml)
+.github/workflows/android.yml  compila el APK (release firmado) y lo publica en Releases
 ```
 
+## Pantallas (v0.7)
+- Barra: **Inicio · Tareas · ＋ · Dinero · Juntos**. **Pareja** desde los avatares de arriba. **Puntos y vales** desde Inicio.
+- **Inicio**: meta juntos + "tienes X para pedir favores" · Primeros pasos · **Para ti** (propuestas, gracias, cambios,
+  peticiones, tareas de hoy) · para cuadrar · pregunta del día.
+- **＋**: grandes = ya lo he hecho, gracias, gasto, nueva tarea (sin puntos: gracias, gasto, tarea, idea); "Más" = pedir
+  un favor, lo ha hecho [pareja], idea, ahorrar.
+- **Pareja**: Vosotros · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda · App · Cuenta.
+
 ## Modelo de datos (Firestore)
-- `users/{uid}` → `{ couple: CODIGO }`
-- `couples/{CODIGO}` → `{ code, members:[uidA, uidB], profiles:{uid:{name, emoji, sugar:'mami'|'papi', income(céntimos/mes)}},
-  catalog:{ earn:[{id,emoji,title,pts}], spend:[…] }, settings:{ taskPctA }, createdAt, updatedAt }`
+- `users/{uid}` → `{ couple: CODIGO | null }`
+- `couples/{CODIGO}` → `{ code, members:[uidA, uidB], profiles:{uid:{name, emoji, sugar:'mami'|'papi', income(céntimos/mes), left?}},
+  catalog:{ earn:[{id,emoji,title,pts}], spend:[…] }, settings:{ taskPctA, split, noPoints }, goal, goalsDone,
+  formerMembers?, closedAt?, createdAt, updatedAt }`
   - "A" = `members[0]` (quien creó la pareja, color rosa); "B" = `members[1]` (lila).
+  - **Salir** (v0.7): `members` sin mí, `formerMembers:[…, yo]`, `closedAt`, mi perfil = `{name, emoji, left:true}` (sin ingresos).
+    Pareja cerrada → nadie se une; quien se queda ve la pantalla `alone` y puede borrarlo todo.
+  - `settings.noPoints: true` = puntos en pausa (se oculta todo lo de puntos; los datos no se borran).
 - `couples/{C}/points/{id}` → `{ type:'claim'|'redeem'|'reward'|'gift', from, to, amount, title, emoji, note,
   status:'pending'|'approved'|'rejected'|'cancelled', createdBy, createdAt, resolvedAt, resolvedBy, reply, taskId }`
-  - Saldo = Σ aprobados (`to` suma, `from` resta). `from:null` = puntos nuevos (reclamar/premiar).
+  - Saldo = Σ aprobados (`to` suma, `from` resta). `from:null` = puntos nuevos. `reward` = "lo ha hecho [pareja]" (antes "premiar").
 - `couples/{C}/expenses/{id}` → `{ kind:'expense'|'settle', title, category, amount(céntimos), paidBy, mode,
   sugar, shares:{uid:céntimos}, date:'YYYY-MM-DD', createdBy, createdAt }`
-  - Las `shares` se congelan al guardar (si cambian los ingresos, los gastos viejos no cambian).
-  - Liquidación: `paidBy` = quien paga, `shares = { quien cobra: importe }`.
+  - Las `shares` se congelan al guardar. Liquidación: `paidBy` = quien paga, `shares = { quien cobra: importe }`.
 - `couples/{C}/recurring/{id}` (gastos fijos) → `{ title, category, amount, paidBy, mode, sugar, customPctA, day(1-28),
-  startMonth:'YYYY-MM', lastMonth }`. Cada mes se crea `expenses/rec_<id>_<YYYY-MM>` (id fijo → sin duplicados)
-  con `recurringId`. Lo hace `runRecurring()` al recibir datos.
-- `couples/{C}/ideas/{id}` (Planes) → `{ list:'pelis'|'planes'|'comida', title, note, votes:{uid: 1|-1|0}, createdBy, createdAt, doneAt }`.
-- `couples/{C}/thanks/{id}` (Gracias, sin puntos) → `{ from, to, text, emoji, createdAt, seenAt, reaction }`.
-- En `couples/{C}`: `goal: { title, emoji, target, since }` (Meta juntos: suma los puntos NUEVOS aprobados de los dos desde `since`)
-  y `goalsDone: [ {title, emoji, target, doneAt} ]`.
+  startMonth:'YYYY-MM', lastMonth }`. Cada mes se crea `expenses/rec_<id>_<YYYY-MM>` (id fijo → sin duplicados).
+- `couples/{C}/ideas/{id}` → `{ list:'pelis'|'planes'|'comida', title, note, votes:{uid: 1|-1|0}, createdBy, createdAt, doneAt }`.
+- `couples/{C}/thanks/{id}` → `{ from, to, text, emoji, createdAt, seenAt, reaction }`.
+- `couples/{C}/jars/{id}` → `{ title, emoji, target }` · `couples/{C}/saves/{id}` → `{ jar, by, amount(± céntimos), note, date, createdAt }`.
+- `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat, due, doneAt, doneBy, log:[{by, at}] (≤30), createdBy, createdAt }`
+- **`couples/{C}/proposals/{id}`** (v0.7) → `{ kind:'split'|'taskPct'|'catalog'|'points-on', value, text, by, createdAt,
+  status:'pending'|'accepted'|'rejected'|'cancelled', resolvedAt, resolvedBy }`. Lo aplica el móvil de **quien acepta**
+  (`applyProposal`). Catálogo: `value = {op:'upsert'|'delete', kind:'earn'|'spend', item}` (`L.applyCatalogOp`).
+- **`couples/{C}/log/{id}`** (v0.7, avisos de cambios) → `{ kind, text, data:{col, id, label, doc, extra?}|null, by, createdAt, seenAt, restoredAt }`.
+  `kind`: exp-del, exp-edit, rec-edit, rec-del, task-del, jar-del, save-out, income, points-off, goal, restore.
+  Con `data`, la pareja puede **Recuperar** (borrados, `…-del`) o **Deshacer** (ediciones): se reescribe `doc` en `col/id`.
 - Reclamaciones (`claim`) pendientes con más de 24 h cuentan como aprobadas (`L.effStatus`); en la base siguen `pending`.
-- En `couples/{C}.settings.split` → `{ mode:'equal'|'proportional'|'sugar'|'custom', sugar, customPctA }` = "⭐ vuestro reparto".
-  Un gasto fijo con `mode:'default'` usa ese reparto al apuntarse cada mes. Los gastos normales guardan el reparto ya resuelto.
-- `couples/{C}/jars/{id}` (huchas) → `{ title, emoji, target(céntimos, 0 = sin objetivo), createdBy, createdAt }`.
-- `couples/{C}/saves/{id}` (movimientos de hucha) → `{ jar, by, amount(céntimos, negativo = sacar), note, date, createdAt }`.
-- `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat:'none'|'daily'|'weekly'|'monthly',
-  due, doneAt, doneBy, log:[{by, at}] (últimas 30), createdBy, createdAt }`
 
 **Reglas de datos:** añadir campos es seguro; cambiar el significado de uno existente NO (habría que migrar
-los datos de las dos personas). Dinero siempre en **céntimos**.
+los datos de las dos personas). Dinero siempre en **céntimos** (enteros: las reglas lo exigen). Ids de documentos
+solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
+
+## localStorage (por móvil)
+`xp_mode` (demo) · `xp_code_<uid>` · `xp_welcome_v2` · `xp_steps_off` · `xp_saw_vales` · `xp_hint_<pantalla>` ·
+`xp_notify` (hora) · `xp_upd_at`/`xp_upd_v` · `xurripoints_demo_v1` (demo) · `xurripoints_demo_stash` (lo que se lleva de la demo).
 
 ## Firma del APK (actualizar sin desinstalar)
 - Clave PKCS12 fija, **fuera de git** (el repo es público): secretos de GitHub `ANDROID_KEYSTORE_B64` y
   `ANDROID_KEYSTORE_PASS`; el workflow la escribe en `android/app/xurripoints.p12` y `build.gradle` firma con ella.
-- Copia local (ignorada): `android/app/xurripoints.p12` + `xurripoints.p12.pass`. **No borrarla**: si se pierde
-  la clave, todos tendrán que desinstalar una vez. Generada con Python `cryptography` (no hay JDK en el PC).
-- versionCode = mayor·10000 + menor·100 + parche, sacado del CHANGELOG (como DopaQuest).
+- Desde v0.7 se publica el **release** (`assembleRelease`) firmado con esa misma clave → se instala encima de las anteriores.
+  Sin los secretos, el workflow hace un debug (con aviso).
+- Copia local (ignorada): `android/app/xurripoints.p12` + `xurripoints.p12.pass`. **No borrarla** (y guárdala también
+  en un gestor de contraseñas): si se pierde la clave, todos tendrán que desinstalar una vez. No hay JDK en el PC.
+- versionCode = mayor·10000 + menor·100 + parche, sacado del CHANGELOG. El build **falla** si esa versión ya está publicada.
 
 ## Siguientes pasos sugeridos
-1. Conectar Firebase (Joan) y probar con los dos móviles.
-2. Avisos push cuando la pareja pide aprobar algo (ver `docs/IDEAS.md`).
-3. Recordatorios locales de las tareas del día.
+1. Conectar Firebase (Joan), pegar las reglas nuevas y probar con los dos móviles (salir de la pareja y borrar cuenta incluidos).
+2. Avisos push cuando la pareja propone o pide algo (FCM + Cloud Function, plan Blaze: ver `docs/IDEAS.md`).
+3. Revisión semanal juntos (10 min) y logros de equipo.

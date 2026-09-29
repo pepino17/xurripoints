@@ -4,7 +4,9 @@ import * as L from '../app/logic.js';
 
 const M = ['a', 'b'];
 let n = 0;
-const t = (name, fn) => { fn(); n++; console.log('✔', name); };
+const pending = [];
+const ok = name => { n++; console.log('✔', name); };
+const t = (name, fn) => { const r = fn(); if (r && r.then) pending.push(r.then(() => ok(name))); else ok(name); };
 
 t('saldos: solo cuentan los aprobados; los vales mueven puntos a la pareja', () => {
   const P = [
@@ -195,4 +197,59 @@ t('recordatorios: qué días toca cada tarea', () => {
   assert.equal(L.addDays('2026-12-31', 1), '2027-01-01');
 });
 
+t('propuestas del catálogo: añadir, cambiar y borrar', () => {
+  const list = [{ id: 'x', title: 'Fregar', pts: 10, emoji: '🧽' }];
+  assert.deepEqual(L.applyCatalogOp(list, { op: 'upsert', item: { id: 'x', pts: 15 } })[0], { id: 'x', title: 'Fregar', pts: 15, emoji: '🧽' });
+  assert.equal(L.applyCatalogOp(list, { op: 'upsert', item: { id: 'y', title: 'Basura', pts: 5 } }).length, 2);
+  assert.deepEqual(L.applyCatalogOp(list, { op: 'delete', item: { id: 'x' } }), []);
+  assert.deepEqual(L.applyCatalogOp(undefined, { op: 'delete', item: { id: 'x' } }), []);
+  assert.equal(list[0].pts, 10); // no cambia la lista original
+});
+
+t('primeros pasos: se marcan solos', () => {
+  const none = L.firstSteps({}, 'a');
+  assert.ok(none.every(s => !s.done));
+  assert.equal(none.length, 6);
+  const some = L.firstSteps({
+    tasks: [{}], expenses: [{ kind: 'settle' }], thanks: [{ from: 'b' }],
+    proposals: [{ kind: 'split', status: 'pending', by: 'a' }],
+  }, 'a', { points: false, notify: true });
+  assert.deepEqual(some.map(s => [s.id, s.done]), [['tasks', true], ['split', true], ['expense', false], ['thanks', false], ['notify', true]]);
+});
+
+t('de la demo a la cuenta real: sin personas de la demo', () => {
+  const demo = {
+    me: 'demoB',
+    couple: { members: ['demoA', 'demoB'], catalog: { earn: [{ id: 'e', title: 'Fregar', pts: 10 }], spend: [] } },
+    tasks: [
+      { id: '1', title: 'Basura', assignee: 'demoB', rotate: false, doneAt: null },
+      { id: '2', title: 'Baño', assignee: 'demoA', rotate: false, doneAt: 5 },
+      { id: '3', title: 'Platos', assignee: 'demoA', rotate: true, doneAt: null },
+    ],
+    ideas: [{ id: 'i', title: 'Pizza', votes: { demoA: 1, demoB: -1 } }],
+    jars: [{ id: 'j', title: 'Viaje', emoji: '✈️', target: 1000, createdBy: 'demoA' }],
+  };
+  const s = L.demoToSeed(demo, 'yo');
+  assert.deepEqual(s.tasks.map(t => t.assignee), ['yo', null, 'yo']);
+  assert.equal(s.tasks[1].doneBy, 'yo');
+  assert.ok(s.tasks.every(t => !('id' in t)));
+  assert.deepEqual(s.ideas[0].votes, { yo: -1 });
+  assert.deepEqual(s.jars, [{ title: 'Viaje', emoji: '✈️', target: 1000 }]);
+  assert.equal(s.catalog.earn[0].title, 'Fregar');
+  assert.ok(!JSON.stringify(s).includes('demoA'));
+  assert.equal(L.demoToSeed(null, 'yo'), null);
+});
+
+t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
+  const fs = await import('node:fs');
+  const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  const changelog = (read('CHANGELOG.md').match(/\[(\d+\.\d+\.\d+)\]/) || [])[1];
+  const pkg = JSON.parse(read('package.json')).version;
+  const app = (read('app/app.js').match(/const VERSION = '([\d.]+)'/) || [])[1];
+  assert.ok(changelog, 'el CHANGELOG no tiene ninguna versión [x.y.z]');
+  assert.equal(pkg, changelog, `package.json (${pkg}) ≠ CHANGELOG (${changelog})`);
+  assert.equal(app, changelog, `app.js VERSION (${app}) ≠ CHANGELOG (${changelog})`);
+});
+
+await Promise.all(pending);
 console.log(`\n${n} pruebas OK`);

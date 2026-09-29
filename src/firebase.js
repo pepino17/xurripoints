@@ -6,9 +6,11 @@ export {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, sendPasswordResetEmail,
+  deleteUser, reauthenticateWithCredential, EmailAuthProvider,
+  connectAuthEmulator, inMemoryPersistence,
 } from 'firebase/auth';
 export {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  doc, collection, getDoc, setDoc, updateDoc, addDoc, deleteDoc,
-  onSnapshot, runTransaction, deleteField,
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
+  onSnapshot, runTransaction, deleteField, connectFirestoreEmulator,
 } from 'firebase/firestore';

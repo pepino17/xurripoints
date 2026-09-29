@@ -13,31 +13,46 @@ Guía para cualquier asistente (o persona) que retome el proyecto. Léela junto 
 - Lee **`docs/PSICOLOGIA.md`** antes de añadir funciones. Sus **8 reglas de diseño son obligatorias**:
   nada de castigos, nada de permisos, el cariño no tiene precio, cooperar > competir, confianza por defecto,
   lenguaje amable, empujar a hablar en persona, y nada que sirva para controlar.
+- En la práctica (v0.7): lo que afecta a los dos se cambia con **`propose(kind, value, text)`** (no con `updateCouple`
+  directo); borrar o cambiar cosas de dinero/tareas deja un aviso con **`logChange(kind, text, data)`** para que la
+  pareja lo vea y pueda recuperarlo. Revisa también los **textos de ejemplo** (placeholders): también educan.
 
 ## 2. Idioma y tono
 - **Todo en español** (interfaz, código, comentarios, documentación).
 - Tono de la app: cariñoso y con humor de pareja, **sin ser empalagoso** ni infantil.
 
 ## 2b. Interfaz: que sea fácil
-- Cada pantalla, **lo mínimo a la vista**; lo secundario en "Más opciones" (`details.more`) o plegado.
-- Todo lo que se apunta entra por el **＋ central** (`addMenu`). Nada de botones flotantes por pantalla.
+- Joan (2026-09-29): **"no quites funciones, pero que no esté cargada"**. Cada pantalla, **lo mínimo a la vista**;
+  lo secundario en "Más opciones" (`details.more`), plegado, en la fila "Más" o en una hoja.
+- Todo lo que se apunta entra por el **＋ central** (`addMenu`): 4 grandes + "Más". Nada de botones flotantes por pantalla.
+- Tutorial: si añades una pantalla, añade su ayuda en `HINTS` (tarjeta la 1.ª vez + botón ? con `pageHead(…, { help })`).
+  Si añades algo que todo el mundo debería probar al empezar, va en `L.firstSteps` + `STEP_INFO`.
+- Legibilidad (dislexia): nada de letra por debajo de `.78rem`, nada de MAYÚSCULAS espaciadas, y contraste ≥ 4,5:1.
 - Azar siempre con `L.randInt` / `L.rand` (nunca `Math.random` para decidir nada).
 
 ## 3. Datos (cuidado: son de DOS personas)
 - Los datos viven en Firestore y los comparten los dos móviles. **No cambies el significado de un campo**
   sin migración; añadir campos sí es seguro. Modelo en `CONTEXTO.md`.
-- Si cambias qué se escribe en `points`, revisa `firestore.rules` (las reglas validan esos campos).
-- Dinero en **céntimos** (enteros). Nunca floats.
+- **Si cambias qué se escribe en cualquier colección, revisa `firestore.rules`**: validan tipos (enteros, textos,
+  ids `[A-Za-z0-9_-]`) en todas. Y añade el caso a `tests/rules.test.mjs`.
+- Dinero en **céntimos** (enteros). Nunca floats. Números que vienen de la base se pintan con `num()`; textos con `esc()`.
 
 ## 4. Guardar y documentar SIEMPRE
 - Tras cambios importantes: `CHANGELOG.md` (nueva versión arriba), estado en `CONTEXTO.md`, ideas en `docs/IDEAS.md`.
 - Fechas **absolutas** (2026-09-28), no "hoy".
-- Sube la versión también en `package.json` y en `VERSION` de `app/app.js`.
+- Sube la versión en **los tres sitios**: `CHANGELOG.md`, `package.json` y `VERSION` de `app/app.js`.
+  La prueba `node tests/logic.test.mjs` falla si no coinciden, y el build falla si esa versión ya está publicada
+  (así no se pisa una release, como pasó con la v0.6.0).
 
 ## 5. Cómo probar antes de decir "funciona"
-- `node tests/logic.test.mjs` (lógica pura).
+- `node tests/logic.test.mjs` (lógica pura + versión).
+- Reglas y datos de Firebase: `tests/rules.test.mjs` y `tests/store.test.mjs` necesitan Java (emuladores), que no
+  hay en el PC → corren en GitHub Actions (`rules.yml`) al subir cambios en reglas/`store.js`. Para probarlos sin
+  publicar APK, sube una **rama** (no `main`) y mira `gh run list`. **No llames a la rama como la versión** (`v0.7.0`),
+  que choca con la etiqueta de la release.
 - Servir la web: `python -m http.server 5173 --directory app` y abrir `http://localhost:5173`
-  en tamaño móvil. **Modo demo** → probar el flujo tocado (con "cambiar de persona" para aprobar).
+  en tamaño móvil (si el navegador enseña la versión vieja, es la caché: recarga forzada).
+  **Modo demo** → probar el flujo tocado (con "cambiar de persona" para aceptar propuestas o recuperar cosas).
 - Consola **sin errores**.
 - Si tocas `src/firebase.js`: `npm run build` (regenera `app/vendor/firebase.js`).
 

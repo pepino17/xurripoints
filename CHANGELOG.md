@@ -2,6 +2,69 @@
 
 Cambios importantes del proyecto. Formato: versión — fecha — cambios.
 La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions).
+**La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
+`node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
+
+## [0.7.0] — 2026-09-29 · Más fácil, más justa y más segura (análisis como usuario, desarrollador y psicólogo)
+
+Joan: "hazlo todo" (el análisis de 2026-09-29) + "es como complicado de usar, está muy cargado, pero no quiero que
+quites funciones" + "mejora el tutorial".
+
+**Más fácil sin quitar nada**
+- **＋ más simple:** 4 opciones grandes (ya lo he hecho, gracias, gasto, nueva tarea) y el resto en **Más**, en filas pequeñas.
+- **Inicio sin marcador:** arriba manda la **meta juntos**; de puntos solo sale "tienes X para pedir favores".
+- **Decidir** ya no es una pantalla kilométrica: moneda, dados y ruleta son tarjetas que se abren en su hoja.
+- **Pareja ordenada** en bloques: Vosotros · Lo que acordáis · Ayuda · App · Cuenta.
+- Palabras que no se pisan: "Premiar" → **"Lo ha hecho [pareja]"**; "hucha" ya solo es dinero (los puntos "pasan a" la otra persona).
+- **Letra más grande** (nada por debajo de ~13 px), sin textos en MAYÚSCULAS espaciadas y **gris con más contraste** (5:1).
+- 🐞 Los desplegables (p. ej. "Gastos fijos") ya **no se cierran solos** cada minuto o al llegar datos.
+- 🐞 Lo que escribes en la pantalla de espera (código) ya no se borra si llega un cambio.
+- Primera pantalla sin jerga ("falta la configuración de Firebase" → "versión de prueba").
+
+**Tutorial nuevo**
+- **Bienvenida en 5 pasos con dibujitos** de la app (se vuelve a ver una vez al actualizar).
+- **Primeros pasos** en Inicio: 5-6 tareas cortas (tareas, reparto, un gasto, unas gracias, vales, recordatorio) que
+  **se marcan solas** al hacerlas. Se ocultan y se recuperan en Pareja → Ayuda.
+- **Ayuda en cada pantalla:** la primera vez sale una tarjeta que explica la pestaña; luego, con el botón **?** del título.
+
+**Psicología (docs/PSICOLOGIA.md)**
+- **Propuestas:** lo que afecta a los dos (reparto de gastos, reparto de tareas, precios de acciones y vales, volver a
+  activar los puntos) ya no se cambia a solas: **uno propone y el otro dice "Vale" o "Lo hablamos"**.
+- **Nada cambia a escondidas:** si tu pareja borra o cambia un gasto, un gasto fijo, una tarea o una hucha, saca
+  dinero, cambia sus ingresos o pausa los puntos, te sale en **Para ti** con **Recuperar/Deshacer**, y queda en el
+  **historial de cambios** (Pareja).
+- **Modo sin puntos:** los puntos, vales y meta se pueden **pausar** (cualquiera, al momento); volver a activarlos es una propuesta.
+- **Salir de la pareja** (y **borrar la cuenta**): quien se queda conserva lo común (sin tus ingresos) y nadie más puede
+  unirse. Si sale el último, se borra todo.
+- Frases arregladas: fuera "ganad puntos **cuidándoos**", "tarea **o favor** suma puntos", "me ha hecho reír" como
+  ejemplo de premio, "noche de chicas/chicos" como ejemplo de vale y el vale **"Deseo libre"**. Emojis del catálogo sin
+  masajes, flores, cañas, fútbol ni compras. Al crear un vale se explica: favor concreto, nunca permisos.
+- La barra de tareas ahora es una pregunta: **"¿Os parece justo el reparto?"**.
+
+**Técnica y seguridad**
+- 🐞 **v0.6.0 se publicó como v0.5.0** (el CHANGELOG no tenía la entrada): nueva prueba que exige la misma versión en
+  CHANGELOG, `package.json` y `app.js`.
+- **APK firmado de release** (antes de depuración) con la misma clave → se instala encima.
+- Reglas de Firestore: validan tipos en gastos, tareas, huchas…; nuevas colecciones `proposals` y `log`; salir de la
+  pareja; borrar todo siendo el último; nadie se une a una pareja cerrada. ⚠️ Hay que **volver a pegar `firestore.rules`** en Firebase.
+- **Pruebas con los emuladores de Firebase** en GitHub Actions (`rules.yml`): 26 de reglas (`tests/rules.test.mjs`) y
+  una de `app/store.js` de punta a punta (`tests/store.test.mjs`: cuentas, crear pareja, unirse, salir, borrar cuenta).
+- 🐞 Unirse a una pareja completa decía "Sin permiso. ¿Están publicadas las reglas?" → ahora "Esa pareja ya está
+  completa o ya no está activa."
+- Números de la base de datos siempre como número al pintarlos, ids raros filtrados: la pareja no puede colar HTML.
+- **De la demo a la cuenta real:** al salir de la demo puedes llevarte tareas, ideas, vales y huchas.
+- La demo trae una **propuesta de ejemplo** de Churri para ver cómo funciona.
+
+## [0.6.0] — 2026-09-28 · Revisión a fondo: 7 fallos del uso real y recordatorio diario
+
+(Entrada añadida en 0.7.0: se publicó sin ella y el APK salió como 0.5.0.)
+- Pantalla de espera: unirse a la pareja del otro si los dos creasteis una.
+- Sin conexión al arrancar: pantalla de reintentar en vez de mandar a crear pareja.
+- Firebase ya no se inicia dos veces al entrar y salir de la demo.
+- Reabrir una tarea anula su petición de puntos pendiente; huchas sin saldo negativo; nombre obligatorio al
+  emparejar; las hojas ya no se cierran solas al abrir otra rápido.
+- **Recordatorio diario** opcional con notificaciones locales (tareas del día y lo que espera respuesta).
+- "¿Empezáis con las típicas?" para crear 7 tareas de golpe.
 
 ## [0.5.0] — 2026-09-28 · Interfaz más limpia, "vuestro reparto" y azar justo
 

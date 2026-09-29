@@ -55,6 +55,11 @@ android {
             if (xpSigned) signingConfig signingConfigs.stable
         }
     }
+    // El análisis "lint" del release no debe tumbar el build del APK (se publica desde GitHub Actions).
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 repositories {

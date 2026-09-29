@@ -21,8 +21,12 @@ y se sincroniza al instante. El plan gratuito (**Spark**) sobra para una pareja.
 2. Borra todo lo que hay y pega el contenido de **`firestore.rules`** (está en la raíz del proyecto).
 3. **Publicar**.
 
-> Las reglas hacen que solo los dos miembros de cada pareja puedan ver sus datos, y que nadie pueda
-> aprobarse sus propios puntos.
+> Las reglas hacen que solo los dos miembros de cada pareja puedan ver sus datos, que nadie pueda
+> aprobarse sus propios puntos, que los números sean números, que quien sale de la pareja deje de verla
+> y que nadie se una a una pareja cerrada. Están probadas con el emulador (`tests/rules.test.mjs`).
+>
+> ⚠️ **Cada vez que cambie `firestore.rules` hay que volver a pegarlas y Publicar** (la v0.7.0 las cambió:
+> sin las nuevas, la app no puede leer las propuestas ni los avisos de cambios y da "Sin permiso").
 
 ## 5. Sacar la configuración
 1. Arriba a la izquierda, ⚙️ → **Configuración del proyecto** → pestaña **General**.
@@ -41,11 +45,21 @@ Estos valores **no son secretos** (identifican el proyecto). La seguridad la pon
 2. Cada uno: **Crear cuenta** (email + contraseña).
 3. Uno pulsa **Crear nuestra pareja** → le sale un **código de 6 letras** → se lo envía al otro.
 4. El otro pone el código en **Tengo un código → Unirme**. ¡Listo! 💞
+5. Si antes probasteis la **demo**, al salir de ella la app pregunta si os lleváis las tareas, ideas, vales y
+   huchas; se pasan al **crear** la pareja (interruptor "Traer lo de la demo").
+
+## Salir de la pareja y borrar la cuenta (v0.7)
+- **Pareja → Cuenta → Salir de la pareja**: quien se queda conserva lo común (sin tus ingresos) y la pareja se cierra
+  (nadie más puede unirse con ese código). Quien se queda puede **borrarlo todo** y empezar de cero.
+- **Pareja → Cuenta → Borrar mi cuenta**: pide la contraseña, sale de la pareja, borra `users/{uid}` y la cuenta.
+  Si eras el último miembro, se borra la pareja entera. (Google Play exige poder borrar la cuenta desde la app.)
 
 ## Si algo falla
 | Mensaje en la app | Qué pasa |
 |---|---|
 | "Falta activar Email/Contraseña" | Paso 2 sin hacer. |
 | "Falta crear la base de datos" | Paso 3 sin hacer. |
-| "Sin permiso. ¿Están publicadas las reglas?" | Paso 4 sin hacer (o reglas antiguas). |
+| "Sin permiso. ¿Están publicadas las reglas?" | Paso 4 sin hacer (o **reglas antiguas**: vuelve a pegar `firestore.rules`). |
+| "Esa pareja ya está completa o ya no está activa." | El código es de una pareja con dos personas o de la que alguien salió. |
+| "Por seguridad, vuelve a escribir tu contraseña." | Al borrar la cuenta: la contraseña no era correcta. |
 | "Sin conexión" | Sin internet. Lo que apuntes se guarda y se sube al volver la red. |

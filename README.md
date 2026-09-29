@@ -4,7 +4,7 @@
 
 # Xurripoints
 
-**La moneda de vuestra relación.** App Android para parejas: puntos, vales, tareas y gastos compartidos.
+**Vuestra casa, en equipo.** App Android para parejas: tareas, gastos compartidos, planes y gracias — y puntos para pediros favores.
 
 [![Descargar app](https://img.shields.io/badge/⬇%20Descargar%20app-Android-F58BAA?style=for-the-badge&labelColor=3B2335)](https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk)
 
@@ -21,9 +21,12 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
   elegir la peli, una siesta sin ruido…). Todo suma a una **meta juntos**. Los mimos no se cobran: para eso está **Gracias** 💛.
 - **Juntos:** ideas de pelis, planes y comida con votos y *match*; **ruleta, dados y cara o cruz** para decidir; y
   **juegos para dos** (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?).
-- **Tareas:** repartidas, libres o por turnos, con una barra que dice quién lleva más carga.
+- **Tareas:** repartidas, libres o por turnos, con una barra para hablar de si el reparto os parece justo.
 - **Dinero:** elegid **vuestro reparto** una vez (a medias, según ingresos, sugar mami/papi o a medida) y cambiadlo en cada gasto si hace falta, como en Splitwise;
   gastos fijos que se apuntan solos cada mes, cuánto hay que cuadrar y **huchas para ahorrar juntos**.
+- **Lo común se acuerda:** repartos y precios se cambian con una **propuesta** que el otro acepta; si alguien borra o
+  cambia algo, el otro lo ve y puede recuperarlo. Los puntos se pueden **pausar** y cada uno puede **salir de la pareja**.
+- **Fácil de empezar:** bienvenida en 5 pasos, **primeros pasos** en Inicio y ayuda en cada pantalla (botón **?**).
 
 ## Instalar (Android)
 1. Pulsa **Descargar app** desde el móvil (o escanea el QR).
@@ -36,11 +39,12 @@ Para sincronizar dos móviles: [`docs/FIREBASE.md`](docs/FIREBASE.md).
 ## Desarrollo
 ```bash
 npm install
-node tests/logic.test.mjs                        # pruebas de la lógica
+node tests/logic.test.mjs                        # pruebas de la lógica (y de que la versión coincide)
 python -m http.server 5173 --directory app       # probar en el navegador
 npm run sync                                     # empaqueta Firebase + copia la web a android/
 ```
-Cada push a `main` compila el APK en GitHub Actions y lo publica en Releases.
+Cada push a `main` compila el APK (release firmado) en GitHub Actions y lo publica en Releases.
+Las reglas de Firestore y `app/store.js` se prueban con los emuladores de Firebase en Actions (`tests/rules.test.mjs`, `tests/store.test.mjs`).
 
 Diseñada con criterio de psicología de pareja para que **sume y no lleve la cuenta**: [`docs/PSICOLOGIA.md`](docs/PSICOLOGIA.md).
 

@@ -1,6 +1,7 @@
 # Revisión psicológica de Xurripoints
 
 > Revisión desde la psicología de pareja y de las relaciones · **2026-09-28** · aplicada en **v0.3.0**.
+> Segunda revisión (la app ya hecha, pantalla por pantalla) · **2026-09-29** · aplicada en **v0.7.0**.
 > Objetivo de Joan: que la app **ayude a convivir y haga las cosas fáciles**, y que **no se convierta en una
 > herramienta tóxica de cuantificación**.
 >
@@ -53,22 +54,44 @@ cariño y, sobre todo, **comprar permisos**). La v0.3 los corrige y añade funci
   El marcador es solo de la partida y no se guarda: se juega por reírse, no para llevar la cuenta. "¿Quién es más
   probable…?" y "Esto o aquello" usan preguntas amables, nunca para dejar mal al otro.
 
+## Segunda revisión (2026-09-29, aplicada en v0.7)
+
+Mirando la app ya hecha (no solo las funciones) quedaban contradicciones con las reglas de abajo:
+
+| # | Lo que había | Regla que rompía | Cambio en v0.7 |
+|---|---|---|---|
+| 1 | Lo más grande de Inicio era un **marcador "Tú 90 · Churri 25"** | 4 (cooperar) | Arriba manda la **meta juntos**; de puntos solo sale "tienes X para pedir favores" (solo los tuyos). |
+| 2 | "Ganad puntos **cuidándoos**", "Tarea **o favor** · suma puntos", ejemplo de premio "Me ha hecho reír" | 3 (el cariño no tiene precio) | Textos cambiados: los puntos salen de **tareas**; los mimos, a Gracias. "Premiar" pasa a "**Lo ha hecho [pareja]**" (apuntarle una tarea). Emojis del catálogo sin masajes ni flores. |
+| 3 | Ejemplo de vale nuevo: **"Noche de chicas/chicos"**; emojis de cañas, fútbol, videojuegos y compras | 2 (nada de permisos) | Ejemplo: "Me cubres la cena del jueves". Al crear un vale se explica: favor concreto, nunca permisos. |
+| 4 | Vale **"Deseo libre" (100 pts)** | 2 y 8 | Fuera. Un vale abierto es la puerta de vuelta a los permisos y a presionar con "lo he pagado" (decir que no a algo "pagado" cuesta más, por la norma de reciprocidad). |
+| 5 | Cualquiera podía cambiar **a solas** precios, reparto de gastos (y con él el alquiler de los meses siguientes) o reparto de tareas, y **borrar** gastos y pagos sin que el otro se enterase | 8 (nada que sirva para controlar) | **Propuestas**: lo común cambia cuando los dos dicen que sí ("Vale" / "Lo hablamos"). **Avisos de cambios** con Recuperar/Deshacer e **historial**: nada cambia a escondidas. |
+| 6 | La barra de reparto de tareas como veredicto ("31 % / 69 %") | 4 y 6 | Ahora es una **pregunta**: "¿Os parece justo el reparto?… si no os cuadra, habladlo". Lo que importa es que el reparto **se perciba justo** (Frisco y Williams, 2003). |
+| 7 | Los consejos decían "dejad los puntos"… **sin botón para hacerlo** | 1 y 7 | **Modo sin puntos**: cualquiera lo pausa al momento (una salida de seguridad tiene que ser fácil); volver a activarlo es una propuesta (lo deciden los dos). |
+| 8 | Tras una ruptura, el ex seguía viéndolo todo (gracias, gastos, **ingresos**) y **no había forma de salir** | 8 y señales de alerta | **Salir de la pareja** y **borrar la cuenta**: quien se queda conserva lo común sin los ingresos del otro; nadie más puede unirse; quien se queda puede borrarlo todo. |
+| 9 | "¿Quién es más probable…?" con "pida perdón primero después de discutir", "se compre algo que no necesita", "adopte un animal sin consultarlo" | 6 | Cambiadas por preguntas sin heridas típicas (discusiones, dinero, decidir a solas). |
+
+Lo que **no** se ha tocado a propósito: la confianza por defecto (24 h), el tarro de gracias, la meta común, la
+pregunta del día y el "Lo hablamos": funcionan y están bien fundamentados.
+
 ## Reglas de diseño (obligatorias para futuras versiones)
 
 1. **Nada de castigos**: ni multas, ni restar puntos, ni rachas que se pierden con culpa.
 2. **Nada de permisos**: el tiempo, los amigos y la familia de cada uno no se compran ni se autorizan.
-3. **El cariño no tiene precio**: los gestos afectivos van a Gracias, nunca al catálogo de puntos.
+3. **El cariño no tiene precio**: los gestos afectivos van a Gracias, nunca al catálogo de puntos (ni en los textos de ejemplo).
 4. **Cooperar, no competir**: nada de rankings, "quién ha hecho más" ni comparaciones destacadas.
 5. **Confianza por defecto**: aceptar es dar las gracias, no revisar.
 6. **Lenguaje amable**: sin reproches; los "no" siempre con una salida ("lo hablamos", "otro día").
 7. **La app empuja a hablar en persona**, no sustituye las conversaciones.
-8. Si una función **se puede usar para controlar** a la pareja, no se hace.
+8. Si una función **se puede usar para controlar** a la pareja, no se hace. En la práctica (v0.7):
+   **lo común se propone** (no se cambia a solas), **nada cambia a escondidas** (avisos + historial) y
+   **siempre hay salida** (pausar los puntos, salir de la pareja, borrar la cuenta).
 
 ## Señales de alerta (para quien la use)
 
-Si la app genera discusiones, si uno la usa para "cobrarse" cosas o para dar permisos, **dejad los puntos**
-y usad solo Planes, Gracias y Tareas. Y si en la relación hay miedo o control, la app no es la herramienta:
-hablad con un profesional. En España, el **016** atiende gratis y no aparece en la factura.
+Si la app genera discusiones, si uno la usa para "cobrarse" cosas o para dar permisos, **pausad los puntos**
+(Pareja → Puntos y vales) y usad solo Planes, Gracias y Tareas. Cada uno puede **salir de la pareja** cuando
+quiera. Y si en la relación hay miedo o control, la app no es la herramienta: hablad con un profesional.
+En España, el **016** atiende gratis y no aparece en la factura.
 
 ## Fuentes
 

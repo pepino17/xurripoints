@@ -18,11 +18,12 @@ export const THIS_OR_THAT = [
 /** "¿Quién es más probable que…?": a la de tres, los dos señaláis a quién. */
 export const WHO_MORE = [
   'se duerma en mitad de una peli', 'se coma lo último de la nevera sin avisar', 'llore con un anuncio',
-  'se pierda aunque lleve el GPS', 'adopte un animal sin consultarlo', 'cante en la ducha a pleno pulmón',
+  'se pierda aunque lleve el GPS', 'le ponga nombre a las plantas', 'cante en la ducha a pleno pulmón',
   'se olvide de dónde ha dejado las llaves', 'organice una fiesta sorpresa', 'se ría en un momento serio',
   'haga la maleta la noche antes', 'hable con las plantas', 'se apunte a un plan improvisado a las 11 de la noche',
-  'se enganche a una serie en un solo día', 'pida perdón primero después de discutir', 'se quede dormido en el sofá',
-  'se compre algo que no necesita', 'haga amigos en la cola del súper', 'se ponga nervioso en una atracción',
+  // Nada que toque heridas típicas (discusiones, dinero, decidir a solas): solo risas.
+  'se enganche a una serie en un solo día', 'se haga amigo del perro del vecino', 'se quede dormido en el sofá',
+  'se compre otra taza con dibujitos', 'haga amigos en la cola del súper', 'se ponga nervioso en una atracción',
   'se acuerde de todos los cumpleaños', 'pruebe la comida más rara del menú', 'baile cuando nadie mira',
   'se lleve mil fotos del mismo sitio', 'cuente el mismo chiste dos veces', 'se emocione en una boda',
   'deje la ropa en la silla "solo un momento"', 'se ofrezca a ayudar a un desconocido', 'tenga hambre a todas horas',

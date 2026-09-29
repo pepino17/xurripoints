@@ -257,6 +257,56 @@ export function wheelTarget(prevRot, i, n, turns = 5, jitter = 0) {
   return base + turns * 360 + ((360 - center) % 360 + 360) % 360;
 }
 
+/* ---------------- Reglas comunes: propuestas ----------------
+   Lo que afecta a los dos (reparto de gastos, reparto de tareas, precios del catálogo, volver a activar los
+   puntos) no se cambia a solas: uno PROPONE y el otro acepta (ver docs/PSICOLOGIA.md, regla 8).
+   Propuesta: { kind:'split'|'taskPct'|'catalog'|'points-on', value, text, by, status:'pending'|'accepted'|'rejected'|'cancelled' }
+   Para el catálogo, value = { op:'upsert'|'delete', kind:'earn'|'spend', item:{id,emoji,title,pts} }. */
+export function applyCatalogOp(list, op) {
+  const cur = Array.isArray(list) ? list : [];
+  if (!op || !op.item) return cur;
+  if (op.op === 'delete') return cur.filter(x => x.id !== op.item.id);
+  const i = cur.findIndex(x => x.id === op.item.id);
+  if (i < 0) return [...cur, op.item];
+  const next = cur.slice();
+  next[i] = { ...cur[i], ...op.item };
+  return next;
+}
+
+/* ---------------- Primeros pasos (tutorial en Inicio) ----------------
+   Se marcan solos al hacerlos. `sawVales` y `notify` vienen del móvil (localStorage). */
+export function firstSteps({ tasks = [], expenses = [], thanks = [], couple = {}, proposals = [] } = {}, me, { points = true, notify = false, sawVales = false } = {}) {
+  const split = !!(couple.settings && couple.settings.split)
+    || proposals.some(p => p.kind === 'split' && p.status === 'pending' && p.by === me);
+  return [
+    { id: 'tasks', done: tasks.length > 0 },
+    { id: 'split', done: split },
+    { id: 'expense', done: expenses.some(e => e.kind !== 'settle') },
+    { id: 'thanks', done: thanks.some(t => t.from === me) },
+    ...(points ? [{ id: 'vales', done: !!sawVales }] : []),
+    { id: 'notify', done: !!notify },
+  ];
+}
+
+/* ---------------- De la demo a la cuenta real ----------------
+   Se llevan las cosas que no son de una persona concreta: catálogo, tareas, ideas y huchas (sin dinero).
+   La persona que llevabas en la demo pasa a ser "yo"; la otra, "libre" (null). */
+export function demoToSeed(demo, me) {
+  if (!demo || !demo.couple) return null;
+  const who = u => (u && u === demo.me ? me : null);
+  const tasks = (demo.tasks || []).map(({ id, ...t }) => {
+    const assignee = t.rotate ? me : who(t.assignee);
+    return { ...t, assignee, rotate: !!t.rotate, doneBy: t.doneAt ? me : null, log: [] };
+  });
+  const ideas = (demo.ideas || []).map(({ id, ...x }) => {
+    const v = (x.votes || {})[demo.me];
+    return { ...x, votes: v ? { [me]: v } : {} };
+  });
+  const jars = (demo.jars || []).map(({ id, title, emoji, target }) => ({ title, emoji, target: target || 0 }));
+  const catalog = demo.couple.catalog ? structuredClone(demo.couple.catalog) : null;
+  return { catalog, tasks, ideas, jars };
+}
+
 /* ---------------- Juegos para dos ---------------- */
 export const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 /** Tres en raya: {who, line} si alguien gana, {who:'draw'} si empate, null si sigue. */

@@ -1,0 +1,42 @@
+name: Reglas y datos (Firebase)
+
+# Prueba firestore.rules y app/store.js con los emuladores de Firebase (necesitan Java, que hay aquí y no en el PC):
+# - tests/rules.test.mjs: qué deja y qué no deja hacer cada regla.
+# - tests/store.test.mjs: cuentas, crear pareja, unirse, salir y borrar cuenta, como en los dos móviles.
+# Se dispara en cualquier rama cuando cambia algo de eso, o a mano (Run workflow).
+on:
+  push:
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'app/store.js'
+      - 'tests/rules.test.mjs'
+      - 'tests/store.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/rules.yml'
+  workflow_dispatch:
+
+jobs:
+  firebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Java (para los emuladores)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+
+      - name: Probar reglas y datos con los emuladores
+        run: npx -y firebase-tools@15 emulators:exec --only auth,firestore --project demo-xurripoints "node tests/rules.test.mjs && node tests/store.test.mjs"
