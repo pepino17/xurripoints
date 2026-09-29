@@ -17,6 +17,17 @@ Guía para cualquier asistente (o persona) que retome el proyecto. Léela junto 
   directo); borrar o cambiar cosas de dinero/tareas deja un aviso con **`logChange(kind, text, data)`** para que la
   pareja lo vea y pueda recuperarlo. Revisa también los **textos de ejemplo** (placeholders): también educan.
 
+## 1c. Vender sin romper la confianza (v0.8, `docs/MONETIZACION.md`)
+- **Plus solo trae cosas nuevas.** Nunca pases a Plus algo que ya era gratis, ni la seguridad (salir, borrar cuenta,
+  pausar puntos, descargar la copia). Sin anuncios, sin vender datos, los xurripoints no se compran.
+- Una función de Plus se protege con **`needPlus('clave')`** (añade la clave a `PLUS_FEATURES`) y se marca con `plusTag()`.
+  Nada de ventanas de Plus que salten solas.
+- `couples/{C}.plus` solo lo escribe el servidor; la app, solo la prueba (`L.trialDoc`). Si lo tocas, revisa las reglas.
+- `app/channel.js` en git es **siempre `'github'`** (Actions lo cambia a `'play'` para el `.aab`). La copia de Play no
+  puede avisar de APKs nuevos ni enlazarlos (política de Google Play).
+- Textos legales en `docs/*.html` (web pública): si cambias qué datos se guardan, **actualiza la privacidad** y la
+  "Seguridad de los datos" de `docs/PLAY_STORE.md`.
+
 ## 2. Idioma y tono
 - **Todo en español** (interfaz, código, comentarios, documentación).
 - Tono de la app: cariñoso y con humor de pareja, **sin ser empalagoso** ni infantil.

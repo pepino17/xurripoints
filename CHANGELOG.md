@@ -5,6 +5,40 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.8.0] — 2026-09-29 · Lista para vender: Xurripoints Plus, web legal y Google Play
+
+Joan: "¿cómo monetizarías la app?" → "okey, optimiza la app para poder comercializarla de la forma más óptima".
+Decidido con Joan: **solo español** de momento y **web pública en GitHub Pages** (privacidad, condiciones, borrar cuenta).
+Plan completo en `docs/MONETIZACION.md`; pasos para publicar en `docs/PLAY_STORE.md`.
+
+**Xurripoints Plus (freemium, un plan para los dos)**
+- Hoja **Plus** (Pareja → ✨ Xurripoints Plus, o al tocar algo de Plus): qué trae, precios y **prueba gratis de 14 días
+  para los dos**, sin tarjeta; al acabar vuelve sola a gratis. Tu pareja ve un aviso cuando la activas.
+- **Todo lo que ya había sigue gratis.** Plus solo trae cosas nuevas:
+  - 📊 **Resumen del mes** (Dinero → Este mes): total, comparado con el mes anterior, gastos fijos y barras por categoría.
+  - 📤 **Gastos a Excel** (CSV con «;» y coma decimal, se abre bien en Excel/Sheets; protegido contra fórmulas coladas).
+  - 🗓️ **Revisión semanal**: 5 pasos para hacer juntos (la semana entre los dos, unas gracias, ¿os parece justo?,
+    qué necesitáis, un plan). Se sugiere de viernes a domingo en Inicio y está en Juntos → Jugar.
+  - 💬 **Preguntas para conoceros**: 4 packs (Conoceros más, Sueños y futuro, Recuerdos, Para reír). Desde Juntos → Jugar
+    o «Más preguntas ✨» en la pregunta del día.
+  - 🎴 **Más cartas** en «Esto o aquello» y «¿Quién es más probable…?».
+  - 🎨 **Colores de la app**: Menta, Cielo, Lavanda y Melocotón (solo fondo y tarjetas; rosa y lila siguen siendo cada uno).
+- El pago de verdad aún **no está conectado** (hace falta la cuenta de Google Play Console): cuando acaba la prueba sale
+  "Hacerse Plus · muy pronto". Las **reglas** ya lo dejan preparado: la app solo puede empezar la prueba (una vez, máx. 15 días);
+  el plan de pago solo lo puede poner el servidor.
+- Nada de presionar: Plus solo aparece en Pareja o cuando tocas algo de Plus; nunca ventanas que saltan solas ni anuncios.
+
+**Para publicar en Google Play**
+- El build genera también el **`.aab`** firmado (`Xurripoints-vX.Y.Z-GooglePlay.aab` en la release) para subirlo a Play Console.
+  Sale con el canal **`'play'`** (`app/channel.js`): esa copia **no avisa de APKs nuevos** (Google no deja que una app se
+  actualice fuera de Play). El APK de GitHub sigue avisando como siempre.
+- **Web pública** (`docs/` en GitHub Pages): portada, **política de privacidad**, **condiciones** y **cómo borrar la cuenta**
+  (Google lo exige). Al crear la cuenta se enlazan las condiciones y la privacidad; en Pareja → App, «Privacidad y condiciones».
+- **Descargar una copia** de todos vuestros datos (JSON), **gratis siempre** (Pareja → Cuenta): derecho a la portabilidad.
+- «Recomendar a otra pareja» y el código de invitación comparten la **web** en vez del APK (cuando salga en Play, solo cambia la web).
+- Nuevo plugin `@capacitor/filesystem` para guardar/compartir archivos (Excel y copia) en Android.
+- Pruebas: 26 de lógica (Plus, resumen del mes, CSV, revisión semanal, canal) y 3 nuevas de reglas (Plus).
+
 ## [0.7.0] — 2026-09-29 · Más fácil, más justa y más segura (análisis como usuario, desarrollador y psicólogo)
 
 Joan: "hazlo todo" (el análisis de 2026-09-29) + "es como complicado de usar, está muy cargado, pero no quiero que

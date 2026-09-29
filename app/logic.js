@@ -307,6 +307,89 @@ export function demoToSeed(demo, me) {
   return { catalog, tasks, ideas, jars };
 }
 
+/* ---------------- Xurripoints Plus (el plan de pago, uno para los dos) ----------------
+   couples/{C}.plus = { tier:'trial'|'plus', source:'trial'|'play'|'promo', since, until (ms, o null = para siempre), by }
+   - La PRUEBA GRATIS (14 días, una vez por pareja) la puede empezar cualquiera de los dos desde la app.
+   - El plan de PAGO solo lo escribe el servidor (Cloud Function tras verificar la compra en Google Play):
+     las reglas no dejan que la app lo toque. Ver docs/MONETIZACION.md.
+   Plus solo trae cosas NUEVAS: lo que ya era gratis sigue gratis (regla de Joan: no quitar funciones). */
+export const TRIAL_DAYS = 14;
+export function plusState(couple, now = Date.now()) {
+  const p = couple && couple.plus;
+  if (!p || typeof p !== 'object') return { active: false, trialUsed: false, tier: null, daysLeft: 0, forever: false };
+  const tier = p.tier === 'plus' ? 'plus' : 'trial';
+  const forever = tier === 'plus' && p.until == null;
+  const until = Number(p.until);
+  const timed = p.until != null && Number.isFinite(until);
+  const active = forever || (timed && now < until);
+  const daysLeft = forever ? Infinity : timed ? Math.max(0, Math.ceil((until - now) / 86400e3)) : 0;
+  return { active, trialUsed: true, tier, daysLeft, forever };
+}
+/** Lo que escribe la app al empezar la prueba gratis (las reglas solo aceptan esto, y solo una vez). */
+export function trialDoc(uid, now = Date.now()) {
+  return { tier: 'trial', source: 'trial', since: now, until: now + TRIAL_DAYS * 86400e3, by: uid };
+}
+
+/* ---------------- Resumen del mes y exportar (Plus) ---------------- */
+/** Meses ('YYYY-MM') con gastos, del más nuevo al más viejo. */
+export function expenseMonths(expenses) {
+  return [...new Set(expenses.filter(e => e.kind !== 'settle' && /^\d{4}-\d{2}/.test(e.date || '')).map(e => e.date.slice(0, 7)))].sort().reverse();
+}
+/** Resumen de un mes: total, nº de gastos, por categoría (de más a menos), parte fija y el mes anterior.
+    Las liquidaciones no son gasto. diffPct = null si el mes anterior no tiene gastos. */
+export function monthSummary(expenses, ym) {
+  const of = m => expenses.filter(e => e.kind !== 'settle' && (e.date || '').startsWith(m));
+  const sum = list => list.reduce((s, e) => s + (e.amount || 0), 0);
+  const list = of(ym), total = sum(list), prevTotal = sum(of(addMonth(ym, -1)));
+  const by = {};
+  for (const e of list) { const c = e.category || 'otros'; by[c] = (by[c] || 0) + (e.amount || 0); }
+  return {
+    total, count: list.length, prevTotal,
+    fixed: sum(list.filter(e => e.recurringId)),
+    byCat: Object.entries(by).sort((a, b) => b[1] - a[1]),
+    diffPct: prevTotal ? Math.round((total - prevTotal) / prevTotal * 100) : null,
+  };
+}
+/** Una celda de CSV. Lo que empieza por = + - @ lleva ' delante para que Excel no lo lea como fórmula. */
+export function csvCell(v) {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+const eurCsv = c => ((Number(c) || 0) / 100).toFixed(2).replace('.', ',');
+/** Gastos en CSV para Excel en español (separador «;», coma decimal y BOM para los acentos).
+    names = {uid: nombre}, cats = {id: nombre de la categoría}. */
+export function expensesCsv(expenses, members, { names = {}, cats = {} } = {}) {
+  const [a, b] = members;
+  const head = ['Fecha', 'Concepto', 'Categoría', 'Importe (€)', 'Pagó', `Parte de ${names[a] || 'A'} (€)`, `Parte de ${names[b] || 'B'} (€)`, 'Tipo'];
+  const rows = [...expenses]
+    .sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.createdAt || 0) - (y.createdAt || 0))
+    .map(e => {
+      const settle = e.kind === 'settle', sh = e.shares || {};
+      return [e.date || '', settle ? 'Liquidación' : e.title || '', settle ? '' : cats[e.category] || e.category || '', eurCsv(e.amount),
+        names[e.paidBy] || '', settle ? '' : eurCsv(sh[a]), settle ? '' : eurCsv(sh[b]),
+        settle ? `Pago a ${names[Object.keys(sh)[0]] || ''}` : e.recurringId ? 'Gasto fijo' : 'Gasto'];
+    });
+  return '﻿' + [head, ...rows].map(r => r.map(csvCell).join(';')).join('\r\n');
+}
+
+/* ---------------- Revisión semanal (Plus) ----------------
+   La semana JUNTOS (últimos 7 días): todo sumado entre los dos, nada de quién ha hecho más (regla 4).
+   Tareas hechas = las marcadas en Tareas + las apuntadas con puntos que no venían de una tarea (sin contar dos veces). */
+export function weekStats({ tasks = [], thanks = [], ideas = [], expenses = [], points = [] } = {}, now = Date.now()) {
+  const from = now - 7 * 86400e3, fromDay = ymd(new Date(from));
+  const fromLog = tasks.reduce((n, t) => n + (t.log || []).filter(l => (l.at || 0) >= from).length, 0);
+  const fromPoints = points.filter(t => (t.type === 'claim' || t.type === 'reward') && !t.taskId
+    && effStatus(t, now) === 'approved' && (t.createdAt || 0) >= from).length;
+  return {
+    tasksDone: fromLog + fromPoints,
+    thanks: thanks.filter(t => (t.createdAt || 0) >= from).length,
+    plans: ideas.filter(x => (x.doneAt || 0) >= from).map(x => x.title),
+    spent: expenses.filter(e => e.kind !== 'settle' && (e.date || '') > fromDay).reduce((s, e) => s + (e.amount || 0), 0),
+    points: weekTogether(points, now),
+  };
+}
+
 /* ---------------- Juegos para dos ---------------- */
 export const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 /** Tres en raya: {who, line} si alguien gana, {who:'draw'} si empate, null si sigue. */

@@ -240,6 +240,71 @@ t('de la demo a la cuenta real: sin personas de la demo', () => {
   assert.equal(L.demoToSeed(null, 'yo'), null);
 });
 
+t('Plus: prueba de 14 días, plan de pago y "para siempre"', () => {
+  const now = Date.now(), D = 86400e3;
+  assert.deepEqual(L.plusState({}, now), { active: false, trialUsed: false, tier: null, daysLeft: 0, forever: false });
+  const trial = L.trialDoc('a', now);
+  assert.equal(trial.until - trial.since, 14 * D);
+  const s = L.plusState({ plus: trial }, now + 3 * D);
+  assert.ok(s.active && s.trialUsed && s.tier === 'trial' && s.daysLeft === 11);
+  const over = L.plusState({ plus: trial }, now + 15 * D);
+  assert.ok(!over.active && over.trialUsed && over.daysLeft === 0); // la prueba no se repite
+  assert.ok(L.plusState({ plus: { tier: 'plus', until: null } }, now).forever);
+  assert.ok(L.plusState({ plus: { tier: 'plus', until: null } }, now).active);
+  assert.ok(!L.plusState({ plus: { tier: 'trial', until: null } }, now).active); // una prueba sin fin no vale
+  assert.ok(!L.plusState({ plus: { tier: 'plus', until: 'mañana' } }, now).active);
+});
+
+t('resumen del mes: total, categorías, parte fija y mes anterior (sin liquidaciones)', () => {
+  const E = [
+    { kind: 'expense', amount: 6000, category: 'super', date: '2026-09-02' },
+    { kind: 'expense', amount: 75000, category: 'casa', date: '2026-09-01', recurringId: 'alq' },
+    { kind: 'expense', amount: 4000, category: 'super', date: '2026-09-20' },
+    { kind: 'settle', amount: 99999, date: '2026-09-21', shares: { a: 99999 } },
+    { kind: 'expense', amount: 42500, category: 'casa', date: '2026-08-10' },
+  ];
+  const s = L.monthSummary(E, '2026-09');
+  assert.equal(s.total, 85000);
+  assert.equal(s.count, 3);
+  assert.equal(s.fixed, 75000);
+  assert.deepEqual(s.byCat, [['casa', 75000], ['super', 10000]]);
+  assert.equal(s.diffPct, 100);
+  assert.equal(L.monthSummary(E, '2026-08').diffPct, null);
+  assert.deepEqual(L.expenseMonths(E), ['2026-09', '2026-08']);
+});
+
+t('exportar gastos a CSV para Excel (y sin fórmulas coladas)', () => {
+  const E = [
+    { kind: 'expense', title: 'Cena; japo', amount: 4801, category: 'fuera', paidBy: 'a', shares: { a: 2401, b: 2400 }, date: '2026-09-03', createdAt: 2 },
+    { kind: 'settle', amount: 1000, paidBy: 'b', shares: { a: 1000 }, date: '2026-09-04', createdAt: 3 },
+    { kind: 'expense', title: '=HYPERLINK("x")', amount: 100, category: 'otros', paidBy: 'b', shares: { a: 50, b: 50 }, date: '2026-09-01', createdAt: 1 },
+  ];
+  const csv = L.expensesCsv(E, M, { names: { a: 'Ana', b: 'Bea' }, cats: { fuera: 'Comer fuera' } });
+  assert.ok(csv.startsWith('﻿'));
+  const lines = csv.slice(1).split('\r\n');
+  assert.equal(lines[0], 'Fecha;Concepto;Categoría;Importe (€);Pagó;Parte de Ana (€);Parte de Bea (€);Tipo');
+  assert.equal(lines[1], `2026-09-01;"'=HYPERLINK(""x"")";otros;1,00;Bea;0,50;0,50;Gasto`); // ordenado por fecha
+  assert.equal(lines[2], '2026-09-03;"Cena; japo";Comer fuera;48,01;Ana;24,01;24,00;Gasto');
+  assert.equal(lines[3], '2026-09-04;Liquidación;;10,00;Bea;;;Pago a Ana');
+  assert.equal(L.csvCell('-5'), "'-5");
+});
+
+t('revisión semanal: la semana de los dos, sumada', () => {
+  const now = Date.now(), D = 86400e3;
+  const w = L.weekStats({
+    tasks: [{ log: [{ by: 'a', at: now - D }, { by: 'b', at: now - 2 * D }, { by: 'a', at: now - 9 * D }] }, { log: [] }],
+    thanks: [{ createdAt: now - D }, { createdAt: now - 10 * D }],
+    ideas: [{ title: 'Picnic', doneAt: now - 3 * D }, { title: 'Cine', doneAt: null }],
+    expenses: [{ kind: 'expense', amount: 1000, date: L.ymd(new Date(now - D)) }, { kind: 'settle', amount: 500, date: L.ymd(new Date(now)) }],
+    points: [
+      { type: 'claim', from: null, to: 'a', amount: 10, status: 'approved', createdAt: now - D, resolvedAt: now - D },              // cuenta
+      { type: 'claim', from: null, to: 'b', amount: 5, status: 'approved', createdAt: now - D, resolvedAt: now - D, taskId: 't1' }, // ya está en el log
+      { type: 'claim', from: null, to: 'b', amount: 5, status: 'rejected', createdAt: now - D },                                     // no
+    ],
+  }, now);
+  assert.deepEqual(w, { tasksDone: 3, thanks: 1, plans: ['Picnic'], spent: 1000, points: 15 });
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -249,6 +314,8 @@ t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   assert.ok(changelog, 'el CHANGELOG no tiene ninguna versión [x.y.z]');
   assert.equal(pkg, changelog, `package.json (${pkg}) ≠ CHANGELOG (${changelog})`);
   assert.equal(app, changelog, `app.js VERSION (${app}) ≠ CHANGELOG (${changelog})`);
+  // En git siempre 'github': GitHub Actions lo cambia a 'play' solo para el .aab de Google Play.
+  assert.match(read('app/channel.js'), /CHANNEL = 'github'/, "app/channel.js tiene que ser 'github' en el repo");
 });
 
 await Promise.all(pending);

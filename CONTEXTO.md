@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-29** (v0.7.0).
+> Última actualización: **2026-09-29** (v0.8.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -18,6 +18,9 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 - (2026-09-29) **"No quitar funciones, pero que sea fácil"**: lo secundario va plegado, en "Más" o en hojas.
 - (2026-09-29) **Lo común se propone**: reparto de gastos, reparto de tareas, precios del catálogo y volver a
   activar los puntos cambian solo cuando la pareja acepta. Borrar/cambiar cosas de dinero y tareas se avisa y se puede deshacer.
+- (2026-09-29) **Monetización = freemium "Xurripoints Plus"**, un plan **por pareja**, con **prueba gratis de 14 días**.
+  Lo que ya era gratis sigue gratis; sin anuncios; los xurripoints no se venden. **Solo español** de momento.
+  **Web pública en GitHub Pages** (`docs/`). Todo en `docs/MONETIZACION.md` y `docs/PLAY_STORE.md`.
 
 ## Estado
 - v0.1–v0.6 (2026-09-28): puntos, vales, tareas, gastos, gastos fijos, ahorro, Juntos (ideas, decidir, jugar),
@@ -32,10 +35,18 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - Técnica: prueba de versión (CHANGELOG = package.json = app.js), el build falla si la versión ya está publicada,
     **APK release** firmado, reglas con validación de tipos + **pruebas de reglas en CI** (emulador), ids y números seguros.
   - 22 pruebas de lógica + pruebas de reglas (`tests/rules.test.mjs`, en GitHub Actions). Verificado en navegador (demo).
+- **v0.8.0 (2026-09-29)**: lista para vender.
+  - **Plus**: hoja en Pareja, prueba de 14 días (la escribe la app; el plan de pago, solo el servidor), resumen del mes,
+    gastos a Excel, revisión semanal, packs de preguntas, más cartas y colores. El **cobro real aún no está** (falta Play Console).
+  - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
+    y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
+  - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** para que los testers puedan descargar.
-- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`), pegar **las reglas nuevas** y pasar la
+- **Web:** https://pepino17.github.io/xurripoints/ (GitHub Pages desde `docs/`, sin Jekyll: `.nojekyll`).
+- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`, región **Madrid**), pegar **las reglas nuevas** y pasar la
   config → se pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
+  Para vender: **email de contacto** (hoy la web manda a GitHub Issues) y **Play Console** (`docs/PLAY_STORE.md`).
   Hasta entonces, salir de la pareja / borrar cuenta / propuestas en la nube solo están probados con la demo y con
   el emulador de reglas (no con un Firebase real).
 - Repo: `pepino17/xurripoints` (público). Cada release publica `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk` (nombre fijo).
@@ -47,7 +58,8 @@ app/                  ← la web que empaqueta Capacitor (sin bundler, ES module
   app.js              interfaz: pantallas, hojas (bottom sheets), acciones data-act → ACT
   logic.js            lógica pura (saldos, repartos, tareas, propuestas, primeros pasos…). Probada en tests/logic.test.mjs
   store.js            datos: FirebaseBackend y DemoBackend con la MISMA interfaz (incl. leaveCouple/deleteAccount)
-  content.js          textos de los juegos
+  content.js          textos de los juegos (+ cartas y packs de preguntas de Plus)
+  channel.js          'github' (APK) o 'play' (lo pone Actions para el .aab; en git siempre 'github', lo comprueba la prueba)
   firebase-config.js  config de la web app de Firebase (no es secreta)
   native.js           Capacitor: barra de estado, botón atrás y notificaciones locales
   vendor/firebase.js  SDK de Firebase empaquetado con esbuild (npm run build ← src/firebase.js)
@@ -55,6 +67,7 @@ app/                  ← la web que empaqueta Capacitor (sin bundler, ES module
   fonts/ fonts.css    Fraunces (títulos y números) + Lexend (texto), locales
 android/              proyecto nativo de Capacitor 8 (se versiona)
 assets/               imágenes fuente de icono/splash (scripts/make-assets.mjs + npx capacitor-assets generate --android)
+docs/                 documentación + WEB PÚBLICA (index, privacidad, condiciones, borrar-cuenta .html; estilos en docs/web/)
 firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
 tests/logic.test.mjs  pruebas de la lógica + versión igual en los 3 sitios
 tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflows/rules.yml)
@@ -67,7 +80,10 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
   peticiones, tareas de hoy) · para cuadrar · pregunta del día.
 - **＋**: grandes = ya lo he hecho, gracias, gasto, nueva tarea (sin puntos: gracias, gasto, tarea, idea); "Más" = pedir
   un favor, lo ha hecho [pareja], idea, ahorrar.
-- **Pareja**: Vosotros · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda · App · Cuenta.
+- **Pareja**: tarjeta ✨ Plus · Vosotros · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
+  App (recordatorio, colores, recomendar, privacidad, versión) · Cuenta (descargar una copia, salir, borrar).
+- **Plus** (v0.8) se enseña con `needPlus('clave')`: Dinero → Este mes (resumen + Excel) · Juntos → Jugar (preguntas, revisión)
+  · «Más preguntas ✨» · revisión de vie a dom en Inicio · colores en Pareja.
 
 ## Modelo de datos (Firestore)
 - `users/{uid}` → `{ couple: CODIGO | null }`
@@ -78,6 +94,8 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
   - **Salir** (v0.7): `members` sin mí, `formerMembers:[…, yo]`, `closedAt`, mi perfil = `{name, emoji, left:true}` (sin ingresos).
     Pareja cerrada → nadie se une; quien se queda ve la pantalla `alone` y puede borrarlo todo.
   - `settings.noPoints: true` = puntos en pausa (se oculta todo lo de puntos; los datos no se borran).
+  - **`plus`** (v0.8) = `{ tier:'trial'|'plus', source:'trial'|'play'|'promo', since, until (ms | null = para siempre), by }`.
+    La app solo escribe la prueba (`L.trialDoc`, una vez); el plan de pago lo escribe el servidor. Se lee con `L.plusState`.
 - `couples/{C}/points/{id}` → `{ type:'claim'|'redeem'|'reward'|'gift', from, to, amount, title, emoji, note,
   status:'pending'|'approved'|'rejected'|'cancelled', createdBy, createdAt, resolvedAt, resolvedBy, reply, taskId }`
   - Saldo = Σ aprobados (`to` suma, `from` resta). `from:null` = puntos nuevos. `reward` = "lo ha hecho [pareja]" (antes "premiar").
@@ -104,6 +122,7 @@ solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
 
 ## localStorage (por móvil)
 `xp_mode` (demo) · `xp_code_<uid>` · `xp_welcome_v2` · `xp_steps_off` · `xp_saw_vales` · `xp_hint_<pantalla>` ·
+`xp_theme` (colores, Plus) · `xp_review_at` (última revisión semanal) ·
 `xp_notify` (hora) · `xp_upd_at`/`xp_upd_v` · `xurripoints_demo_v1` (demo) · `xurripoints_demo_stash` (lo que se lleva de la demo).
 
 ## Firma del APK (actualizar sin desinstalar)
@@ -116,6 +135,7 @@ solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
 - versionCode = mayor·10000 + menor·100 + parche, sacado del CHANGELOG. El build **falla** si esa versión ya está publicada.
 
 ## Siguientes pasos sugeridos
-1. Conectar Firebase (Joan), pegar las reglas nuevas y probar con los dos móviles (salir de la pareja y borrar cuenta incluidos).
-2. Avisos push cuando la pareja propone o pide algo (FCM + Cloud Function, plan Blaze: ver `docs/IDEAS.md`).
-3. Revisión semanal juntos (10 min) y logros de equipo.
+1. Conectar Firebase (Joan, región Madrid), pegar las reglas nuevas y probar con los dos móviles (salir de la pareja y borrar cuenta incluidos).
+2. Email de contacto en la web + Play Console + prueba cerrada (12 testers × 14 días): `docs/PLAY_STORE.md`.
+3. Cobro real de Plus (RevenueCat + Cloud Function que escribe `couples/{C}.plus`): `docs/MONETIZACION.md`.
+4. Avisos push cuando la pareja propone o pide algo (FCM + Cloud Function, plan Blaze) → función estrella de Plus.

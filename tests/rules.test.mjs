@@ -122,6 +122,27 @@ await t('ajustes comunes: el reparto se guarda (lo aplica quien acepta)', async 
   await assertSucceeds(updateDoc(doc(db('bob'), 'couples', C), { 'settings.noPoints': true, updatedAt: 4 }));
   await assertFails(updateDoc(doc(db('bob'), 'couples', C), { 'settings.taskPctA': '50', updatedAt: 5 }));
 });
+/* ---------------- Xurripoints Plus ---------------- */
+const DAY = 86400000;
+const trial = (o = {}) => ({ tier: 'trial', source: 'trial', since: Date.now(), until: Date.now() + 14 * DAY, by: 'alice', ...o });
+await t('Plus: la app no se puede dar el plan de pago ni una prueba larga o a nombre de otro', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { plus: { tier: 'plus', source: 'play', since: 1, until: null, by: 'alice' }, updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { plus: trial({ until: Date.now() + 60 * DAY }), updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { plus: trial({ by: 'bob' }), updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { plus: { ...trial(), extra: 1 }, updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('carol'), 'couples', C), { plus: trial({ by: 'carol' }), updatedAt: 6 }));
+});
+await t('Plus: un miembro empieza la prueba gratis (14 días) una sola vez', async () => {
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { plus: trial(), updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('bob'), 'couples', C), { plus: trial({ by: 'bob' }), updatedAt: 7 }));      // otra prueba
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'plus.until': Date.now() + 99 * DAY, updatedAt: 7 })); // alargarla
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'plus.tier': 'plus', updatedAt: 7 }));
+  await assertSucceeds(updateDoc(doc(db('bob'), 'couples', C), { 'settings.taskPctA': 55, updatedAt: 8 })); // lo demás sigue igual
+});
+await t('Plus: no se puede crear una pareja que ya venga con Plus', async () => {
+  await assertFails(setDoc(doc(db('dave'), 'couples', 'PLS777'), { ...seedCouple, code: 'PLS777', members: ['dave'], profiles: { dave: P('dave') }, plus: trial({ by: 'dave' }) }));
+});
+
 await t('avisos: los escribo yo; mi pareja marca visto/recuperado; nadie los borra', async () => {
   const log = { kind: 'exp-del', text: 'borró el gasto «Luz» · 58,90 €', data: { col: 'expenses', id: 'e1', label: 'el gasto «Luz»', doc: exp }, by: 'alice', createdAt: 1, seenAt: null, restoredAt: null };
   await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/log/l1`), log));

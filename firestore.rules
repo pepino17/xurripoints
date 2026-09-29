@@ -34,6 +34,20 @@ service cloud.firestore {
         return (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
           && (!('settings' in d) || !('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100));
       }
+      // Xurripoints Plus (couples/{code}.plus). La app solo puede EMPEZAR la prueba gratis: una vez por pareja
+      // y como mucho 15 días. El plan de pago lo escribe el servidor (Cloud Function con el Admin SDK, que no
+      // pasa por estas reglas) después de verificar la compra en Google Play. Ver docs/MONETIZACION.md.
+      function plusSame() { return request.resource.data.get('plus', null) == resource.data.get('plus', null); }
+      function trialStart() {
+        return !('plus' in resource.data)
+          && request.resource.data.plus.keys().hasOnly(['tier', 'source', 'since', 'until', 'by'])
+          && request.resource.data.plus.tier == 'trial'
+          && request.resource.data.plus.source == 'trial'
+          && request.resource.data.plus.by == me()
+          && request.resource.data.plus.since is int
+          && request.resource.data.plus.until is int
+          && request.resource.data.plus.until <= request.time.toMillis() + 15 * 86400000;
+      }
 
       // Leer: los miembros, o cualquiera con el código mientras falte la pareja (para unirse).
       // resource == null → el código aún no existe (lo comprueba quien crea una pareja).
@@ -44,13 +58,16 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.code == code
         && request.resource.data.members == [me()]
+        && !('plus' in request.resource.data)
         && validCouple(request.resource.data);
 
       allow update: if signedIn() && (
         // Un miembro edita perfiles, catálogo, ajustes… pero no los miembros ni el código.
+        // Plus: no lo puede tocar, salvo para empezar la prueba gratis.
         (me() in resource.data.members
           && request.resource.data.members == resource.data.members
           && request.resource.data.code == resource.data.code
+          && (plusSame() || trialStart())
           && validCouple(request.resource.data))
         ||
         // Alguien se une: solo se añade a sí mismo y solo toca su propio perfil. Nunca a una pareja cerrada.

@@ -75,8 +75,9 @@ jobs:
           fi
 
       # Release firmado con la clave estable (se instala encima de las versiones anteriores).
-      # Si faltan los secretos de la clave, se hace uno de depuración para no romper el build.
-      - name: Compilar APK
+      # Además, el .aab (Android App Bundle) que pide Google Play, firmado con la misma clave (= clave de subida).
+      # Si faltan los secretos de la clave, se hace uno de depuración para no romper el build (sin .aab).
+      - name: Compilar APK (y AAB para Google Play)
         id: apk
         env:
           XP_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
@@ -86,8 +87,16 @@ jobs:
           if [ -f app/xurripoints.p12 ] && [ -n "$XP_KEYSTORE_PASS" ]; then
             ./gradlew assembleRelease --no-daemon --stacktrace
             echo "path=android/app/build/outputs/apk/release/app-release.apk" >> "$GITHUB_OUTPUT"
+            # La copia de Google Play no puede avisar de APKs nuevos (política de Play): canal 'play' solo para el .aab.
+            cd ..
+            sed -i "s/CHANNEL = 'github'/CHANNEL = 'play'/" app/channel.js
+            grep -q "CHANNEL = 'play'" app/channel.js
+            npx cap copy android
+            cd android
+            ./gradlew bundleRelease --no-daemon --stacktrace
+            echo "aab=android/app/build/outputs/bundle/release/app-release.aab" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Sin clave de firma → APK de depuración"
+            echo "::warning::Sin clave de firma → APK de depuración (sin AAB para Google Play)"
             ./gradlew assembleDebug --no-daemon --stacktrace
             echo "path=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_OUTPUT"
           fi
@@ -96,6 +105,7 @@ jobs:
         run: |
           cp "${{ steps.apk.outputs.path }}" "Xurripoints-v${{ steps.ver.outputs.version }}.apk"
           cp "${{ steps.apk.outputs.path }}" "Xurripoints.apk"
+          if [ -n "${{ steps.apk.outputs.aab }}" ]; then cp "${{ steps.apk.outputs.aab }}" "Xurripoints-v${{ steps.ver.outputs.version }}-GooglePlay.aab"; fi
 
       - name: Publicar en Releases (la última siempre en /releases/latest)
         uses: softprops/action-gh-release@v2
@@ -106,9 +116,12 @@ jobs:
             Última versión de Xurripoints para Android.
             **Descarga:** `Xurripoints.apk` (abajo, en Assets).
             Enlace permanente (siempre la última): https://github.com/${{ github.repository }}/releases/latest/download/Xurripoints.apk
+            El archivo `-GooglePlay.aab` es solo para subirlo a Google Play Console (no se instala en el móvil).
           files: |
             Xurripoints-v${{ steps.ver.outputs.version }}.apk
             Xurripoints.apk
+            Xurripoints-v${{ steps.ver.outputs.version }}-GooglePlay.aab
+          fail_on_unmatched_files: false
           make_latest: true
 
       - name: Subir APK (copia como artifact)

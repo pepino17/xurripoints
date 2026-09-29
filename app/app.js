@@ -5,12 +5,20 @@
    ================================================================ */
 import { createBackend, hasFirebaseConfig, peekDemoStash, dropDemoStash } from './store.js';
 import * as L from './logic.js';
-import { THIS_OR_THAT, WHO_MORE, DIE_PIPS } from './content.js';
+import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS } from './content.js';
+import { CHANNEL } from './channel.js';
 
-const VERSION = '0.7.0';
+const VERSION = '0.8.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
+/** Web de la app (GitHub Pages, carpeta docs/): descarga, privacidad, condiciones y borrar la cuenta.
+    Para compartir se usa la web y no el APK: cuando salga en Google Play, basta con cambiar la web. */
+const SITE = 'https://pepino17.github.io/xurripoints';
+const PRIVACY_URL = `${SITE}/privacidad.html`;
+const TERMS_URL = `${SITE}/condiciones.html`;
+/** En la versión de Google Play, las actualizaciones las hace Play (su política no deja que la app se actualice sola). */
+const FROM_PLAY = CHANNEL === 'play';
 
 /* ---------------- Utilidades ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -141,6 +149,23 @@ const TYPICAL_TASKS = [['🧽', 'Fregar los platos', 10, 'daily'], ['🗑️', '
   ['🛁', 'Limpiar el baño', 20, 'weekly'], ['🧺', 'Poner lavadoras', 10, 'weekly'], ['🛏️', 'Cambiar las sábanas', 10, 'weekly'], ['🧹', 'Pasar la aspiradora', 15, 'weekly']];
 const REPEAT_LABEL = { none: 'Una vez', daily: 'Cada día', weekly: 'Cada semana', monthly: 'Cada mes' };
 
+/* ---------------- Xurripoints Plus ----------------
+   Un plan para los dos (paga uno y lo tenéis los dos). Solo cosas NUEVAS: lo que ya era gratis sigue gratis.
+   Sin anuncios y sin vender datos, nunca. Los xurripoints no se compran con dinero (el cariño no tiene precio).
+   Precios orientativos (los de verdad se ponen en Google Play Console): ver docs/MONETIZACION.md. */
+const PLUS_FEATURES = [
+  ['month', '📊', 'Resumen del mes', 'En qué se os va el dinero, por categorías y comparado con el mes anterior'],
+  ['export', '📤', 'Gastos a Excel', 'Un archivo con todos vuestros gastos, para la gestoría o vuestras cuentas'],
+  ['review', '🗓️', 'Revisión semanal', '10 minutos juntos: lo que ha ido bien, unas gracias y un plan'],
+  ['packs', '💬', 'Preguntas para conoceros', `${QUESTION_PACKS.length} packs de preguntas para hablar sin móvil`],
+  ['cards', '🎴', 'Más cartas en los juegos', 'Esto o aquello y ¿Quién es más probable…?'],
+  ['theme', '🎨', 'Colores de la app', 'Menta, cielo, lavanda o melocotón'],
+];
+const PLUS_SOON = [['🔔', 'Avisos al momento', 'Cuando tu pareja te pide o te propone algo'], ['📷', 'Fotos', 'Del ticket y de vuestros recuerdos']];
+const PLUS_PRICES = [['Anual', '19,99 €', 'al año', 'sale a 1,67 €/mes'], ['Mensual', '2,99 €', 'al mes', ''], ['Para siempre', '39,99 €', 'un pago', '']];
+/** Temas (Plus): solo cambian el fondo y las tarjetas; rosa y lila siguen siendo cada uno de vosotros. [id, emoji, nombre, color de la barra] */
+const THEMES = [['', '🍓', 'Fresa', '#FFF3EC'], ['menta', '🌿', 'Menta', '#ECF7F1'], ['cielo', '☁️', 'Cielo', '#EDF4FB'], ['lavanda', '💜', 'Lavanda', '#F4F0FC'], ['melocoton', '🍑', 'Melocotón', '#FFF0E6']];
+
 /* ---------------- Estado ---------------- */
 const S = {
   be: null, user: null, code: null, data: null,
@@ -154,6 +179,8 @@ const S = {
   flipping: false, rolling: false, spinning: false, spinOpts: null,
   wheelText: '', wheelRot: 0, wheelRes: '', deferred: false,
   game: null, gscore: {}, tool: null,
+  sumMonth: null,         // mes que se ve en el resumen (Plus); null = el actual
+  review: 0,              // paso de la revisión semanal
   hint: {},               // ayudas de cada pantalla abiertas/cerradas a mano (si no, manda localStorage)
   enter: true,            // animación de entrada al cambiar de pestaña
   unwatch: null, sheet: null, seenPending: null, myPending: null,
@@ -179,6 +206,10 @@ const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 /** Modo sin puntos: se ocultan puntos, vales y meta (se pausa en Pareja). */
 const noPoints = () => !!(C().settings && C().settings.noPoints);
 const catalog = () => (C().catalog || { earn: [], spend: [] });
+/** Plus de la pareja (prueba o de pago). */
+const plus = () => L.plusState(C());
+const isPlus = () => plus().active;
+const plusTag = () => (isPlus() ? '' : '<span class="plus-tag">Plus</span>');
 const taskPctA = () => (C().settings && Number.isFinite(C().settings.taskPctA) ? C().settings.taskPctA : 50);
 const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
 /** Reparto de gastos de la pareja ("⭐ vuestro reparto"): por defecto en los gastos nuevos y en los fijos. */
@@ -441,6 +472,7 @@ function render() {
   else if (S.phase === 'offline') app.innerHTML = viewOffline();
   else app.innerHTML = viewShell();
   if (openDetails.size) $$('details', app).forEach(d => { if (openDetails.has(detailsKey(d))) d.open = true; });
+  applyTheme();
   icons();
   if (S.enter) { S.enter = false; window.scrollTo(0, 0); } else window.scrollTo(0, y);
 }
@@ -495,7 +527,9 @@ function viewAuth() {
       </label>
       ${S.authError ? `<p class="error">${esc(S.authError)}</p>` : ''}
       <button class="btn primary big" type="submit" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Un momento…' : (signup ? 'Crear cuenta' : 'Entrar')}</button>
-      ${signup ? '' : `<button type="button" class="btn link" data-act="auth-forgot">He olvidado la contraseña</button>`}
+      ${signup ? `<p class="legal-line">Al crear la cuenta aceptas las <button type="button" class="inline-link" data-act="open-url" data-url="${TERMS_URL}">condiciones</button>
+        y la <button type="button" class="inline-link" data-act="open-url" data-url="${PRIVACY_URL}">política de privacidad</button>. Sin anuncios y sin vender tus datos.</p>`
+        : `<button type="button" class="btn link" data-act="auth-forgot">He olvidado la contraseña</button>`}
       <button type="button" class="btn link" data-act="auth-show" data-mode="${signup ? 'login' : 'signup'}">${signup ? 'Ya tengo cuenta' : 'No tengo cuenta'}</button>
     </form>
   </div>`;
@@ -753,7 +787,13 @@ function viewHome() {
   </section>
 
   <button class="line-row" data-act="tab" data-tab="money"><span>${money}</span>${ic('chevron-right')}</button>
+  ${reviewLine()}
   ${questionCard()}`;
+}
+/** Viernes a domingo, una invitación suave a la revisión semanal (si no la habéis hecho estos días). */
+function reviewLine() {
+  if (![5, 6, 0].includes(new Date().getDay()) || Date.now() - Number(lsGet('xp_review_at') || 0) < 4 * 86400e3) return '';
+  return `<button class="line-row review-line" data-act="review-open"><span>🗓️ ¿Revisión de la semana? <small>10 min juntos</small></span>${plusTag()}${ic('chevron-right')}</button>`;
 }
 /** Arriba en Inicio: la META JUNTOS es la protagonista (cooperar, no competir: regla 4).
     Tus puntos salen pequeños y solo los tuyos; nada de marcador "tú contra tu pareja". */
@@ -950,8 +990,9 @@ function viewMoney() {
       <button class="sum-row" data-act="split-default"><span class="sum-e">⭐</span>
         <span class="sum-body"><small>Vuestro reparto (por defecto)</small><b>${esc(cap(splitWords(d.mode, d.sugar, d.customPctA)))}</b></span>
         <span class="sum-edit">Cambiar ${ic('chevron-right')}</span></button>
-      <div class="sum-row"><span class="sum-e">📅</span><span class="sum-body"><small>Este mes</small><b>${eur(total)}</b></span>
-        ${total ? `<small class="sum-side">tú pagaste ${Math.round(paidMe / total * 100)}%</small>` : ''}</div>
+      <button class="sum-row" data-act="month-open"><span class="sum-e">📅</span>
+        <span class="sum-body"><small>Este mes${total ? ` · tú pagaste ${Math.round(paidMe / total * 100)}%` : ''}</small><b>${eur(total)}</b></span>
+        <span class="sum-edit">Resumen ${plusTag()}${ic('chevron-right')}</span></button>
       ${topCats.length ? `<div class="chips sum-cats">${topCats.map(([c, v]) => `<span class="chip static">${catOf(c)[1]} ${eur(v)}</span>`).join('')}</div>` : ''}
     </section>
     ${recurringSection()}
@@ -971,12 +1012,18 @@ function viewCouple() {
   const g = C().goal;
   const row = (act, icon, title, sub, extra = '', end = ic('chevron-right')) =>
     `<button class="set-row" data-act="${act}" ${extra}><span class="sr-ic">${icon}</span><span class="sr-body"><b>${title}</b><small>${sub}</small></span>${end}</button>`;
+  const ps = plus();
+  const plusSub = ps.forever ? 'Para siempre · gracias por apoyar la app 💞'
+    : ps.active ? `${ps.tier === 'trial' ? 'Prueba gratis' : 'Activo'} · ${ps.daysLeft === 1 ? 'queda 1 día' : `quedan ${ps.daysLeft} días`}`
+    : ps.trialUsed ? 'Resumen del mes, Excel, revisión semanal y más' : `Probadlo ${L.TRIAL_DAYS} días gratis, sin tarjeta`;
   return `${pageHead('Pareja', { back: true, help: 'couple' })}${hintCard('couple')}
     <section class="couple-hero">
       <div class="ch-avs">${av(me, 'xl')}<span class="ch-heart">💗</span>${av(pa, 'xl')}</div>
       <p class="ch-names">${esc(p.name)} <span>&</span> ${esc(q.name)}</p>
       <p class="muted small">Juntos en Xurripoints desde el ${since.getDate()} de ${MONTHS[since.getMonth()]} de ${since.getFullYear()}</p>
     </section>
+    <button class="plus-card ${ps.active ? 'on' : ''}" data-act="plus-open">
+      <span class="pc-e">✨</span><span class="pc-body"><b>Xurripoints Plus</b><small>${plusSub}</small></span>${ic('chevron-right')}</button>
 
     <h2 class="h sm set-h">Vosotros</h2>
     <section class="card list">
@@ -1008,8 +1055,11 @@ function viewCouple() {
     <h2 class="h sm set-h">App</h2>
     <section class="card list">
       ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
-      ${row('share-app', '📲', 'Pasar la app a alguien', 'Envía el enlace de descarga por WhatsApp', '', ic('share-2'))}
-      ${row('check-update', '✨', `Versión ${VERSION}`, S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones', '', ic('refresh-cw'))}
+      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, esc((THEMES.find(x => x[0] === curTheme()) || THEMES[0])[2]))}
+      ${row('share-app', '📲', 'Recomendar a otra pareja', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
+      ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
+      ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
+        : row('check-update', '✨', `Versión ${VERSION}`, S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones', '', ic('refresh-cw'))}
     </section>
 
     <h2 class="h sm set-h">Cuenta</h2>
@@ -1018,14 +1068,16 @@ function viewCouple() {
         ${row('demo-switch', '🔁', 'Cambiar de persona', `Ahora eres ${esc(p.name)}`, '', '')}
         ${row('demo-reset', '🧹', 'Reiniciar la demo', 'Vuelve a los datos de ejemplo', '', '')}
         ${row('leave', '🚪', 'Salir de la pareja', 'Pruébalo: verás lo que le queda a quien se queda', '', '')}
+        ${row('data-export', '📦', 'Descargar una copia', 'Todos vuestros datos en un archivo', '', ic('download'))}
         ${row('demo-exit', '👋', 'Salir del modo demo', hasFirebaseConfig() ? 'Para crear vuestra cuenta de verdad' : 'Borra los datos de prueba', '', '')}`
       : `
         <div class="set-row"><span class="sr-ic">✉️</span><span class="sr-body"><b>Tu cuenta</b><small>${esc(S.user.email || '')}</small></span></div>
+        ${row('data-export', '📦', 'Descargar una copia', 'Todos vuestros datos en un archivo (gratis, siempre)', '', ic('download'))}
         ${row('logout', '🔒', 'Cerrar sesión', 'Tus datos siguen guardados en la nube', '', '')}
         ${row('leave', '🚪', 'Salir de la pareja', `${esc(q.name)} conserva lo común; tus ingresos se borran`, '', '')}
         ${row('delete-sheet', '🗑️', 'Borrar mi cuenta', 'Sales de la pareja y se borra tu cuenta', '', '')}`}
     </section>
-    <p class="foot">Xurripoints v${VERSION} · hecho con 💞</p>`;
+    <p class="foot">Xurripoints v${VERSION} · hecho con 💞 · sin anuncios</p>`;
 }
 
 /* Hojas de Pareja: propuestas, historial de cambios y borrar la cuenta */
@@ -1063,6 +1115,170 @@ function deleteSheet() {
     <label class="field"><span>Escribe tu contraseña para confirmar</span>
       <input class="inp" id="del-pass" type="password" autocomplete="current-password"></label>
     <button class="btn danger big wide" data-act="delete-do">Borrar mi cuenta</button>`;
+}
+function legalSheet() {
+  const tips = [
+    ['🙅', 'Sin anuncios y sin vender datos', 'Vuestros datos solo sirven para que la app funcione. No se venden ni se usan para publicidad.'],
+    ['👀', 'Lo veis solo vosotros dos', 'Lo que apuntáis lo veis tú y tu pareja, nadie más. Los ingresos son opcionales.'],
+    ['☁️', 'Guardado en Google Firebase', 'Con conexión cifrada. En el modo demo, todo se queda en tu móvil.'],
+    ['📦', 'Tus datos son tuyos', 'Descarga una copia cuando quieras (Pareja → Cuenta). Al borrar tu cuenta, se borra.'],
+  ];
+  return `<h3 class="sheet-title">Privacidad y condiciones 🔒</h3>
+    <div class="tips">${tips.map(([e, t, x]) => `<div class="tip-row"><span class="tip-e">${e}</span><span><b>${t}</b><small>${x}</small></span></div>`).join('')}</div>
+    <div class="stack block">
+      <button class="btn wide" data-act="open-url" data-url="${PRIVACY_URL}">${ic('shield')} Política de privacidad</button>
+      <button class="btn wide" data-act="open-url" data-url="${TERMS_URL}">${ic('file-text')} Condiciones de uso</button>
+    </div>`;
+}
+
+/* ================================================================
+   XURRIPOINTS PLUS: la hoja del plan, resumen del mes, exportar, revisión semanal y colores
+   Nada de presionar (docs/PSICOLOGIA.md): Plus se enseña cuando tocas algo de Plus o en Pareja, nunca en ventanas
+   que saltan solas. Y al acabar la prueba, todo lo gratis sigue igual.
+   ================================================================ */
+/** Si tenéis Plus, sigue; si no, enseña qué es Plus (con lo que has tocado arriba) y para. */
+function needPlus(feature) {
+  if (isPlus()) return true;
+  openSheet(plusSheet(feature));
+  return false;
+}
+function plusSheet(feature = '') {
+  const ps = plus();
+  const f = PLUS_FEATURES.find(x => x[0] === feature);
+  const left = ps.daysLeft === 1 ? 'queda 1 día' : `quedan ${ps.daysLeft} días`;
+  const status = ps.forever ? `<p class="plus-status on">💞 Tenéis Plus para siempre. ¡Gracias por apoyar la app!</p>`
+    : ps.active ? `<p class="plus-status on">✨ ${ps.tier === 'trial' ? 'Prueba gratis activa' : 'Plus activo'}: ${left}. Lo tenéis los dos.</p>`
+    : ps.trialUsed ? `<p class="plus-status">Vuestra prueba gratis ya terminó. Todo lo de siempre sigue gratis 💛</p>` : '';
+  const cta = ps.active ? `<button class="btn primary big wide" data-act="sheet-close">¡A disfrutarlo! 💞</button>`
+    : !ps.trialUsed ? `<button class="btn primary big wide" data-act="plus-trial">${ic('sparkles')} Probar ${L.TRIAL_DAYS} días gratis</button>
+        <p class="muted small center">Para los dos, sin tarjeta. Al acabar vuelve sola a la versión gratis: no se cobra nada.</p>`
+    : `<button class="btn primary big wide" disabled>Hacerse Plus · muy pronto</button>
+        <p class="muted small center">Pronto podréis haceros Plus desde Google Play. Os avisaremos en la app 💌</p>`;
+  return `<div class="plus-head"><span class="plus-badge">✨ Plus</span>
+      <h3 class="sheet-title center">Xurripoints Plus</h3>
+      <p class="muted center">Un plan para los dos: <b>paga uno y lo tenéis los dos</b>.</p></div>
+    ${f ? `<div class="plus-focus"><span class="pl-e">${f[1]}</span><span><b>${esc(f[2])} es de Plus</b><small>${esc(f[3])}</small></span></div>` : ''}
+    ${status}
+    <div class="plus-list">${PLUS_FEATURES.filter(x => x !== f).map(([, e, t, x]) => `<div class="pl-row"><span class="pl-e">${e}</span><span><b>${esc(t)}</b><small>${esc(x)}</small></span></div>`).join('')}
+      ${PLUS_SOON.map(([e, t, x]) => `<div class="pl-row soon"><span class="pl-e">${e}</span><span><b>${esc(t)} <em>pronto</em></b><small>${esc(x)}</small></span></div>`).join('')}</div>
+    ${ps.forever ? '' : `<p class="muted small center pp-lb">Precio para los dos, en Google Play:</p>
+      <div class="plus-prices">${PLUS_PRICES.map(([n, p, per, note], i) => `<div class="pp ${i === 0 ? 'best' : ''}"><small>${n}</small><b>${p}</b><small>${per}</small>${note ? `<em>${note}</em>` : ''}</div>`).join('')}</div>`}
+    ${cta}
+    <p class="plus-promise">🌿 Lo que ya era gratis <b>sigue gratis</b>. Sin anuncios y sin vender vuestros datos, nunca. Y los xurripoints no se compran: se ganan.</p>`;
+}
+
+/* Resumen del mes (Plus) */
+function monthSheet() {
+  const cur = L.ymd().slice(0, 7);
+  const months = L.expenseMonths(S.data.expenses);
+  if (!months.includes(cur)) months.unshift(cur);
+  const ym = S.sumMonth && months.includes(S.sumMonth) ? S.sumMonth : cur;
+  const i = months.indexOf(ym), older = months[i + 1], newer = months[i - 1];
+  const s = L.monthSummary(S.data.expenses, ym);
+  const [y, m] = ym.split('-').map(Number);
+  const prevName = MONTHS[(m + 10) % 12];
+  const saved = (S.data.saves || []).filter(x => (x.date || '').startsWith(ym) && x.amount > 0).reduce((t, x) => t + x.amount, 0);
+  const max = s.byCat.length ? s.byCat[0][1] : 1;
+  const diff = s.diffPct == null ? '' : s.diffPct === 0 ? `Igual que en ${prevName}` : `${Math.abs(s.diffPct)} % ${s.diffPct > 0 ? 'más' : 'menos'} que en ${prevName}`;
+  return `<h3 class="sheet-title">Resumen del mes 📊</h3>
+    <div class="month-nav">
+      <button class="btn icon ghost" data-act="month-go" data-v="${older || ''}" ${older ? '' : 'disabled'} aria-label="Mes anterior">${ic('chevron-left')}</button>
+      <b>${cap(MONTHS[m - 1])} ${y}</b>
+      <button class="btn icon ghost" data-act="month-go" data-v="${newer || ''}" ${newer ? '' : 'disabled'} aria-label="Mes siguiente">${ic('chevron-right')}</button></div>
+    <div class="month-sum"><b>${eur(s.total)}</b>
+      <small>${s.count} ${s.count === 1 ? 'gasto' : 'gastos'}${s.fixed ? ` · ${eur(s.fixed)} de gastos fijos` : ''}</small>
+      ${diff ? `<small class="md-diff">${diff}</small>` : ''}</div>
+    ${s.byCat.length ? `<div class="cat-bars">${s.byCat.map(([c, v]) => {
+      const k = catOf(c);
+      return `<div class="cb-row"><span class="cb-e">${k[1]}</span><span class="cb-body">
+        <span class="cb-top"><b>${esc(k[2])}</b><span>${eur(v)} <small>${Math.round(v / s.total * 100)}%</small></span></span>
+        <span class="cb-bar"><span style="width:${Math.max(3, Math.round(v / max * 100))}%"></span></span></span></div>`;
+    }).join('')}</div>` : `<p class="empty">Este mes aún no hay gastos.</p>`}
+    ${saved ? `<p class="note">🐷 Este mes habéis ahorrado <b>${eur(saved)}</b> entre los dos.</p>` : ''}
+    <button class="btn big wide block" data-act="exp-export">${ic('file-spreadsheet')} Gastos a Excel</button>
+    <p class="muted small center">Un archivo con todos vuestros gastos (se abre con Excel o Google Sheets).</p>`;
+}
+
+/** Guarda un archivo y abre el menú de compartir del móvil (Drive, correo, WhatsApp…); en el navegador, lo descarga. */
+async function exportFile(name, text, mime) {
+  const P = window.Capacitor && Capacitor.Plugins;
+  if (isNative() && P && P.Filesystem && P.Share) {
+    try {
+      const r = await P.Filesystem.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' });
+      await P.Share.share({ title: name, files: [r.uri], dialogTitle: 'Guardar o enviar' });
+    } catch (e) { if (!/cancel/i.test(String(e && e.message))) toast('No se ha podido crear el archivo 😕'); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('Descargado 📥');
+}
+
+/* Revisión semanal (Plus): 10 minutos juntos, al estilo de la "reunión de pareja" de Gottman.
+   Todo en equipo (nada de quién ha hecho más) y para hablarlo EN PERSONA: casi nada se guarda. */
+const REVIEW_STEPS = 5;
+function reviewSheet() {
+  const k = S.review, w = L.weekStats(S.data), [a, b] = MEMBERS();
+  const stat = (e, n, t) => `<div class="rv-stat"><span>${e}</span><b>${n}</b><small>${t}</small></div>`;
+  let body;
+  if (k === 0) {
+    body = `<h3 class="sheet-title">Vuestra semana 💞</h3>
+      <p class="muted">Sentaos juntos, sin prisa y sin otras pantallas. Esto habéis hecho <b>entre los dos</b>:</p>
+      <div class="rv-stats">${stat('🧽', w.tasksDone, w.tasksDone === 1 ? 'tarea hecha' : 'tareas hechas')}${stat('💛', w.thanks, 'gracias')}
+        ${stat('📸', w.plans.length, w.plans.length === 1 ? 'plan hecho' : 'planes hechos')}${noPoints() ? stat('💸', eur(w.spent), 'en gastos') : stat('🪙', '+' + w.points, 'puntos juntos')}</div>
+      <p class="rv-prompt">💬 Cada uno dice <b>una cosa que le ha gustado</b> de esta semana.</p>`;
+  } else if (k === 1) {
+    body = `<h3 class="sheet-title">Unas gracias 💛</h3>
+      <p class="rv-prompt">💬 Dile a ${esc(pname())} algo que le agradeces de esta semana. En voz alta… y si quieres, que se quede en el tarro.</p>
+      <div class="stack"><input class="inp" id="rv-thanks" maxlength="120" placeholder="Gracias por…">
+        <button class="btn mint" data-act="review-thanks">${ic('heart')} Guardarlo en el tarro</button></div>`;
+  } else if (k === 2) {
+    const { load } = L.taskLoad(S.data.tasks, MEMBERS());
+    const tot = load[a] + load[b], pa = tot ? Math.round(load[a] / tot * 100) : 50, t = taskPctA();
+    body = `<h3 class="sheet-title">¿Os parece justo? ⚖️</h3>
+      <p class="muted">Cómo os repartís las tareas apuntadas (acordasteis ${t}/${100 - t}).</p>
+      ${tot ? `<div class="rv-load"><span class="loadbar"><span class="a" style="width:${pa}%"></span><span class="b" style="width:${100 - pa}%"></span><i class="target" style="left:${t}%"></i></span>
+        <span class="lm-legend"><span>${av(a, 'xs')} ${esc(prof(a).name)} ${pa}%</span><span>${100 - pa}% ${esc(prof(b).name)} ${av(b, 'xs')}</span></span></div>`
+      : `<p class="empty">Aún no hay tareas apuntadas.</p>`}
+      <p class="rv-prompt">💬 ¿Alguno lleva más de lo que le toca, también lo invisible (citas, planes, cumpleaños)? Si hace falta, cambiadlo con una propuesta.</p>`;
+  } else if (k === 3) {
+    body = `<h3 class="sheet-title">La semana que viene 🌱</h3>
+      <p class="rv-prompt">💬 Cada uno: <b>¿qué te vendría bien?</b> Ayuda con algo, un rato para ti, un plan juntos, mimos…</p>
+      <p class="muted small">No se guarda nada: es para hablarlo.</p>`;
+  } else {
+    const matches = (S.data.ideas || []).filter(x => !x.doneAt && L.ideaState(x, MEMBERS()).match).slice(0, 3);
+    body = `<h3 class="sheet-title">Un plan juntos 🍿</h3>
+      <p class="rv-prompt">💬 Elegid <b>un plan</b> para esta semana, aunque sea pequeño.</p>
+      ${matches.length ? `<p class="muted small">Os apetece a los dos:</p><div class="chips">${matches.map(x => `<span class="chip static">💞 ${esc(x.title)}</span>`).join('')}</div>`
+      : `<p class="muted small">Si no se os ocurre nada, en Juntos → Ideas tenéis la ruleta 🎲</p>`}`;
+  }
+  const last = k === REVIEW_STEPS - 1;
+  return `<div class="wl-dots rv-dots">${Array.from({ length: REVIEW_STEPS }, (_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</div>${body}
+    <div class="rv-nav">${k ? `<button class="btn icon" data-act="review-step" data-v="-1" aria-label="Anterior">${ic('arrow-left')}</button>` : ''}
+      <button class="btn primary big" data-act="${last ? 'review-done' : 'review-step'}" data-v="1">${last ? 'Terminar 💞' : 'Siguiente'}</button></div>`;
+}
+
+/* Colores (Plus): se guardan en este móvil. Si se acaba Plus, vuelve el de siempre. */
+const curTheme = () => { const t = lsGet('xp_theme') || ''; return THEMES.some(x => x[0] === t) ? t : ''; };
+function applyTheme() {
+  const t = S.phase === 'app' && S.data && S.data.couple && isPlus() ? curTheme() : '';
+  const root = document.documentElement;
+  if ((root.dataset.theme || '') === t) return;
+  if (t) root.dataset.theme = t; else delete root.dataset.theme;
+  const color = (THEMES.find(x => x[0] === t) || THEMES[0])[3];
+  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = color;
+  if (window.__xpBar) window.__xpBar(color);
+}
+function themeSheet() {
+  const cur = curTheme();
+  return `<h3 class="sheet-title">Colores de la app 🎨</h3>
+    <p class="muted">Cambian el fondo y las tarjetas en tu móvil. El rosa y el lila siguen siendo cada uno de vosotros.</p>
+    <div class="theme-grid">${THEMES.map(([k, e, n, c]) => `<button class="theme-opt ${k === cur ? 'on' : ''}" data-act="theme-set" data-v="${k}" style="--tc:${c}">
+      <span class="to-sw">${e}</span><b>${n}</b></button>`).join('')}</div>
+    ${isPlus() ? '' : `<p class="note">✨ Los colores son de <b>Plus</b>. Fresa es el de siempre.</p>`}`;
 }
 
 /* ================================================================
@@ -1239,12 +1455,13 @@ function recurringSection() {
 
 /* ---------------- Actualizaciones (GitHub Releases) ---------------- */
 function updateBanner() {
-  if (!S.update || !L.isNewer(S.update, VERSION)) return '';
+  if (FROM_PLAY || !S.update || !L.isNewer(S.update, VERSION)) return '';
   return `<button class="update-bar" data-act="open-url" data-url="${APK_URL}">${ic('sparkles')}
     <span><b>Hay una versión nueva (${esc(S.update)})</b><small>Toca para descargarla e instalarla encima</small></span>${ic('download')}</button>`;
 }
 /** Mira la última release publicada (como mucho cada 6 h, salvo que se fuerce). Solo dentro del APK. */
 async function checkUpdate(force = false) {
+  if (FROM_PLAY) return null;
   if (!isNative() && !force) return null;
   if (!force && Date.now() - Number(lsGet('xp_upd_at') || 0) < 6 * 3600e3) { S.update = lsGet('xp_upd_v'); return S.update; }
   try {
@@ -1311,7 +1528,8 @@ function tipsSheet() {
 function questionCard() {
   const q = QUESTIONS[(L.dayIndex(QUESTIONS.length) + S.qShift) % QUESTIONS.length];
   return `<section class="question block"><small>💬 Para hablar hoy, sin móvil</small><p>${esc(q)}</p>
-    <button class="btn link sm" data-act="q-next">Otra pregunta</button></section>`;
+    <div class="q-links"><button class="btn link sm" data-act="q-next">Otra pregunta</button>
+      <button class="btn link sm" data-act="game-open" data-g="qa">Más preguntas ✨</button></div></section>`;
 }
 
 /* ---------------- PLANES (decidir juntos) ---------------- */
@@ -1553,12 +1771,21 @@ const GAMES = [
   ['rps', '✊✋✌️', 'Piedra, papel o tijera', 'Elige en secreto y pásale el móvil.'],
   ['tot', '🤔', 'Esto o aquello', '¿Coincidís? Cada uno elige en secreto.'],
   ['who', '🫵', '¿Quién es más probable…?', 'A la de tres, señalad a quién. Risas aseguradas.'],
+  ['qa', '💬', 'Preguntas para conoceros', 'Packs de preguntas para hablar sin móvil.', 'plus'],
+  ['review', '🗓️', 'Revisión semanal', '10 minutos juntos para cuidar la semana.', 'plus'],
 ];
 function viewPlay() {
   return `<p class="hint">Juegos para dos en el mismo móvil, para cuando os aburrís juntos 😄</p>
-    <div class="games">${GAMES.map(([k, e, t, d], i) => `<button class="game-card" style="--i:${i}" data-act="game-open" data-g="${k}">
-      <span class="gc-e">${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`;
+    <div class="games">${GAMES.map(([k, e, t, d, p], i) => `<button class="game-card" style="--i:${i}" data-act="game-open" data-g="${k}">
+      <span class="gc-e">${e}</span><b>${t}</b><small>${d}</small>${p ? plusTag() : ''}</button>`).join('')}</div>`;
 }
+/* Con Plus, los juegos de cartas tienen más cartas. */
+const totDeck = () => (isPlus() ? [...THIS_OR_THAT, ...THIS_OR_THAT_PLUS] : THIS_OR_THAT);
+const whoDeck = () => (isPlus() ? [...WHO_MORE, ...WHO_MORE_PLUS] : WHO_MORE);
+const qaGame = pack => {
+  const p = QUESTION_PACKS.find(x => x[0] === pack) || QUESTION_PACKS[0];
+  return { g: 'qa', pack: p[0], deck: L.shuffle(p[3]), i: 0 };
+};
 const RPS = [['piedra', '✊', 'Piedra'], ['papel', '✋', 'Papel'], ['tijera', '✌️', 'Tijera']];
 function newGame(g, prev) {
   const [a, b] = MEMBERS();
@@ -1566,10 +1793,13 @@ function newGame(g, prev) {
   if (g === 'ttt') return { g, b: Array(9).fill(null), turn: starter, starter, res: null };
   if (g === 'c4') return { g, b: Array(L.C4_COLS * L.C4_ROWS).fill(null), turn: starter, starter, res: null, last: -1 };
   if (g === 'rps') return { g, phase: 'p1', first: starter, starter, picks: {} };
-  if (g === 'tot') return { g, deck: L.shuffle(THIS_OR_THAT).slice(0, 7), i: 0, phase: 'p1', first: starter, starter, picks: {}, hits: 0 };
-  return { g, deck: L.shuffle(WHO_MORE), i: 0 };
+  if (g === 'tot') return { g, deck: L.shuffle(totDeck()).slice(0, 7), i: 0, phase: 'p1', first: starter, starter, picks: {}, hits: 0 };
+  if (g === 'qa') return qaGame(prev && prev.pack);
+  return { g, deck: L.shuffle(whoDeck()), i: 0 };
 }
 function openGame(g) {
+  if (g === 'review') { ACT['review-open'](); return; }
+  if (g === 'qa' && !needPlus('packs')) return;
   S.game = newGame(g);
   if (!S.gscore[g]) S.gscore[g] = { [MEMBERS()[0]]: 0, [MEMBERS()[1]]: 0, draw: 0 };
   openSheet(renderGame(), { ctx: { game: true } });
@@ -1636,6 +1866,14 @@ function renderGame() {
       <p class="g-status">${same ? '¡Coincidís! 💞' : 'Esta vez no 🙃'}</p>
       <button class="btn primary big wide" data-act="g-next">${G.i + 1 < G.deck.length ? 'Siguiente' : 'Ver resultado'}</button>`;
   }
+  if (G.g === 'qa') {
+    const p = QUESTION_PACKS.find(x => x[0] === G.pack) || QUESTION_PACKS[0];
+    return `<h3 class="sheet-title">${title}</h3>
+      <div class="chips scroll">${QUESTION_PACKS.map(([k, e, n]) => `<button class="chip ${G.pack === k ? 'on' : ''}" data-act="g-pack" data-v="${k}">${e} ${esc(n)}</button>`).join('')}</div>
+      <div class="who-card qa"><small>${p[1]} ${esc(p[2])} · ${G.i % G.deck.length + 1} de ${G.deck.length}</small><b>${esc(G.deck[G.i % G.deck.length])}</b></div>
+      <p class="muted center">Contestad los dos, por turnos. Sin prisa 💬</p>
+      <button class="btn primary big wide" data-act="g-next">Otra pregunta 🔀</button>`;
+  }
   // ¿Quién es más probable…?
   const q = G.deck[G.i % G.deck.length];
   return `<h3 class="sheet-title">${title}</h3>
@@ -1674,7 +1912,7 @@ function gamePick(v) {
 }
 function gameNext() {
   const G = S.game; if (!G) return;
-  if (G.g === 'who') { G.i++; paintGame(); return; }
+  if (G.g === 'who' || G.g === 'qa') { G.i++; paintGame(); return; }
   G.i++;
   if (G.i >= G.deck.length) G.phase = 'end';
   else { G.phase = 'p1'; G.picks = {}; G.first = G.first === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0]; }
@@ -2191,6 +2429,50 @@ const ACT = {
   },
   'tool-open': d => { S.tool = d.v; openSheet(toolHtml(d.v), { ctx: { tool: d.v } }); S.tool = d.v; },
 
+  /* Xurripoints Plus */
+  'plus-open': () => openSheet(plusSheet()),
+  'plus-trial': () => {
+    if (plus().trialUsed) return;
+    // Empezar la prueba no cuesta nada ni cambia lo que ya tenéis: no hace falta propuesta, pero tu pareja lo ve.
+    S.be.updateCouple({ plus: L.trialDoc(ME()) }).catch(err => toast(errMsg(err)));
+    logChange('plus', `ha activado la prueba gratis de Plus para los dos (${L.TRIAL_DAYS} días) ✨`);
+    closeSheet(); celebrate(['✨', '💞', '🎉']);
+    toast(`¡Plus activado ${L.TRIAL_DAYS} días para los dos! ✨`);
+  },
+  'month-open': () => { if (!needPlus('month')) return; S.sumMonth = null; openSheet(monthSheet()); },
+  'month-go': d => { if (!d.v) return; S.sumMonth = d.v; swapSheet(monthSheet()); },
+  'exp-export': () => {
+    if (!needPlus('export')) return;
+    if (!S.data.expenses.length) { toast('Todavía no hay gastos que exportar'); return; }
+    const names = Object.fromEntries([...MEMBERS(), ...(C().formerMembers || [])].map(u => [u, prof(u).name]));
+    const cats = Object.fromEntries(CATS.map(c => [c[0], c[2]]));
+    exportFile(`xurripoints-gastos-${L.ymd()}.csv`, L.expensesCsv(S.data.expenses, MEMBERS(), { names, cats }), 'text/csv;charset=utf-8');
+  },
+  // Copia de todos los datos (derecho a la portabilidad): gratis siempre.
+  'data-export': () => {
+    const copy = { app: 'Xurripoints', version: VERSION, exportedAt: new Date().toISOString(), ...S.data };
+    exportFile(`xurripoints-copia-${L.ymd()}.json`, JSON.stringify(copy, null, 2), 'application/json');
+  },
+  'review-open': () => { if (!needPlus('review')) return; S.review = 0; openSheet(reviewSheet()); },
+  'review-step': d => { S.review = Math.max(0, Math.min(REVIEW_STEPS - 1, S.review + Number(d.v))); swapSheet(reviewSheet()); },
+  'review-thanks': () => {
+    const text = $('#rv-thanks').value.trim();
+    if (!text) { toast('Escribe por qué ✍️'); return; }
+    S.be.add('thanks', { from: ME(), to: PA(), text: text.slice(0, 120), emoji: '💛', createdAt: Date.now(), seenAt: null, reaction: null }).done.catch(err => toast(errMsg(err)));
+    $('#rv-thanks').value = ''; celebrate(['💛', '💗']); toast('Guardado en el tarro 🫙');
+  },
+  'review-done': () => {
+    lsSet('xp_review_at', String(Date.now()));
+    closeSheet(); celebrate(['💞', '🌱', '✨']); toast('¡Revisión hecha! Buena semana, equipo 💞'); render();
+  },
+  'g-pack': d => { S.game = qaGame(d.v); paintGame(); },
+  'theme-sheet': () => openSheet(themeSheet()),
+  'theme-set': d => {
+    if (d.v && !needPlus('theme')) return;
+    lsSet('xp_theme', d.v || null); applyTheme(); swapSheet(themeSheet());
+  },
+  'legal-sheet': () => openSheet(legalSheet()),
+
   /* controles genéricos */
   'pick': (d, el) => {
     const group = el.parentElement;
@@ -2319,8 +2601,8 @@ const ACT = {
     try { await navigator.clipboard.writeText(S.code); toast('Código copiado 📋'); }
     catch (e) { toast(`Tu código: ${S.code}`); }
   },
-  'share-code': () => shareText(`¡Únete a mí en Xurripoints! 💞\n1️⃣ Descarga la app: ${APK_URL}\n2️⃣ Crea tu cuenta y pon nuestro código: ${S.code}`),
-  'share-app': () => shareText(`Te paso Xurripoints 💞, una app para organizaros en pareja: tareas, gastos, planes y gracias (y puntos para pediros favores). Descárgala aquí (Android): ${APK_URL}`),
+  'share-code': () => shareText(`¡Únete a mí en Xurripoints! 💞\n1️⃣ Descarga la app: ${SITE}\n2️⃣ Crea tu cuenta y pon nuestro código: ${S.code}`),
+  'share-app': () => shareText(`Te paso Xurripoints 💞, una app para organizaros en pareja: tareas y gastos sin dramas, gracias y planes juntos (y puntos para pediros favores). Gratis y sin anuncios: ${SITE}`),
   'welcome': () => showWelcome(),
   'open-url': d => openExternal(d.url),
   'check-update': async () => {

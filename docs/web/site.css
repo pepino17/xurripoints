@@ -1,0 +1,87 @@
+/* Web pública de Xurripoints (GitHub Pages, carpeta docs/). Mismo estilo "tierno pastel" que la app. */
+@font-face { font-family: 'Fraunces'; font-weight: 500 900; font-display: swap; src: url(fraunces.woff2) format('woff2'); }
+@font-face { font-family: 'Lexend'; font-weight: 300 700; font-display: swap; src: url(lexend.woff2) format('woff2'); }
+
+:root {
+  --bg: #FFF3EC; --card: #FFFBF8; --ink: #3B2335; --ink-2: #6E5264; --line: #F2DAD3; --line-2: #EBCBC2;
+  --a: #F58BAA; --a-deep: #D65580; --a-soft: #FFE0E9; --b: #A897F5; --b-soft: #ECE7FF;
+  --butter: #FFE7A0; --butter-deep: #E9B64A; --mint: #8EDCB8; --mint-deep: #3DA97E; --mint-soft: #DCF5E9;
+  --display: 'Fraunces', Georgia, serif; --body: 'Lexend', 'Segoe UI', system-ui, sans-serif;
+  --shadow: 0 12px 28px -18px rgba(170, 60, 100, .45);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; color: var(--ink); font: 400 17px/1.6 var(--body); overflow-x: hidden;
+  background:
+    radial-gradient(55% 30% at 0% 0%, #FFD3E1 0%, transparent 70%),
+    radial-gradient(50% 26% at 100% 4%, #E7E0FF 0%, transparent 70%),
+    var(--bg);
+}
+a { color: var(--a-deep); text-underline-offset: 3px; }
+h1, h2, h3, .logo { font-family: var(--display); font-variation-settings: "SOFT" 100, "WONK" 1; line-height: 1.12; letter-spacing: -.01em; }
+h1 { font-size: clamp(2.2rem, 7vw, 3.4rem); margin: .2em 0 .3em; font-weight: 800; }
+h2 { font-size: clamp(1.5rem, 4.5vw, 2rem); margin: 0 0 .5em; font-weight: 800; }
+h3 { font-size: 1.15rem; margin: 0 0 .3em; font-weight: 700; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+.narrow { max-width: 720px; }
+
+/* Cabecera y pie */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; }
+.logo { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; font-weight: 800; color: var(--ink); text-decoration: none; }
+.logo img { width: 30px; height: 30px; }
+.logo em { color: var(--a-deep); font-style: italic; }
+.top nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: .92rem; }
+.foot { margin: 56px 0 0; padding: 24px 0 40px; border-top: 1.5px solid var(--line); color: var(--ink-2); font-size: .92rem; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; }
+
+/* Portada */
+.hero { display: grid; gap: 28px; align-items: center; padding: 24px 0 8px; }
+@media (min-width: 760px) { .hero { grid-template-columns: 1.3fr 1fr; } }
+.lead { font-size: 1.15rem; color: var(--ink-2); margin: 0 0 22px; }
+.btns { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 999px; font-weight: 600; text-decoration: none;
+  color: var(--ink); background: var(--card); box-shadow: 0 3px 0 var(--line-2); }
+.btn.primary { background: var(--a); box-shadow: 0 4px 0 var(--a-deep); }
+.btn:active { transform: translateY(2px); }
+.small { font-size: .9rem; color: var(--ink-2); }
+.phone { justify-self: center; width: min(300px, 100%); padding: 18px; border-radius: 34px; background: var(--card); box-shadow: var(--shadow); border: 1.5px solid #fff; }
+.ph-card { border-radius: 20px; padding: 14px; margin-bottom: 10px; background: linear-gradient(150deg, #FFE7EE, #FFF1E8 55%, #F1ECFF); }
+.ph-card small { color: var(--ink-2); display: block; font-size: .8rem; }
+.ph-card b { font-family: var(--display); font-size: 1.1rem; }
+.bar { display: block; height: 12px; border-radius: 99px; background: rgba(255, 255, 255, .8); overflow: hidden; margin: 6px 0; }
+.bar i { display: block; height: 100%; width: 62%; border-radius: 99px; background: linear-gradient(90deg, var(--a), #EE9A6C 50%, var(--b)); }
+.ph-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: #fff; margin-bottom: 8px; font-size: .9rem; box-shadow: 0 1px 0 var(--line); }
+.ph-row span { font-size: 1.3rem; }
+
+section { margin-top: 56px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.card { background: var(--card); border-radius: 22px; padding: 18px; box-shadow: var(--shadow); border: 1.5px solid color-mix(in srgb, var(--line) 70%, white); }
+.card .e { font-size: 1.8rem; display: block; margin-bottom: 4px; }
+.card p { margin: 0; color: var(--ink-2); font-size: .95rem; }
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.steps li { counter-increment: s; display: flex; gap: 12px; align-items: flex-start; }
+.steps li::before { content: counter(s); flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--a-soft); color: var(--a-deep); }
+.psy { background: var(--card); border: 2px dashed var(--b); border-radius: 24px; padding: 22px; }
+.psy ul { margin: 0; padding-left: 20px; }
+
+/* Plus */
+.plans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.plan { background: var(--card); border-radius: 24px; padding: 22px; box-shadow: var(--shadow); border: 2px solid var(--line); }
+.plan.plus { border-color: var(--butter-deep); background: linear-gradient(160deg, #FFF6D8, #FFEFF3 70%); }
+.plan ul { padding-left: 20px; margin: 10px 0 0; }
+.plan li { margin: 4px 0; }
+.price { font-family: var(--display); font-size: 2rem; font-weight: 800; }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: .82rem; font-weight: 700; background: var(--butter); color: #7A4B00; }
+
+/* Textos legales */
+.legal h1 { font-size: clamp(2rem, 6vw, 2.6rem); }
+.legal h2 { font-size: 1.35rem; margin-top: 1.8em; }
+.legal p, .legal li { color: var(--ink); }
+.legal .box { background: var(--card); border-radius: 18px; padding: 14px 18px; border: 1.5px solid var(--line); margin: 16px 0; }
+.legal .box.note { background: color-mix(in srgb, var(--butter) 50%, white); border-color: var(--butter-deep); }
+.legal table { width: 100%; border-collapse: collapse; font-size: .95rem; margin: 10px 0; }
+.legal th, .legal td { text-align: left; padding: 8px 10px; border-bottom: 1.5px solid var(--line); vertical-align: top; }
+.legal th { font-weight: 600; background: var(--card); }
+.table-wrap { overflow-x: auto; }
+.date { color: var(--ink-2); font-size: .92rem; }

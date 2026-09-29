@@ -20,6 +20,12 @@
     } catch (e) { /* silencioso */ }
   }
 
+  /** Color de la barra de estado según los colores de la app (Plus). */
+  window.__xpBar = function (color) {
+    const SB = P('StatusBar'); if (!SB) return;
+    try { SB.setBackgroundColor({ color: color }); } catch (e) { /* silencioso */ }
+  };
+
   function setupBackButton() {
     const App = P('App'); if (!App) return;
     App.addListener('backButton', () => {

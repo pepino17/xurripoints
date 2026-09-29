@@ -27,6 +27,11 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
 - **Lo común se acuerda:** repartos y precios se cambian con una **propuesta** que el otro acepta; si alguien borra o
   cambia algo, el otro lo ve y puede recuperarlo. Los puntos se pueden **pausar** y cada uno puede **salir de la pareja**.
 - **Fácil de empezar:** bienvenida en 5 pasos, **primeros pasos** en Inicio y ayuda en cada pantalla (botón **?**).
+- **Gratis y sin anuncios.** **Xurripoints Plus** (opcional, uno para los dos): resumen del mes, gastos a Excel,
+  revisión semanal, packs de preguntas, más cartas y colores. **14 días de prueba gratis** desde la app.
+
+Web: **https://pepino17.github.io/xurripoints/** · [Privacidad](https://pepino17.github.io/xurripoints/privacidad.html) ·
+[Condiciones](https://pepino17.github.io/xurripoints/condiciones.html) · [Borrar la cuenta](https://pepino17.github.io/xurripoints/borrar-cuenta.html)
 
 ## Instalar (Android)
 1. Pulsa **Descargar app** desde el móvil (o escanea el QR).
@@ -43,7 +48,8 @@ node tests/logic.test.mjs                        # pruebas de la lógica (y de q
 python -m http.server 5173 --directory app       # probar en el navegador
 npm run sync                                     # empaqueta Firebase + copia la web a android/
 ```
-Cada push a `main` compila el APK (release firmado) en GitHub Actions y lo publica en Releases.
+Cada push a `main` compila el APK (release firmado) y el `.aab` para Google Play en GitHub Actions y los publica en Releases.
+La web pública sale de la carpeta [`docs/`](docs/) (GitHub Pages). Negocio y tienda: [`docs/MONETIZACION.md`](docs/MONETIZACION.md) · [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
 Las reglas de Firestore y `app/store.js` se prueban con los emuladores de Firebase en Actions (`tests/rules.test.mjs`, `tests/store.test.mjs`).
 
 Diseñada con criterio de psicología de pareja para que **sume y no lleve la cuenta**: [`docs/PSICOLOGIA.md`](docs/PSICOLOGIA.md).
