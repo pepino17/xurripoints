@@ -8,7 +8,7 @@ import * as L from './logic.js';
 import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS } from './content.js';
 import { CHANNEL } from './channel.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -163,8 +163,11 @@ const PLUS_FEATURES = [
 ];
 const PLUS_SOON = [['🔔', 'Avisos al momento', 'Cuando tu pareja te pide o te propone algo'], ['📷', 'Fotos', 'Del ticket y de vuestros recuerdos']];
 const PLUS_PRICES = [['Anual', '19,99 €', 'al año', 'sale a 1,67 €/mes'], ['Mensual', '2,99 €', 'al mes', ''], ['Para siempre', '39,99 €', 'un pago', '']];
-/** Temas (Plus): solo cambian el fondo y las tarjetas; rosa y lila siguen siendo cada uno de vosotros. [id, emoji, nombre, color de la barra] */
-const THEMES = [['', '🍓', 'Fresa', '#FFF3EC'], ['menta', '🌿', 'Menta', '#ECF7F1'], ['cielo', '☁️', 'Cielo', '#EDF4FB'], ['lavanda', '💜', 'Lavanda', '#F4F0FC'], ['melocoton', '🍑', 'Melocotón', '#FFF0E6']];
+/** Temas: solo cambian el fondo y las tarjetas; el color de cada uno se elige en su perfil (v0.9).
+    [id, emoji, nombre, color de la barra del sistema] */
+const THEMES = [['', '🍓', 'Fresa', '#FFF3EC'], ['neutro', '🩶', 'Neutro', '#F3F4F6'], ['menta', '🌿', 'Menta', '#ECF7F1'], ['cielo', '☁️', 'Cielo', '#EDF4FB'], ['lavanda', '💜', 'Lavanda', '#F4F0FC'], ['melocoton', '🍑', 'Melocotón', '#FFF0E6']];
+/** Temas gratis: el fondo neutro no es de Plus. Es la respuesta a "es muy pastel": quien no lo quiera, lo apaga. */
+const FREE_THEMES = ['neutro'];
 
 /* ---------------- Estado ---------------- */
 const S = {
@@ -173,6 +176,7 @@ const S = {
   authMode: 'welcome',    // welcome · signup · login
   authError: '', busy: false,
   tab: 'home', ptab: 'vales', taskFilter: 'all', showDone: false,
+  taskView: 'list', calMonth: null,   // Tareas: lista o calendario · mes que se ve en el calendario (null = el de hoy)
   itab: 'planes', showDoneIdeas: false, qShift: 0, seenThanks: null,
   jtab: 'ideas', mtab: 'exp',             // Juntos: ideas · decidir · jugar  ·  Gastos: gastos · ahorro
   coinMode: 'coin', coinRes: '', coinFace: 'h', dice: 1, lastDice: [3, 5], diceRes: '',
@@ -189,13 +193,18 @@ const S = {
   update: null,           // última versión publicada en GitHub (si se sabe)
   recurringDone: new Set(),
   closeTimer: null, notifySig: '', loadError: '',
+  justDone: {},           // tarea → cuándo se dio por hecha (evita el doble toque en tareas que se repiten)
 };
 
 const C = () => S.data.couple;
 const MEMBERS = () => C().members;
 const ME = () => S.user.uid;
 const PA = () => MEMBERS().find(u => u !== ME());
-const prof = u => (C().profiles && C().profiles[u]) || { name: '¿?', emoji: '🙂', sugar: 'mami', income: 0 };
+/** Perfil de una persona, siempre con lo mínimo y con los ingresos como número (nunca NaN ni texto). */
+const prof = u => {
+  const p = (C().profiles && C().profiles[u]) || {};
+  return { name: '¿?', emoji: '🙂', sugar: 'mami', ...p, income: num(p.income) };
+};
 const pname = () => prof(PA()).name;
 const nameOf = u => (u === ME() ? 'Tú' : prof(u).name);
 const side = u => (u === MEMBERS()[0] ? 'a' : 'b');
@@ -205,7 +214,11 @@ const coin = (n, cls = '') => `<span class="pts ${cls}"><i class="xc"></i>${esc(
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 /** Modo sin puntos: se ocultan puntos, vales y meta (se pausa en Pareja). */
 const noPoints = () => !!(C().settings && C().settings.noPoints);
-const catalog = () => (C().catalog || { earn: [], spend: [] });
+/** El catálogo siempre con listas de verdad: si algo raro llegara de la base, la app no se queda en blanco. */
+const catalog = () => {
+  const c = C().catalog || {};
+  return { earn: Array.isArray(c.earn) ? c.earn : [], spend: Array.isArray(c.spend) ? c.spend : [] };
+};
 /** Plus de la pareja (prueba o de pago). */
 const plus = () => L.plusState(C());
 const isPlus = () => plus().active;
@@ -214,7 +227,7 @@ const taskPctA = () => (C().settings && Number.isFinite(C().settings.taskPctA) ?
 const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
 /** Reparto de gastos de la pareja ("⭐ vuestro reparto"): por defecto en los gastos nuevos y en los fijos. */
 const defaultSplit = () => (C().settings && C().settings.split) || { mode: 'equal', sugar: null, customPctA: 50 };
-const splitIncomes = () => Object.fromEntries(MEMBERS().map(u => [u, prof(u).income || 0]));
+const splitIncomes = () => Object.fromEntries(MEMBERS().map(u => [u, num(prof(u).income)]));
 /** Un reparto dicho en palabras, desde mi punto de vista (primero mi parte). Texto plano: escapar al pintar. */
 function splitWords(mode, sugar, customPctA, incomes = splitIncomes()) {
   const me = ME(), [a] = MEMBERS();
@@ -246,7 +259,7 @@ function pageHead(title, { back = false, action = '', help = '' } = {}) {
    La primera vez que entras en una pantalla, una tarjeta explica para qué sirve. Se cierra con
    "Entendido" y se vuelve a abrir con el botón ? del título. */
 const HINTS = {
-  tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas.'],
+  tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. Y en <b>Calendario</b> ves lo que toca cada día.'],
   money: ['💸', 'Apuntad lo que pagáis: cada gasto <b>se reparte solo</b> y aquí veis cuánto hay que cuadrar. En <b>Ahorro</b>, huchas para ahorrar juntos.'],
   plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta. <b>Jugar</b>: juegos para dos en un móvil.'],
   points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si tu pareja dice «ahora no», los puntos vuelven.'],
@@ -392,19 +405,28 @@ function propose(kind, value, text) {
     .done.catch(err => toast(errMsg(err)));
   toast(`Propuesta enviada a ${pname()} 💬 Cambia cuando diga que sí`);
 }
-function applyProposal(p) {
+/** Aplica una propuesta aceptada. `baseCatalog` = catálogo sobre el que aplicar (para aplicar varias del
+    catálogo seguidas sin que cada una parta del catálogo viejo, que es como se perdían cambios). */
+function applyProposal(p, baseCatalog) {
   const v = p.value;
   let patch = null;
   if (p.kind === 'split') patch = { 'settings.split': v };
   else if (p.kind === 'taskPct') patch = { 'settings.taskPctA': num(v) };
   else if (p.kind === 'points-on') patch = { 'settings.noPoints': false };
-  else if (p.kind === 'catalog' && v && (v.kind === 'earn' || v.kind === 'spend')) patch = { [`catalog.${v.kind}`]: L.applyCatalogOp(catalog()[v.kind], v) };
+  else if (p.kind === 'catalog' && v && (v.kind === 'earn' || v.kind === 'spend')) {
+    const list = (baseCatalog && baseCatalog[v.kind]) || catalog()[v.kind];
+    patch = { [`catalog.${v.kind}`]: L.applyCatalogOp(list, v) };
+  }
   if (patch) S.be.updateCouple(patch).catch(err => toast(errMsg(err)));
+  return patch;
 }
+/** Responde a una propuesta. Devuelve false si ya no estaba pendiente (entonces NO se cambia nada:
+    si no, la app decía «¡Hecho!» aunque la otra persona ya la hubiera resuelto). */
 function answerProposal(p, yes) {
-  if (!p || p.status !== 'pending') return;
+  if (!p || p.status !== 'pending') return false;
   if (yes) applyProposal(p);
   S.be.update('proposals', p.id, { status: yes ? 'accepted' : 'rejected', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
+  return true;
 }
 /** Apunta un cambio para que la pareja lo vea. `data` = {col, id, doc, extra?} para poder recuperarlo/deshacerlo. */
 function logChange(kind, text, data = null) {
@@ -452,7 +474,8 @@ function typingInScreen() {
   const a = document.activeElement;
   if (!a || !a.closest || !/^(INPUT|TEXTAREA)$/.test(a.tagName)) return false;
   if (S.phase === 'app') return !!a.closest('#view');
-  return (S.phase === 'wait' || S.phase === 'pair') && !!a.closest('#app');
+  // Esperar pareja, rellenar el perfil y entrar: mientras escribes, no se repinta (antes se borraba lo escrito).
+  return ['wait', 'pair', 'auth'].includes(S.phase) && !!a.closest('#app');
 }
 /** Clave de un desplegable (<details>) para que siga abierto al repintar. */
 const detailsKey = d => d.dataset.k || ((d.querySelector('summary') || {}).textContent || '').trim();
@@ -473,7 +496,11 @@ function render() {
   else app.innerHTML = viewShell();
   if (openDetails.size) $$('details', app).forEach(d => { if (openDetails.has(detailsKey(d))) d.open = true; });
   applyTheme();
+  applyColors();
   icons();
+  // La hoja de un día del calendario se repinta con los datos: si no, marcar una tarea hecho dejaba el
+  // círculo como estaba y el segundo toque reabría la tarea (hallazgo del revisor).
+  if (S.sheet && S.sheet.calDay && $('#sheet-root').classList.contains('open')) swapSheet(calDaySheet(S.sheet.calDay));
   if (S.enter) { S.enter = false; window.scrollTo(0, 0); } else window.scrollTo(0, y);
 }
 
@@ -550,13 +577,17 @@ async function submitAuth(e) {
 }
 
 /* ---------------- Emparejar ---------------- */
-function profileFields(p = {}) {
+function profileFields(p = {}, { colorFallback = '' } = {}) {
   const emoji = p.emoji || AVATARS[0], sugar = p.sugar || 'mami';
+  const color = p.color || colorFallback;
   return `
     <div class="field"><span>Tu avatar</span>
       <div class="emoji-grid" id="pf-emoji">${AVATARS.map(e => `<button type="button" class="emo ${e === emoji ? 'on' : ''}" data-act="pick" data-v="${e}">${e}</button>`).join('')}</div>
     </div>
     <label class="field"><span>Tu nombre (o mote)</span><input class="inp" id="pf-name" maxlength="18" value="${esc(p.name || '')}" placeholder="Pepino, Churri, Bichito…"></label>
+    <div class="field"><span>Tu color <small>(el de tu avatar, en las tareas y el calendario)</small></span>
+      <div class="chips col-grid" id="pf-color">${L.PERSON_COLORS.map(([k, n, base]) => `<button type="button" class="col-chip ${color === k ? 'on' : ''}" data-act="pick" data-v="${k}" style="--cc:${base}"><i></i>${esc(n)}</button>`).join('')}</div>
+    </div>
     <div class="field"><span>A la hora de invitar, eres…</span>
       <div class="chips" id="pf-sugar">
         <button type="button" class="chip ${sugar === 'mami' ? 'on' : ''}" data-act="pick" data-v="mami">💅 Sugar mami</button>
@@ -566,15 +597,19 @@ function profileFields(p = {}) {
     <label class="field"><span>Ingresos al mes <small>(opcional · solo para repartir gastos de forma proporcional; lo verá tu pareja)</small></span>
       <div class="money-inp"><input class="inp" id="pf-income" inputmode="decimal" placeholder="0" value="${p.income ? eurPlain(p.income) : ''}"><b>€</b></div></label>`;
 }
-function readProfile() {
+function readProfile(base = {}) {
   const name = $('#pf-name').value.trim();
   const income = L.parseEur($('#pf-income').value);
-  return {
+  const p = {
     name: name || 'Churri',
     emoji: picked('pf-emoji') || AVATARS[0],
     sugar: picked('pf-sugar') || 'mami',
     income: Number.isFinite(income) ? income : 0,
   };
+  // El color se guarda SOLO como clave de la paleta (nada de valores sueltos que acaben en el CSS).
+  const color = picked('pf-color') || base.color || '';
+  if (color) p.color = color;
+  return p;
 }
 
 function viewPair() {
@@ -719,10 +754,10 @@ function historyRow(t) {
     redeem: t.from === me ? 'Pediste un favor' : `${other} te pidió un favor`,
     gift: t.from === me ? `Regalaste a ${other}` : `${other} te regaló`,
   }[t.type] || '';
-  let sign = 'neutral', num = String(t.amount);
+  let sign = 'neutral', amt = String(num(t.amount));
   if (st === 'approved' || st === 'pending') {
-    if (t.to === me) { sign = 'plus'; num = '+' + t.amount; }
-    else if (t.from === me) { sign = 'minus'; num = '−' + t.amount; }
+    if (t.to === me) { sign = 'plus'; amt = '+' + num(t.amount); }
+    else if (t.from === me) { sign = 'minus'; amt = '−' + num(t.amount); }
   }
   const pill = L.isAutoAccepted(t) ? '<span class="pill auto">Contó solo</span>'
     : ({ pending: '<span class="pill wait">Pendiente</span>', rejected: '<span class="pill no">Lo habláis</span>', cancelled: '<span class="pill off">Anulado</span>' }[st] || '');
@@ -730,7 +765,7 @@ function historyRow(t) {
     <span class="h-emoji">${esc(t.emoji || '✨')}</span>
     <span class="h-body"><b>${esc(t.title)}</b><small>${who} · ${ago(t.createdAt)} ${pill}</small>
       ${t.reply ? `<small class="h-reply">💬 “${esc(t.reply)}”</small>` : ''}</span>
-    <span class="h-amt ${sign}">${num}</span>
+    <span class="h-amt ${sign}">${esc(amt)}</span>
   </div>`;
 }
 
@@ -843,12 +878,31 @@ function viewPoints() {
   } else {
     const mine = S.data.points.filter(t => L.effStatus(t) === 'pending' && t.createdBy === ME()).sort(byNewest);
     const all = [...S.data.points].sort(byNewest);
-    body = `${mine.length ? `<h2 class="h sm">Esperando a ${esc(pname())}</h2><div class="card list">${mine.map(myRequestRow).join('')}</div><h2 class="h sm block">Todo</h2>` : ''}
+    body = `${all.length ? pointsSummary() : ''}${mine.length ? `<h2 class="h sm">Esperando a ${esc(pname())}</h2><div class="card list">${mine.map(myRequestRow).join('')}</div><h2 class="h sm block">Todo</h2>` : ''}
       ${all.length ? `<div class="card list">${all.map(historyRow).join('')}</div>` : `<p class="empty">Todavía no hay movimientos.</p>`}`;
   }
   return `${pageHead('Puntos y vales', { back: true, help: 'points' })}${hintCard('points')}
     <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button class="${S.ptab === k ? 'on' : ''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
     ${body}`;
+}
+/** Cómo vais de puntos: lo que ha aportado cada uno y lo que tiene para pedir favores (v0.9).
+    Vive en Historial (no en Inicio) y NO es un marcador: no compara ni ordena a nadie, solo dice quién
+    puede pedir un favor. La regla 4 de docs/PSICOLOGIA.md sigue mandando: el número es de los dos. */
+function pointsSummary() {
+  const P = S.data.points, members = MEMBERS();
+  const earned = L.earnedBy(P, members);
+  const avail = Object.fromEntries(members.map(u => [u, L.available(P, members, u)]));
+  const total = num(earned[members[0]]) + num(earned[members[1]]);
+  const pend = P.filter(t => t.status === 'pending' && t.type === 'redeem').length;
+  return `<section class="card ptsum">
+    <div class="ps-top"><b>Lo que aportáis</b><small>${total} ${total === 1 ? 'punto' : 'puntos'} entre los dos</small></div>
+    <div class="ps-rows">${members.map(u => `<div class="ps-row">
+      ${av(u, 'sm')}<span class="ps-body"><b>${esc(prof(u).name)}</b>
+        <small>ha sumado ${num(earned[u])} ${num(earned[u]) === 1 ? 'punto' : 'puntos'}</small></span>
+      <span class="ps-coin">${coin(num(avail[u]), 'sm')}<small>para pedir favores</small></span></div>`).join('')}</div>
+    <p class="muted small">Los puntos son de los dos: esto es para saber quién puede pedir un favor, no para comparar 💛
+    ${pend ? ` Hay ${pend} ${pend === 1 ? 'vale esperando respuesta' : 'vales esperando respuesta'}.` : ''}</p>
+  </section>`;
 }
 const COUPON_TINTS = ['butter', 'rose', 'lilac', 'mint', 'peach'];
 function couponCard(it, i, avail) {
@@ -883,7 +937,7 @@ function taskRow(t) {
     <button class="task-main" data-act="task-edit" data-id="${t.id}">
       <span class="t-emoji">${esc(t.emoji || '🧹')}</span>
       <span class="t-body"><b>${esc(t.title)}</b>
-        <small>${t.assignee ? av(t.assignee, 'xs') : ''} ${assigneeLabel(t)}${t.due && !done ? ` · <span class="${late ? 'late-txt' : ''}">${dueLabel(t.due)}</span>` : ''}${t.repeat && t.repeat !== 'none' ? ` · ${REPEAT_LABEL[t.repeat]}` : ''}${done && t.doneBy ? ` · hecha por ${esc(nameOf(t.doneBy))}` : ''}${!done && lastLog && t.repeat !== 'none' ? ` · última: ${esc(nameOf(lastLog.by))}` : ''}</small>
+        <small>${t.assignee ? av(t.assignee, 'xs') : ''} ${assigneeLabel(t)}${t.due && !done ? ` · <span class="${late ? 'late-txt' : ''}">${esc(dueLabel(t.due))}</span>` : ''}${t.repeat && t.repeat !== 'none' ? ` · ${REPEAT_LABEL[t.repeat]}` : ''}${done && t.doneBy ? ` · hecha por ${esc(nameOf(t.doneBy))}` : ''}${!done && lastLog && t.repeat !== 'none' ? ` · última: ${esc(nameOf(lastLog.by))}` : ''}</small>
       </span>
       ${t.pts && !noPoints() ? coin('+' + num(t.pts), 'sm') : ''}
     </button>
@@ -909,8 +963,7 @@ function viewTasks() {
   const done = S.data.tasks.filter(t => !L.isActive(t) && pass(t)).sort((x, y) => (y.doneAt || 0) - (x.doneAt || 0)).slice(0, 15);
   const filters = [['all', 'Todas'], ['mine', 'Mías'], ['theirs', `De ${pname()}`], ['free', 'Libres']];
   // La barra es una PREGUNTA para hablar ("¿os parece justo?"), no un marcador de quién hace más.
-  return `${pageHead('Tareas', { help: 'tasks', action: `<button class="btn sm soft" data-act="task-new">${ic('plus')} Nueva</button>` })}${hintCard('tasks')}
-    ${tot ? `<button class="load-mini" data-act="task-target" aria-label="Reparto de tareas: ${esc(prof(a).name)} ${pa}%, ${esc(prof(b).name)} ${100 - pa}%">
+  const listHtml = `${tot ? `<button class="load-mini" data-act="task-target" aria-label="Reparto de tareas: ${esc(prof(a).name)} ${pa}%, ${esc(prof(b).name)} ${100 - pa}%">
       <span class="lm-top"><b>¿Os parece justo el reparto?</b><small>acordado ${target}/${100 - target} ${ic('pencil')}</small></span>
       <span class="loadbar"><span class="a" style="width:${pa}%"></span><span class="b" style="width:${100 - pa}%"></span><i class="target" style="left:${target}%"></i></span>
       <span class="lm-legend"><span>${av(a, 'xs')} ${esc(prof(a).name)} ${pa}%</span><span>${100 - pa}% ${esc(prof(b).name)} ${av(b, 'xs')}</span></span>
@@ -928,6 +981,61 @@ function viewTasks() {
       <button class="btn link sm" data-act="toggle-done">${S.showDone ? 'Ocultar' : 'Ver'} hechas (${done.length})</button>
       ${S.showDone ? `<div class="stack tight">${done.map(taskRow).join('')}</div>` : ''}
     </section>` : ''}`;
+  return `${pageHead('Tareas', { help: 'tasks', action: `<button class="btn sm soft" data-act="task-new">${ic('plus')} Nueva</button>` })}${hintCard('tasks')}
+    <div class="seg" role="tablist">
+      <button class="${S.taskView === 'cal' ? '' : 'on'}" data-act="task-view" data-v="list">📋 Lista</button>
+      <button class="${S.taskView === 'cal' ? 'on' : ''}" data-act="task-view" data-v="cal">🗓️ Calendario</button>
+    </div>
+    ${S.taskView === 'cal' ? calendarBody() : listHtml}`;
+}
+
+/* ---------------- Calendario de tareas ----------------
+   Solo un calendario: sirve para VER lo que toca cada día y hablarlo. No reparte ni ordena a nadie
+   y no se pone en Inicio (regla 4: la app suma, no vigila). El color de cada tarea es el de su persona. */
+const calMonthOf = () => S.calMonth || L.ymd().slice(0, 7);
+function calendarBody() {
+  const today = L.ymd(), cur = calMonthOf();
+  const weeks = L.monthGrid(cur);
+  const range = L.gridRange(weeks);
+  if (!range) return '';
+  const byDay = L.tasksByDay(S.data.tasks, range.from, range.days);
+  const [y, m] = cur.split('-').map(Number);
+  const nMonth = Object.entries(byDay).filter(([d]) => d.startsWith(cur)).reduce((n, [, l]) => n + l.length, 0);
+  const cell = day => {
+    const list = L.dayTasks(byDay[day] || [], MEMBERS());
+    const out = !day.startsWith(cur), isToday = day === today;
+    const shown = list.slice(0, 3);
+    return `<button class="cal-day ${out ? 'out' : ''} ${isToday ? 'today' : ''}" data-act="cal-day" data-v="${day}"
+      aria-label="${day}: ${list.length} ${list.length === 1 ? 'tarea' : 'tareas'}">
+      <span class="cd-n">${Number(day.slice(8, 10))}</span>
+      <span class="cal-dots">${shown.map(t => `<i class="${t.assignee ? side(t.assignee) : 'free'}"></i>`).join('')}</span>
+      ${list.length > shown.length ? `<span class="cd-more">+${list.length - shown.length}</span>` : ''}
+    </button>`;
+  };
+  return `<section class="cal">
+    <div class="cal-top">
+      <button class="btn icon" data-act="cal-nav" data-v="-1" aria-label="Mes anterior">${ic('chevron-left')}</button>
+      <button class="cal-title" data-act="cal-today"><b>${MONTHS[m - 1]} ${y}</b><small>${cur === today.slice(0, 7) ? 'toca para volver a hoy' : 'volver a hoy'}</small></button>
+      <button class="btn icon" data-act="cal-nav" data-v="1" aria-label="Mes siguiente">${ic('chevron-right')}</button>
+    </div>
+    <div class="cal-head">${L.WEEKDAYS.map((d, i) => `<span class="${i > 4 ? 'we' : ''}">${d}</span>`).join('')}</div>
+    <div class="cal-grid">${weeks.map(w => w.map(cell).join('')).join('')}</div>
+    <p class="cal-foot">${nMonth ? `${nMonth} ${nMonth === 1 ? 'tarea' : 'tareas'} este mes` : 'Nada apuntado este mes'} · toca un día para verlo</p>
+  </section>`;
+}
+/** Hoja de un día del calendario: qué toca y quién lo tiene. Se puede marcar hecho desde aquí. */
+function calDaySheet(day) {
+  const list = L.dayTasks(S.data.tasks.filter(t => L.taskOccurrences(t, day, 1).includes(day)), MEMBERS());
+  const d = L.parseYmd(day), today = L.ymd();
+  const when = day === today ? 'Hoy' : day === L.addDays(today, 1) ? 'Mañana' : day === L.addDays(today, -1) ? 'Ayer' : '';
+  return `<h3 class="sheet-title">${when ? when + ' · ' : ''}${DAYS[d.getDay()].replace(/^./, c => c.toUpperCase())} ${d.getDate()} de ${MONTHS[d.getMonth()]}</h3>
+    ${list.length ? `<div class="stack tight">${list.map(taskRow).join('')}</div>`
+      : `<p class="empty">Ese día no hay nada apuntado.</p>`}
+    <div class="stack" style="margin-top:12px">
+      <button class="btn primary big" data-act="task-new-day" data-v="${day}">${ic('plus')} Nueva tarea para este día</button>
+      <button class="btn soft" data-act="sheet-close">Cerrar</button>
+    </div>
+    <p class="muted small">Aquí solo se ve y se habla: la app no reparte ni cuenta quién hace más.</p>`;
 }
 
 /* ---------------- GASTOS ---------------- */
@@ -1028,6 +1136,7 @@ function viewCouple() {
     <h2 class="h sm set-h">Vosotros</h2>
     <section class="card list">
       ${row('profile-edit', esc(p.emoji), 'Tu perfil', `${esc(p.name)} · Sugar ${p.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(p)}`)}
+      ${row('color-sheet', '🎨', 'Tu color', `El de tu avatar y tus tareas · ${L.colorOf(p.color, me === a ? 0 : 1)[1]}`)}
       <div class="set-row"><span class="sr-ic">${esc(q.emoji)}</span><span class="sr-body"><b>${esc(q.name)}</b><small>Sugar ${q.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(q)}</small></span></div>
       ${row('quick', '🫙', 'Tarro de gracias', `${(S.data.thanks || []).length} gracias guardadas`, 'data-type="thanks"')}
       <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código de pareja</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
@@ -1055,7 +1164,7 @@ function viewCouple() {
     <h2 class="h sm set-h">App</h2>
     <section class="card list">
       ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
-      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, esc((THEMES.find(x => x[0] === curTheme()) || THEMES[0])[2]))}
+      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `${esc((THEMES.find(x => x[0] === curTheme()) || THEMES[0])[2])} · Neutro gratis`)}
       ${row('share-app', '📲', 'Recomendar a otra pareja', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
       ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
       ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
@@ -1261,24 +1370,50 @@ function reviewSheet() {
       <button class="btn primary big" data-act="${last ? 'review-done' : 'review-step'}" data-v="1">${last ? 'Terminar 💞' : 'Siguiente'}</button></div>`;
 }
 
-/* Colores (Plus): se guardan en este móvil. Si se acaba Plus, vuelve el de siempre. */
+/* Colores (Plus, salvo el fondo «Neutro»): se guardan en este móvil. Si se acaba Plus, vuelve el de siempre. */
 const curTheme = () => { const t = lsGet('xp_theme') || ''; return THEMES.some(x => x[0] === t) ? t : ''; };
+const canUseTheme = t => t === '' || isPlus() || FREE_THEMES.includes(t);
 function applyTheme() {
-  const t = S.phase === 'app' && S.data && S.data.couple && isPlus() ? curTheme() : '';
+  const pedido = S.phase === 'app' && S.data && S.data.couple ? curTheme() : '';
+  const t = canUseTheme(pedido) ? pedido : '';
   const root = document.documentElement;
-  if ((root.dataset.theme || '') === t) return;
-  if (t) root.dataset.theme = t; else delete root.dataset.theme;
+  if ((root.dataset.theme || '') !== t) { if (t) root.dataset.theme = t; else delete root.dataset.theme; }
   const color = (THEMES.find(x => x[0] === t) || THEMES[0])[3];
   const meta = $('meta[name="theme-color"]'); if (meta) meta.content = color;
   if (window.__xpBar) window.__xpBar(color);
 }
+
+/* Colores de cada uno (v0.9): cada persona elige el suyo en Pareja → Tu perfil.
+   Se aplican como variables CSS — A = members[0], B = members[1] — así el color aparece en los avatares,
+   las tareas, el calendario y los repartos sin tocar el resto del estilo.
+   OJO: de la base solo se acepta una CLAVE de la paleta (L.colorOf); nunca un valor de color. */
+function applyColors() {
+  const root = document.documentElement;
+  const members = S.phase === 'app' && S.data && S.data.couple ? MEMBERS() : [];
+  const profiles = (S.data && S.data.couple && S.data.couple.profiles) || {};
+  [['a', 0], ['b', 1]].forEach(([k, i]) => {
+    const [base, deep, soft] = L.colorOf((profiles[members[i]] || {}).color, i).slice(2);
+    root.style.setProperty(`--${k}`, base);
+    root.style.setProperty(`--${k}-deep`, deep);
+    root.style.setProperty(`--${k}-soft`, soft);
+  });
+}
 function themeSheet() {
   const cur = curTheme();
   return `<h3 class="sheet-title">Colores de la app 🎨</h3>
-    <p class="muted">Cambian el fondo y las tarjetas en tu móvil. El rosa y el lila siguen siendo cada uno de vosotros.</p>
+    <p class="muted">Cambian el fondo y las tarjetas en tu móvil. <b>Neutro</b> es gratis: para quien no le va el pastel.</p>
     <div class="theme-grid">${THEMES.map(([k, e, n, c]) => `<button class="theme-opt ${k === cur ? 'on' : ''}" data-act="theme-set" data-v="${k}" style="--tc:${c}">
-      <span class="to-sw">${e}</span><b>${n}</b></button>`).join('')}</div>
-    ${isPlus() ? '' : `<p class="note">✨ Los colores son de <b>Plus</b>. Fresa es el de siempre.</p>`}`;
+      <span class="to-sw">${e}</span><b>${n}</b>${k && !FREE_THEMES.includes(k) && !isPlus() ? '<i class="to-plus">✨</i>' : ''}</button>`).join('')}</div>
+    ${isPlus() ? '' : `<p class="note">✨ Los temas de color son de <b>Plus</b>. <b>Fresa</b> es el de siempre y <b>Neutro es gratis</b>.</p>`}
+    <p class="muted small">Tu color (el de tu avatar) se cambia en <b>Pareja → Tu perfil</b>.</p>`;
+}
+/** Elegir el color de cada uno (se guarda solo la clave en `profiles.{uid}.color`). */
+function colorSheet() {
+  const me = ME(), mine = L.colorOf(prof(me).color, ME() === MEMBERS()[0] ? 0 : 1)[0];
+  return `<h3 class="sheet-title">Tu color 🎨</h3>
+    <p class="muted">Es el color de tu avatar: aparece en las tareas, el calendario y los repartos. Cada uno elige el suyo.</p>
+    <div class="chips col-grid">${L.PERSON_COLORS.map(([k, n, base]) => `<button type="button" class="col-chip ${mine === k ? 'on' : ''}" data-act="color-set" data-v="${k}" style="--cc:${base}"><i></i>${esc(n)}</button>`).join('')}</div>
+    <p class="muted small">Si no eliges nada, se queda como estaba (rosa para quien creó la pareja, lila para quien se unió).</p>`;
 }
 
 /* ================================================================
@@ -2067,9 +2202,9 @@ function catalogForm(kind, it) {
 }
 
 /* ---------------- Tareas (formulario) ---------------- */
-function taskForm(t) {
+function taskForm(t, preset = {}) {
   const isNew = !t;
-  t = t || { title: '', emoji: '🧹', pts: 10, assignee: null, rotate: false, repeat: 'weekly', due: L.ymd() };
+  t = t || { title: '', emoji: '🧹', pts: 10, assignee: null, rotate: false, repeat: 'weekly', due: L.ymd(), ...preset };
   const me = ME(), pa = PA();
   const who = t.rotate ? 'rotate' : (t.assignee || 'free');
   return `<h3 class="sheet-title">${isNew ? 'Nueva tarea' : 'Editar tarea'}</h3>
@@ -2087,7 +2222,7 @@ function taskForm(t) {
         <div class="chips" id="tk-repeat">${Object.entries(REPEAT_LABEL).map(([k, l]) => `<button type="button" class="chip ${t.repeat === k ? 'on' : ''}" data-act="pick" data-v="${k}">${l}</button>`).join('')}</div></div>
       <details class="more"><summary>Más opciones <small>fecha${noPoints() ? '' : ', puntos'}, icono</small></summary>
         <div class="stack">
-          <label class="field"><span>${t.repeat && t.repeat !== 'none' ? 'Próxima vez' : 'Fecha'} <small>(opcional)</small></span><input class="inp" id="tk-due" type="date" value="${t.due || ''}"></label>
+          <label class="field"><span>${t.repeat && t.repeat !== 'none' ? 'Próxima vez' : 'Fecha'} <small>(opcional)</small></span><input class="inp" id="tk-due" type="date" value="${esc(t.due || '')}"></label>
           ${noPoints() ? '' : `<div class="field"><span>Xurripoints al hacerla</span>${ptsChips('tk-pts', num(t.pts), [0, 5, 10, 15, 20, 30, 50])}</div>`}
           <div class="emoji-row">${TASK_EMOJIS.map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="tk-emoji" data-v="${e}">${e}</button>`).join('')}</div>
         </div></details>
@@ -2098,15 +2233,19 @@ function taskForm(t) {
 
 function completeTask(t) {
   const me = ME(), now = Date.now();
+  // Doble toque: las tareas que se repiten siguen "activas" al completarlas, así que sin esta guarda
+  // se apuntaban DOS reclamaciones y se adelantaba la fecha dos veces (puntos de más sin que nadie lo viera).
+  if (now - (S.justDone[t.id] || 0) < 2500) { toast('Ya la has dado por hecha ✅'); return; }
+  S.justDone[t.id] = now;
   const prev = { doneAt: t.doneAt || null, doneBy: t.doneBy || null, due: t.due || null, assignee: t.assignee || null, log: t.log || [] };
   const patch = { log: [{ by: me, at: now }, ...(t.log || [])].slice(0, 30) };
   if (t.repeat && t.repeat !== 'none') {
-    patch.due = L.nextDue(t.due, t.repeat);
+    patch.due = L.nextDue(t.due, t.repeat, L.ymd(), t.dueDay || null);   // el día del mes se conserva (una tarea del 31 no salta al 28)
     if (t.rotate) patch.assignee = MEMBERS().find(u => u !== me);
   } else {
     patch.doneAt = now; patch.doneBy = me;
   }
-  S.be.update('tasks', t.id, patch).catch(err => toast(errMsg(err)));
+  S.be.update('tasks', t.id, patch).catch(err => { delete S.justDone[t.id]; toast(errMsg(err)); });
   let claimId = null;
   const pts = noPoints() ? 0 : num(t.pts);
   if (pts > 0) claimId = addPoints({ type: 'claim', to: me, amount: pts, title: t.title, emoji: t.emoji, taskId: t.id });
@@ -2114,6 +2253,7 @@ function completeTask(t) {
   toast(pts ? `¡Hecha! +${pts} cuando ${pname()} te dé las gracias` : '¡Hecha! ✨', {
     action: 'Deshacer',
     onAction: () => {
+      delete S.justDone[t.id];
       S.be.update('tasks', t.id, prev).catch(err => toast(errMsg(err)));
       if (claimId) S.be.update('points', claimId, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: me }).catch(() => { });
     },
@@ -2295,6 +2435,10 @@ const ACT = {
   'ptab': d => { S.ptab = d.v; render(); },
   'ptab-go': d => { S.tab = 'points'; S.ptab = d.v; S.enter = true; render(); },
   'task-filter': d => { S.taskFilter = d.v; render(); },
+  'task-view': d => { S.taskView = d.v === 'cal' ? 'cal' : 'list'; render(); },
+  'cal-nav': d => { S.calMonth = L.addMonth(calMonthOf(), Number(d.v) || 0); render(); },
+  'cal-today': () => { S.calMonth = L.ymd().slice(0, 7); render(); },
+  'cal-day': d => openSheet(calDaySheet(d.v), { ctx: { calDay: d.v } }),
   'toggle-done': () => { S.showDone = !S.showDone; render(); },
   'sheet-close': () => closeSheet(),
   'retry': () => { if (S.user) onUser(S.user); },
@@ -2353,15 +2497,40 @@ const ACT = {
   /* reglas comunes: propuestas y avisos de cambios */
   'prop-yes': d => {
     const p = PROPOSALS().find(x => x.id === d.id);
-    answerProposal(p, true); celebrate(['🤝', '✨']); toast('¡Hecho! Ya está cambiado 🤝');
+    if (!answerProposal(p, true)) { toast('Esa propuesta ya no esperaba respuesta'); closeSheet(); return; }
+    celebrate(['🤝', '✨']); toast('¡Hecho! Ya está cambiado 🤝');
     if ($('#sheet-root.open') && S.sheet && S.sheet.props) swapSheet(propsSheet());
   },
   'prop-no': d => {
     const p = PROPOSALS().find(x => x.id === d.id);
-    answerProposal(p, false); toast(`Se lo decimos a ${pname()}: mejor lo habláis 💬`);
+    if (!answerProposal(p, false)) { toast('Esa propuesta ya no esperaba respuesta'); closeSheet(); return; }
+    toast(`Se lo decimos a ${pname()}: mejor lo habláis 💬`);
     if ($('#sheet-root.open') && S.sheet && S.sheet.props) swapSheet(propsSheet());
   },
-  'prop-all': () => { proposalsForMe().forEach(p => answerProposal(p, true)); closeSheet(); celebrate(['🤝', '✨']); toast('¡Todo aceptado! 🤝'); },
+  /** Acepta todas. Las del catálogo se aplican sobre una copia que va creciendo y se guarda UNA vez al final:
+      antes cada una partía del catálogo viejo y solo sobrevivía la última (se perdía un acuerdo ya aceptado). */
+  'prop-all': () => {
+    const list = proposalsForMe().filter(p => p.status === 'pending');
+    if (!list.length) { closeSheet(); return; }
+    const base = { earn: [...catalog().earn], spend: [...catalog().spend] };
+    const cat = new Set();
+    const n = list.length;
+    for (const p of list) {
+      const v = p.value;
+      if (p.kind === 'catalog' && v && (v.kind === 'earn' || v.kind === 'spend')) { base[v.kind] = L.applyCatalogOp(base[v.kind], v); cat.add(v.kind); }
+      S.be.update('proposals', p.id, { status: 'accepted', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
+    }
+    const patch = {};
+    // Solo se guarda la lista que cambia: escribir las dos pisaría un cambio recién hecho en la otra.
+    for (const k of cat) patch[`catalog.${k}`] = base[k];
+    for (const p of list) {
+      if (p.kind === 'split') patch['settings.split'] = p.value;
+      else if (p.kind === 'taskPct') patch['settings.taskPctA'] = num(p.value);
+      else if (p.kind === 'points-on') patch['settings.noPoints'] = false;
+    }
+    if (Object.keys(patch).length) S.be.updateCouple(patch).catch(err => toast(errMsg(err)));
+    closeSheet(); celebrate(['🤝', '✨']); toast(`¡Todo aceptado! ${n} ${n === 1 ? 'cambio' : 'cambios'} 🤝`);
+  },
   'prop-cancel': d => {
     S.be.update('proposals', d.id, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
     toast('Propuesta anulada'); closeSheet();
@@ -2468,7 +2637,7 @@ const ACT = {
   'g-pack': d => { S.game = qaGame(d.v); paintGame(); },
   'theme-sheet': () => openSheet(themeSheet()),
   'theme-set': d => {
-    if (d.v && !needPlus('theme')) return;
+    if (!canUseTheme(d.v || '')) { if (!needPlus('theme')) return; }
     lsSet('xp_theme', d.v || null); applyTheme(); swapSheet(themeSheet());
   },
   'legal-sheet': () => openSheet(legalSheet()),
@@ -2805,6 +2974,8 @@ const ACT = {
     const pts = Math.max(1, Math.min(1000, parseInt($('#ct-pts').value, 10) || 0));
     const emoji = $('#ct-emoji').value.trim() || '✨';
     if (!title) { toast('Ponle un nombre ✍️'); return; }
+    // Tope de 100 por lista (lo mismo que validan las reglas): avisar aquí y no con «Sin permiso».
+    if (!d.id && catalog()[d.kind].length >= 100) { toast('Ya hay 100 en la lista. Borra alguna para añadir más.'); return; }
     // Los precios son de los dos: el cambio se PROPONE (L.applyCatalogOp lo aplica cuando la pareja acepta).
     const old = d.id ? findItem(d.kind, d.id) : null;
     const item = { id: old ? old.id : L.uid8(), title, pts, emoji };
@@ -2831,6 +3002,7 @@ const ACT = {
 
   /* tareas */
   'task-new': () => openSheet(taskForm(), { ctx: {} }),
+  'task-new-day': d => openSheet(taskForm(null, { due: d.v, repeat: 'none' }), { ctx: {} }),
   'task-edit': d => { const t = findTask(d.id); if (t) openSheet(taskForm(t)); },
   'task-save': d => {
     const title = $('#tk-title').value.trim();
@@ -2838,11 +3010,14 @@ const ACT = {
     const who = picked('tk-who') || 'free';
     const repeat = picked('tk-repeat') || 'none';
     const prevTask = d.id ? findTask(d.id) : null;
+    const due = $('#tk-due').value || null;
     const data = {
       // Con los puntos en pausa no se ven, pero se conservan (por si se vuelven a activar).
       title, emoji: $('#tk-emoji').value.trim() || '🧹', pts: noPoints() ? num(prevTask && prevTask.pts) : Number(picked('tk-pts') || 0),
       assignee: who === 'free' ? null : (who === 'rotate' ? (findTask(d.id)?.assignee || ME()) : who),
-      rotate: who === 'rotate', repeat, due: $('#tk-due').value || null,
+      rotate: who === 'rotate', repeat, due,
+      // Día del mes original (v0.9): una tarea del 31 no se queda en el 28 para siempre.
+      dueDay: repeat === 'monthly' && due ? Number(due.slice(8, 10)) : null,
     };
     if (d.id) S.be.update('tasks', d.id, data).catch(err => toast(errMsg(err)));
     else S.be.add('tasks', { ...data, doneAt: null, doneBy: null, log: [], createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
@@ -2859,7 +3034,9 @@ const ACT = {
     const t = findTask(d.id); if (!t) return;
     if (!L.isActive(t)) {
       S.be.update('tasks', t.id, { doneAt: null, doneBy: null }).catch(err => toast(errMsg(err)));
-      const claim = S.data.points.find(p => p.taskId === t.id && p.createdBy === ME() && L.effStatus(p) === 'pending');
+      // Se anula la reclamación de esa tarea si el otro AÚN no ha dicho nada (aunque hayan pasado 24 h
+      // y haya contado sola): si no, los puntos se quedaban aunque la tarea se reabriera.
+      const claim = S.data.points.find(p => p.taskId === t.id && p.createdBy === ME() && p.status === 'pending');
       if (claim) S.be.update('points', claim.id, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: ME() }).catch(() => { });
       toast(claim ? 'Tarea reabierta (y anulados sus puntos pendientes)' : 'Tarea reabierta');
       return;
@@ -2952,14 +3129,23 @@ const ACT = {
   },
 
   /* perfil */
-  'profile-edit': () => openSheet(`<h3 class="sheet-title">Tu perfil</h3><div class="stack">${profileFields(prof(ME()))}
+  'profile-edit': () => openSheet(`<h3 class="sheet-title">Tu perfil</h3><div class="stack">${profileFields(prof(ME()), { colorFallback: L.DEFAULT_COLORS[ME() === MEMBERS()[0] ? 0 : 1] })}
     <button class="btn primary big" data-act="profile-save">Guardar</button></div>`),
   'profile-save': () => {
     if (!needName()) return;
-    const p = readProfile();
+    const p = readProfile(prof(ME()));
     S.be.updateCouple({ [`profiles.${ME()}`]: p }).catch(err => toast(errMsg(err)));
     if (p.income !== (prof(ME()).income || 0)) logChange('income', 'ha actualizado sus ingresos (cuentan en el reparto «según ingresos»)');
     closeSheet(); toast('Perfil guardado 💗');
+  },
+  /* color de cada uno (v0.9) */
+  'color-sheet': () => openSheet(colorSheet()),
+  'color-set': d => {
+    const key = L.colorOf(d.v)[0];   // solo claves de la paleta: nada que venga de fuera entra en el CSS
+    S.be.updateCouple({ [`profiles.${ME()}.color`]: key }).catch(err => toast(errMsg(err)));
+    applyColors();
+    swapSheet(colorSheet());
+    toast('¡Color cambiado! 🎨');
   },
 };
 

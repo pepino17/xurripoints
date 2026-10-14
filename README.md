@@ -21,12 +21,13 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
   elegir la peli, una siesta sin ruido…). Todo suma a una **meta juntos**. Los mimos no se cobran: para eso está **Gracias** 💛.
 - **Juntos:** ideas de pelis, planes y comida con votos y *match*; **ruleta, dados y cara o cruz** para decidir; y
   **juegos para dos** (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?).
-- **Tareas:** repartidas, libres o por turnos, con una barra para hablar de si el reparto os parece justo.
+- **Tareas:** repartidas, libres o por turnos, en **lista o calendario** (ves lo que toca cada día), con una barra para hablar de si el reparto os parece justo.
 - **Dinero:** elegid **vuestro reparto** una vez (a medias, según ingresos, sugar mami/papi o a medida) y cambiadlo en cada gasto si hace falta, como en Splitwise;
   gastos fijos que se apuntan solos cada mes, cuánto hay que cuadrar y **huchas para ahorrar juntos**.
 - **Lo común se acuerda:** repartos y precios se cambian con una **propuesta** que el otro acepta; si alguien borra o
   cambia algo, el otro lo ve y puede recuperarlo. Los puntos se pueden **pausar** y cada uno puede **salir de la pareja**.
 - **Fácil de empezar:** bienvenida en 5 pasos, **primeros pasos** en Inicio y ayuda en cada pantalla (botón **?**).
+- **A vuestro gusto:** cada uno elige **su color** (6 para elegir) y el fondo puede ser pastel o **neutro**.
 - **Gratis y sin anuncios.** **Xurripoints Plus** (opcional, uno para los dos): resumen del mes, gastos a Excel,
   revisión semanal, packs de preguntas, más cartas y colores. **14 días de prueba gratis** desde la app.
 

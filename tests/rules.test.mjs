@@ -51,6 +51,47 @@ await t('una pareja completa no se puede leer ni unirse desde fuera', async () =
   await assertFails(updateDoc(doc(db('carol'), 'couples', C), { members: ['alice', 'bob', 'carol'], 'profiles.carol': P('carol'), updatedAt: 3 }));
 });
 
+await t('al unirse, mi perfil también pasa por las comprobaciones', async () => {
+  const uno = async () => {
+    await env.clearFirestore();
+    await env.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), 'couples', C), { ...seedCouple, code: C, members: ['alice'], profiles: { alice: P('alice') }, createdAt: 1, updatedAt: 1 });
+    });
+  };
+  await uno();
+  await assertSucceeds(updateDoc(doc(db('bob'), 'couples', C), { members: ['alice', 'bob'], 'profiles.bob': P('bob', { color: 'menta' }), updatedAt: 2 }));
+  await uno();
+  await assertFails(updateDoc(doc(db('bob'), 'couples', C), { members: ['alice', 'bob'], 'profiles.bob': P('bob', { color: 'rojo fosforito' }), updatedAt: 2 }));
+  await uno();
+  await assertFails(updateDoc(doc(db('bob'), 'couples', C), { members: ['alice', 'bob'], 'profiles.bob': P('bob', { income: 'mucho' }), updatedAt: 2 }));
+});
+
+/* ---------------- Documento de la pareja: formas y tipos (v0.9) ----------------
+   La app recorre el catálogo y usa los ingresos para repartir: si llega basura, la pantalla se queda en blanco
+   o ningún gasto se puede guardar. Estas pruebas son la barrera. */
+await couple2();
+await t('el catálogo tiene que ser un mapa con listas', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { catalog: { earn: 'patata', spend: [] }, updatedAt: 4 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { catalog: 'nada', updatedAt: 4 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { catalog: { earn: [{ id: 'a1', emoji: '🧽', title: 'Fregar', pts: 10 }], spend: [] }, updatedAt: 4 }));
+});
+await t('los ingresos tienen que ser un número entero de céntimos', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.income': 'mucho dinero', updatedAt: 5 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.income': 150000.5, updatedAt: 5 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.income': -100, updatedAt: 5 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.income': 200000, updatedAt: 5 }));
+});
+await t('el color de cada uno solo puede ser una clave de la paleta', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 'red; background:url(x)', updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 42, updatedAt: 6 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 'verde', updatedAt: 6 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 'menta', updatedAt: 6 }));
+});
+await t('el nombre de una persona no puede ser un texto enorme', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.name': 'x'.repeat(60), updatedAt: 7 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.name': 'Pepino', updatedAt: 7 }));
+});
+
 /* ---------------- Puntos ---------------- */
 await couple2();
 await t('reclamar mis puntos', async () => {

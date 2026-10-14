@@ -305,6 +305,94 @@ t('revisión semanal: la semana de los dos, sumada', () => {
   assert.deepEqual(w, { tasksDone: 3, thanks: 1, plans: ['Picnic'], spent: 1000, points: 15 });
 });
 
+t('calendario: la rejilla es de lunes a domingo y cubre el mes entero', () => {
+  for (const ym of ['2026-10', '2026-02', '2026-11', '2027-02', '2028-02']) {
+    const weeks = L.monthGrid(ym);
+    assert.ok(weeks.length >= 4 && weeks.length <= 6, `${ym}: ${weeks.length} semanas`);
+    for (const w of weeks) assert.equal(w.length, 7, `${ym}: una semana no tiene 7 días`);
+    assert.equal(L.parseYmd(weeks[0][0]).getDay(), 1, `${ym} no empieza en lunes`);
+    const all = weeks.flat();
+    for (let i = 1; i < all.length; i++) assert.equal(all[i], L.addDays(all[i - 1], 1), `${ym}: hueco entre días`);
+    const [y, m] = ym.split('-').map(Number);
+    const lastDay = String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    assert.ok(all.includes(`${ym}-01`), `${ym}: falta el día 1`);
+    assert.ok(all.includes(`${ym}-${lastDay}`), `${ym}: falta el último día`);
+    assert.equal(all.filter(d => d.startsWith(ym)).length, new Date(y, m, 0).getDate(), `${ym}: faltan días del mes`);
+  }
+  assert.deepEqual(L.monthGrid('vaya'), []);
+  assert.equal(L.WEEKDAYS.length, 7);
+});
+
+t('calendario: cada tarea en su día (sin arrastrar las atrasadas)', () => {
+  const daily = { id: 'd', title: 'Platos', pts: 5, repeat: 'daily', due: '2026-10-01' };
+  const weekly = { id: 'w', title: 'Sábado', pts: 5, repeat: 'weekly', due: '2026-10-03' };
+  const once = { id: 'o', title: 'Una vez', pts: 5, repeat: 'none', due: '2026-10-05' };
+  assert.deepEqual(L.taskOccurrences(daily, '2026-10-01', 3), ['2026-10-01', '2026-10-02', '2026-10-03']);
+  assert.deepEqual(L.taskOccurrences(weekly, '2026-10-01', 21), ['2026-10-03', '2026-10-10', '2026-10-17']);
+  assert.deepEqual(L.taskOccurrences(once, '2026-10-01', 31), ['2026-10-05']);
+  assert.deepEqual(L.taskOccurrences(once, '2026-09-01', 31), [], 'una tarea de octubre no puede salir en septiembre');
+  assert.deepEqual(L.taskOccurrences({ ...once, due: '2026-09-20' }, '2026-10-01', 31), [], 'atrasada: no se arrastra a hoy');
+  assert.deepEqual(L.taskOccurrences({ ...once, doneAt: 1 }, '2026-10-01', 31), [], 'ya hecha');
+  assert.deepEqual(L.taskOccurrences({ ...once, due: null }, '2026-10-01', 31), [], 'sin fecha');
+  // Una diaria que empezó hace años salta al rango sin recorrerlo entero (y sin colgarse).
+  assert.deepEqual(L.taskOccurrences({ ...daily, due: '2020-01-01' }, '2026-10-01', 2), ['2026-10-01', '2026-10-02']);
+});
+
+t('calendario: una tarea del 31 no se queda en el 28, y las viejas no cuestan', () => {
+  const m31 = { id: 'm', title: 'Facturas', pts: 5, repeat: 'monthly', due: '2026-01-31', dueDay: 31 };
+  assert.deepEqual(L.taskOccurrences(m31, '2026-02-01', 60), ['2026-02-28', '2026-03-31']); // febrero recorta, marzo vuelve al 31
+  assert.equal(L.nextDue('2026-01-31', 'monthly', '2026-02-01', 31), '2026-02-28');
+  assert.equal(L.nextDue('2026-02-28', 'monthly', '2026-03-01', 31), '2026-03-31');
+  assert.equal(L.nextDue('2026-01-31', 'monthly', '2026-02-01'), '2026-02-28'); // sin dueDay (tareas de antes) igual que siempre
+  // Una semanal que empezó hace años: el salto rápido da lo mismo que ir paso a paso (2016-01-04 fue lunes).
+  const vieja = { id: 'v', title: 'Platos', pts: 5, repeat: 'weekly', due: '2016-01-04' };
+  const occ = L.taskOccurrences(vieja, '2026-10-01', 21);
+  assert.equal(occ[0], '2026-10-05');
+  assert.equal(L.parseYmd(occ[0]).getDay(), 1);
+  assert.deepEqual(L.taskOccurrences({ ...vieja, repeat: 'daily' }, '2026-10-01', 2), ['2026-10-01', '2026-10-02']);
+});
+
+t('calendario: el mapa de días y el orden dentro de un día', () => {
+  const tasks = [
+    { id: '1', title: 'Platos', assignee: 'b', repeat: 'daily', due: '2026-10-01', pts: 5 },
+    { id: '2', title: 'Basura', assignee: 'a', repeat: 'daily', due: '2026-10-01', pts: 5 },
+    { id: '3', title: 'Libre', assignee: null, repeat: 'daily', due: '2026-10-01', pts: 5 },
+  ];
+  const byDay = L.tasksByDay(tasks, '2026-10-01', 2);
+  assert.deepEqual(Object.keys(byDay).sort(), ['2026-10-01', '2026-10-02']);
+  assert.equal(byDay['2026-10-01'].length, 3);
+  assert.deepEqual(L.dayTasks(byDay['2026-10-01'], M).map(t => t.id), ['2', '1', '3']); // A, luego B, luego libres
+  assert.deepEqual(L.gridRange([['2026-09-28', '2026-09-29']]), { from: '2026-09-28', days: 2 });
+  assert.equal(L.gridRange([]), null);
+});
+
+t('puntos aportados: lo que suma cada uno, sin contar los traspasos', () => {
+  const now = Date.now();
+  const P = [
+    { type: 'claim', from: null, to: 'a', amount: 15, status: 'approved' },
+    { type: 'reward', from: null, to: 'b', amount: 20, status: 'approved' },
+    { type: 'redeem', from: 'b', to: 'a', amount: 10, status: 'approved' },   // traspaso: no es aportación
+    { type: 'gift', from: 'a', to: 'b', amount: 5, status: 'approved' },      // traspaso
+    { type: 'claim', from: null, to: 'a', amount: 99, status: 'rejected' },   // no cuenta
+    { type: 'claim', from: null, to: 'b', amount: 7, status: 'pending', createdAt: now - 25 * 3600e3 }, // aceptada sola
+  ];
+  assert.deepEqual(L.earnedBy(P, M, now), { a: 15, b: 27 });
+  assert.deepEqual(L.earnedBy([], M), { a: 0, b: 0 });
+});
+
+t('colores de cada uno: solo se aceptan las claves de la paleta', () => {
+  assert.equal(L.colorOf('menta')[2], '#6FCBA8');
+  assert.equal(L.colorOf('rosa')[0], 'rosa');
+  assert.equal(L.colorOf('no-existe')[0], 'rosa', 'clave desconocida → el color de siempre');
+  assert.equal(L.colorOf(undefined)[0], 'rosa');
+  assert.equal(L.colorOf('red; background:url(x)')[0], 'rosa', 'nada que venga de la base puede acabar en el CSS');
+  assert.equal(L.colorOf(null, 1)[0], 'lila');
+  assert.equal(L.PERSON_COLORS.length, 6);
+  assert.ok(L.PERSON_COLORS.every(c => c.length === 5));
+  assert.ok(L.PERSON_COLORS.every(c => [c[2], c[3], c[4]].every(v => /^#[0-9A-F]{6}$/i.test(v))), 'colores en hexadecimal');
+  assert.deepEqual(L.DEFAULT_COLORS, ['rosa', 'lila']);
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

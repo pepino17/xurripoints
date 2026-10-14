@@ -21,7 +21,7 @@ service cloud.firestore {
     function isInt(v, lo, hi) { return v is int && v >= lo && v <= hi; }
     function isStr(v, max) { return v is string && v.size() <= max; }
     function optStr(d, k, max) { return !(k in d) || d[k] == null || isStr(d[k], max); }
-    function optInt(d, k, lo, hi) { return !(k in d) || isInt(d[k], lo, hi); }
+    function optInt(d, k, lo, hi) { return !(k in d) || d[k] == null || isInt(d[k], lo, hi); }
 
     // Cada usuario guarda aquí a qué pareja pertenece.
     match /users/{uid} {
@@ -29,10 +29,37 @@ service cloud.firestore {
     }
 
     match /couples/{code} {
-      // Números del documento de la pareja que se pintan en pantalla: siempre enteros.
+      // El catálogo tiene que ser un mapa con listas de verdad: la app las recorre para pintar las acciones
+      // y los vales, así que un catálogo roto dejaría las dos pantallas en blanco. (Los items no se pueden
+      // recorrer desde las reglas: Firestore no tiene .all() sobre listas.)
+      function okCatalog(d) {
+        return (!('catalog' in d) || d.catalog == null
+          || (d.catalog is map
+            && (!('earn' in d.catalog) || (d.catalog.earn is list && d.catalog.earn.size() <= 100))
+            && (!('spend' in d.catalog) || (d.catalog.spend is list && d.catalog.spend.size() <= 100))));
+      }
+      // Perfil: nombre y emoji de texto, ingresos enteros (céntimos) y el color SOLO de la paleta de la app
+      // (nunca un valor de color suelto: lo que llega de la base acaba dentro del CSS).
+      function okProfile(p) {
+        return p is map
+          && optStr(p, 'name', 30) && optStr(p, 'emoji', 8) && optStr(p, 'sugar', 5)
+          && optInt(p, 'income', 0, 10000000000)
+          && (!('color' in p) || p.color == null
+            || (p.color is string && p.color in ['rosa', 'lila', 'menta', 'cielo', 'melocoton', 'mostaza']));
+      }
+      function okProfiles(d) {
+        return !('profiles' in d) || d.profiles == null
+          || (d.profiles is map
+            && okProfile(d.profiles.get(d.members[0], {}))
+            && (d.members.size() < 2 || okProfile(d.profiles.get(d.members[1], {}))));
+      }
+      // Números y formas del documento de la pareja que se pintan en pantalla: siempre enteros y listas.
       function validCouple(d) {
-        return (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
-          && (!('settings' in d) || !('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100));
+        return (!('settings' in d) || d.settings == null
+            || (d.settings is map && (!('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100))))
+          && (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
+          && okCatalog(d)
+          && okProfiles(d);
       }
       // Xurripoints Plus (couples/{code}.plus). La app solo puede EMPEZAR la prueba gratis: una vez por pareja
       // y como mucho 15 días. El plan de pago lo escribe el servidor (Cloud Function con el Admin SDK, que no
@@ -76,7 +103,10 @@ service cloud.firestore {
           && !(me() in resource.data.members)
           && request.resource.data.members == resource.data.members.concat([me()])
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'profiles', 'updatedAt'])
-          && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()]))
+          && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()])
+          // El perfil de quien se une pasa por las mismas comprobaciones (nombre, ingresos y color de la paleta).
+          // Solo el mío: el del otro puede ser un dato viejo.
+          && okProfile(request.resource.data.profiles[me()]))
         ||
         // Salir de la pareja: me quito yo, la pareja queda cerrada y de mi perfil se van los ingresos.
         (me() in resource.data.members

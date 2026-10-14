@@ -27,6 +27,9 @@ y se sincroniza al instante. El plan gratuito (**Spark**) sobra para una pareja.
 >
 > ⚠️ **Cada vez que cambie `firestore.rules` hay que volver a pegarlas y Publicar** (la v0.7.0 las cambió:
 > sin las nuevas, la app no puede leer las propuestas ni los avisos de cambios y da "Sin permiso").
+> La **v0.9.0 también las cambió**: ahora validan la forma del catálogo, los ingresos (entero de céntimos),
+> el nombre/emoji y que el color de cada uno sea una clave de la paleta. Son más estrictas a propósito:
+> si no se pegan, las escrituras que valida la versión nueva pueden fallar.
 
 ## 5. Sacar la configuración
 1. Arriba a la izquierda, ⚙️ → **Configuración del proyecto** → pestaña **General**.

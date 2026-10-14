@@ -73,6 +73,23 @@ Mirando la app ya hecha (no solo las funciones) quedaban contradicciones con las
 Lo que **no** se ha tocado a propósito: la confianza por defecto (24 h), el tarro de gracias, la meta común, la
 pregunta del día y el "Lo hablamos": funcionan y están bien fundamentados.
 
+## Tercera revisión (2026-10-14, aplicada en v0.9): volver a ver los puntos de cada uno
+
+Joan pidió **volver a ver "cuánto lleva cada uno"**: *"ara no es veuen tant els punts, de quan portes tu i quant
+porta l'altre, que això a mi molava bastant"*. Era justo lo que la v0.7 quitó de Inicio (regla 4). Se ha vuelto a
+poner, pero **con las guardas que hacen que no sea un marcador**:
+
+| Guarda | Por qué |
+|---|---|
+| Está en **Historial** (Puntos y vales), nunca en Inicio. Hay que ir a buscarlo. | En Inicio, lo primero que se ve sería la comparación, y eso orienta toda la app a "quién debe qué". |
+| El titular es **«Lo que aportáis» y el total de los dos** ("115 puntos entre los dos"), no dos barras enfrentadas. | El "nosotros" (*we-talk*) predice mejor funcionamiento de pareja que el "yo contra ti" (Karan et al., 2019). |
+| Los dos ven **la misma tarjeta y el mismo orden** (A y B), sin "va ganando", sin flechas y sin colores de alarma. | Lo que se compara se convierte en competición; el dato es informativo, no un veredicto. |
+| Se explica **para qué sirve**: "para saber quién puede pedir un favor, no para comparar". | Da al número una función práctica (pedir un vale necesita saldo), que es la única razón legítima para mirarlo. |
+| El reparto de tareas sigue siendo una **pregunta** ("¿os parece justo?"), no un marcador. | Ya funcionaba así desde la v0.7; los puntos no cambian esa lógica. |
+
+Si alguien lo usa para reprochar ("yo he aportado más"), la salida sigue ahí: **pausar los puntos** (Pareja →
+Puntos y vales) deja todo lo demás funcionando.
+
 ## Reglas de diseño (obligatorias para futuras versiones)
 
 1. **Nada de castigos**: ni multas, ni restar puntos, ni rachas que se pierden con culpa.

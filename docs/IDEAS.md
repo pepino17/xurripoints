@@ -68,3 +68,38 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - Publicar en Google Play (~~APK release firmado~~ v0.7; ~~borrar cuenta~~; ~~AAB, web legal, textos de la ficha~~ v0.8:
   falta que Joan cree la cuenta de Play Console → `docs/PLAY_STORE.md`).
 - Iniciar sesión con Google.
+
+## De Joan (audio 2026-10-09 + WhatsApp 2026-10-08; apuntado 2026-10-14)
+> "Tinc pendent posar calendari i que es pugui connectar realment entre parelles."
+- ~~**Calendario**~~ → hecho en **v0.9.0** (Tareas → Lista · Calendario; ver `CHANGELOG.md`).
+- **Conectar de verdad entre parejas** (pendiente, prioritario): `app/firebase-config.js` sigue en `PEGA_AQUI` → la app
+  solo funciona en **modo demo**. Falta que Joan cree el proyecto Firebase (región Madrid) y pegue la config
+  (`docs/FIREBASE.md`) **y las reglas nuevas de la v0.9**. Es lo único que hoy impide usar la app en dos móviles.
+- ~~**Ver los puntos de cada uno**~~ → hecho en **v0.9.0**, en Historial y con guardas (ver `docs/PSICOLOGIA.md`,
+  "tercera revisión").
+- **Preguntas iniciales: ¿con quién compartes?** No todas las parejas conviven (nòvios de 20 años, gente con hijos,
+  a distancia) y también vale para **compañeros de piso**. Idea: al empezar, unas preguntas (convivimos / a distancia /
+  piso compartido / familia) que **adapten** la app a esas funciones. Hoy todo el texto dice "pareja" (70 sitios).
+  → Siguiente entrega prevista (v0.10.0).
+- **Puntos para compañeros de piso y para invitados**: el mismo sistema de puntos vale para repartir tareas, platos
+  y compra cuando compartes piso o cuando viene gente a casa (fines de semana, invitados). Va con lo de arriba.
+- ~~**Más colores / temas configurables**~~ → hecho en **v0.9.0**: 6 colores para cada uno y un tema **Neutro gratis**
+  (los 4 de color siguen en Plus).
+- Joan avisó de que tenía **más ideas** y no las recordaba: preguntarle cuando salgan.
+
+## Deuda técnica (revisión externa 2026-10-14)
+> Lo que el revisor señaló y **no** entra en la v0.9.0. Ninguno bloquea; están ordenados por lo que más duele.
+- **`app/app.js` son 3.113 líneas (210 KB)**: partir en `ui.js`, `sheets.js`, `state.js` y `views/` (home, points, tasks,
+  money, juntos, couple, plus, games, forms), cada vista con sus `data-act` en un `registerActs()`. Sin bundler:
+  `index.html` sigue con un `<script type="module" src="app.js">`. Aparte, borrar CSS muerto (`.fab`, `.purse-*`,
+  `.debt-*`, `.ticket`, `.money-chip`, …).
+- **`watch()` sin `limit()`** en `log`, `points` y `expenses`: se descargan enteras en cada arranque. A los dos años
+  son miles de lecturas por apertura. Ojo: hoy se necesitan completas para saldos, meta y resumen del mes; habría que
+  separar "lo que se pinta" (con límite) de "lo que se calcula".
+- **La demo no falla nunca**: los caminos de error (permiso denegado por las reglas) solo se ven en real. Conviviría
+  con un modo "demo estricta" que aplique las mismas validaciones que las reglas.
+- **`allow get` con el código**: quien acierta el código de una pareja que espera lee el documento entero, con los
+  ingresos del que ya está. Se acepta (código de 6 caracteres con alfabeto de 32 = 1.000 millones de combinaciones
+  y `list: false`, así que no hay enumeración), pero se puede cerrar guardando los ingresos fuera del documento de la pareja.
+- **Avisos push** (sigue pendiente): FCM + Cloud Function; necesitan Firebase de verdad y plan Blaze.
+- **Widget de Android** con la meta y las tareas de hoy.

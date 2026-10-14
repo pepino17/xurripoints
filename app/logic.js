@@ -23,12 +23,12 @@ export function ymd(d = new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 export function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
-export function addPeriod(s, repeat) {
+export function addPeriod(s, repeat, keepDay = null) {
   const d = parseYmd(s);
   if (repeat === 'daily') d.setDate(d.getDate() + 1);
   else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
   else if (repeat === 'monthly') {
-    const day = d.getDate();
+    const day = keepDay || d.getDate();      // keepDay = día del mes original (una tarea del 31 no se queda en el 28)
     d.setDate(1); d.setMonth(d.getMonth() + 1);
     const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     d.setDate(Math.min(day, last));
@@ -37,10 +37,10 @@ export function addPeriod(s, repeat) {
 }
 export function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
 /** Próxima fecha de una tarea que se repite, al completarla hoy (salta los periodos atrasados). */
-export function nextDue(due, repeat, today = ymd()) {
+export function nextDue(due, repeat, today = ymd(), keepDay = null) {
   if (!repeat || repeat === 'none') return null;
   let d = due || today;
-  do { d = addPeriod(d, repeat); } while (d <= today);
+  do { d = addPeriod(d, repeat, keepDay); } while (d <= today);
   return d;
 }
 
@@ -76,6 +76,16 @@ export function reserved(points, uid) {
 }
 export function available(points, members, uid) {
   return balances(points, members)[uid] - reserved(points, uid);
+}
+/** Puntos NUEVOS que ha sumado cada uno (lo que ha APORTADO: tareas reclamadas y premios), sin descontar
+    lo que ha gastado en vales. Es un dato de equipo para hablar del reparto, no un marcador (regla 4). */
+export function earnedBy(points, members, now = Date.now()) {
+  const e = Object.fromEntries(members.map(u => [u, 0]));
+  for (const t of points) {
+    if (t.from != null || effStatus(t, now) !== 'approved') continue; // los traspasos (vales/regalos) no son aportación
+    if (t.to in e) e[t.to] += t.amount;
+  }
+  return e;
 }
 /** Meta juntos: puntos NUEVOS (reclamados o premiados) que habéis sumado entre los dos desde que empezó. */
 export function goalProgress(points, goal, now = Date.now()) {
@@ -240,6 +250,85 @@ export function autoAssign(tasks, members, targetPctA = 50) {
     out.push([t.id, who]);
   }
   return out;
+}
+
+/* ---------------- Colores de cada uno ---------------- */
+/** Paleta de cada persona (v0.9): [clave, nombre, color, color oscuro, color suave].
+    En los datos se guarda SOLO la clave, nunca un color suelto: así nada que llegue de la base puede
+    acabar dentro del CSS. */
+export const PERSON_COLORS = [
+  ['rosa', 'Rosa', '#F58BAA', '#C9406C', '#FFE0E9'],
+  ['lila', 'Lila', '#A897F5', '#6A54CE', '#ECE7FF'],
+  ['menta', 'Menta', '#6FCBA8', '#1F7A5C', '#E3F6EF'],
+  ['cielo', 'Cielo', '#86B7F0', '#2A6CC4', '#E4EFFC'],
+  ['melocoton', 'Melocotón', '#F5A97F', '#AC5227', '#FDE9DC'],
+  ['mostaza', 'Mostaza', '#E5C15C', '#8A6A0B', '#FBF0D4'],
+];
+export const DEFAULT_COLORS = ['rosa', 'lila'];
+/** Fila de la paleta de una clave. Si falta o no existe (llega basura de la base), devuelve el color de siempre. */
+export function colorOf(key, fallback = 0) {
+  return PERSON_COLORS.find(c => c[0] === key) || PERSON_COLORS[fallback] || PERSON_COLORS[0];
+}
+
+/* ---------------- Calendario ----------------
+   Solo sirve para VER lo que toca cada día y hablarlo: no reparte, no ordena y no puntúa a nadie.
+   Semana de lunes a domingo. La primera columna de la rejilla es siempre un lunes. */
+export const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+/** Rejilla de un mes ('YYYY-MM'): semanas de 7 días ('YYYY-MM-DD'), de lunes a domingo.
+    Incluye los días de los meses vecinos que caen en la misma semana (como cualquier calendario). */
+export function monthGrid(ym) {
+  const [y, m] = String(ym).split('-').map(Number);
+  if (!y || !m) return [];
+  const first = new Date(y, m - 1, 1);
+  const start = new Date(y, m - 1, 1 - ((first.getDay() + 6) % 7)); // lunes de esa semana
+  const last = ymd(new Date(y, m, 0));                              // último día del mes
+  const weeks = [];
+  for (let w = 0; w < 6; w++) {
+    const row = [];
+    for (let d = 0; d < 7; d++) row.push(ymd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + d)));
+    weeks.push(row);
+    if (row[6] >= last) break; // la semana ya lleva el último día del mes
+  }
+  return weeks;
+}
+/** Fechas reales en las que toca una tarea dentro de [from, from+days). NO arrastra las atrasadas:
+    en un calendario cada cosa va en su día (a diferencia de la lista, que pone las atrasadas en hoy). */
+export function taskOccurrences(t, from, days = 42) {
+  if (!isActive(t) || !t.due) return [];
+  const end = addDays(from, days);
+  const repeats = t.repeat && t.repeat !== 'none';
+  if (!repeats) return (t.due >= from && t.due < end) ? [t.due] : [];
+  const keep = t.dueDay || null;
+  // Salto rápido por aritmética (una tarea diaria de hace años no se recorre día a día): el bucle de abajo
+  // solo tiene que rematar. Sin esto, un mes con muchas tareas repetidas se notaba al repintar.
+  let cur = t.due;
+  if ((t.repeat === 'daily' || t.repeat === 'weekly') && t.due < from) {
+    const step = t.repeat === 'daily' ? 1 : 7;
+    const dias = Math.round((parseYmd(from) - parseYmd(t.due)) / 86400e3);
+    if (dias > step) cur = addDays(t.due, Math.ceil(dias / step) * step);
+  }
+  let guard = 0;
+  while (cur < from && guard++ < 5000) cur = addPeriod(cur, t.repeat, keep);
+  const out = [];
+  for (let i = 0; cur < end && i < 400; i++, cur = addPeriod(cur, t.repeat, keep)) if (!out.includes(cur)) out.push(cur);
+  return out;
+}
+/** { 'YYYY-MM-DD': [tareas que tocan ese día] } para pintar la rejilla de una vez. */
+export function tasksByDay(tasks, from, days = 42) {
+  const out = {};
+  for (const t of tasks) for (const d of taskOccurrences(t, from, days)) (out[d] = out[d] || []).push(t);
+  return out;
+}
+/** Días que cubre una rejilla (de la primera a la última casilla) para pedir las tareas de golpe. */
+export function gridRange(weeks) {
+  const all = (weeks || []).flat();
+  return all.length ? { from: all[0], days: all.length } : null;
+}
+/** Tareas de un día, ordenadas: primero las que tienen persona, después las libres. */
+export function dayTasks(list, members = []) {
+  const rank = t => (t.assignee && members.includes(t.assignee) ? members.indexOf(t.assignee) : 9);
+  return [...(list || [])].sort((a, b) => rank(a) - rank(b) || String(a.title || '').localeCompare(String(b.title || '')));
 }
 
 /* ---------------- Ahorro (huchas) ---------------- */

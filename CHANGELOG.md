@@ -5,6 +5,72 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.9.0] — 2026-10-14 · Calendario, cada uno su color y arreglos de la revisión externa
+
+Joan (audio 2026-10-09): *"ara no es veuen tant els punts, de quant portes tu i quant porta l'altre, que això
+a mi molava bastant"* · *"no totes les parelles estan convivint juntes… es podria fer per a companys de pis"* ·
+*"el format és una mica [pastel]… que es pugui configurar també els colors"*.
+Todo lo que dijo está en `docs/IDEAS.md`; en esta versión va lo de ver y personalizar.
+
+**Calendario de tareas**
+- Tareas → **📋 Lista · 🗓️ Calendario**. El mes con ← →, «volver a hoy» y una rejilla de lunes a domingo.
+- Cada día lleva **un punto por tarea, con el color de su persona** (o gris si es libre); si no caben, «+N».
+- Toca un día y se abre lo que toca ese día (con quién es y cada cuánto), y puedes **apuntar una tarea para ese día**.
+- **No se arrastran las atrasadas**: en el calendario cada cosa va en su fecha (en la lista, las atrasadas salen en «Hoy»).
+- **La lista sigue igual**: no se quita nada. El calendario solo sirve para ver y hablar del reparto.
+
+**Cada uno su color** (Pareja → **Tu color**, o en el perfil)
+- 6 colores (rosa, lila, menta, cielo, melocotón, mostaza). El color es el de **tu avatar, tus tareas y tus días
+  del calendario**; el reparto de gastos y de tareas también lo usa.
+- Se guarda **solo la clave de la paleta** en `profiles.{uid}.color`, nunca un valor de color: así nada que llegue
+  de la base puede acabar dentro del CSS. Las reglas lo comprueban (`firestore.rules`).
+
+**Tema Neutro (gratis)**
+- Pareja → Colores: **Fresa · Neutro · Menta · Cielo · Lavanda · Melocotón**. **Neutro es gratis** (fondo gris
+  suave, para quien no le gusta el pastel); los 4 de color siguen siendo de Plus. Nada de lo que ya era gratis pasa a Plus.
+
+**Lo que aportáis** (Puntos y vales → 🕘 Historial)
+- Lo que ha **sumado cada uno** y lo que **tiene para pedir favores**, y el total de los dos.
+- Está en Historial (no en Inicio) y **no compara a nadie**: sirve para saber quién puede pedir un favor.
+  Se explica en la propia tarjeta y queda apuntado en `docs/PSICOLOGIA.md` (regla 4 revisada, sin volver al marcador).
+
+**Arreglos de la revisión externa (12 hallazgos, ninguno bloqueante)**
+- 🐞 **«Aceptarlas todas» ya no pierde cambios del catálogo**: cada propuesta partía del catálogo viejo, así que
+  solo sobrevivía la última y quedaban marcadas como aceptadas. Ahora se aplican en orden y se guarda **una vez**.
+- 🐞 **Doble toque en una tarea que se repite**: apuntaba dos reclamaciones y adelantaba la fecha dos veces.
+  Ahora hay una guarda de 2,5 s (y aviso «ya la has dado por hecha»).
+- 🐞 **Reabrir una tarea ya anula su reclamación** aunque hayan pasado las 24 h y haya contado sola (antes se quedaba).
+- 🐞 **Contestar una propuesta ya resuelta** ya no dice «¡Hecho!»: si no estaba pendiente, lo avisa y no cambia nada.
+- 🐞 **Contraste**: `--a-deep`, `--b-deep` y `--mint-deep` estaban por debajo de 4,5:1 en enlaces, «+10» y «Contó solo».
+  Ahora cumplen la regla de `COMO_TRABAJAR.md` (y los 6 colores nuevos vienen ya con su tono oscuro correcto).
+- 🐞 **Legibilidad (dislexia)**: fuera las MAYÚSCULAS con letra espaciada en los vales y en el ahorro, y el voto de
+  las ideas sube del mínimo permitido.
+- 🐞 **`esc()`/`num()`** en el importe del historial, la fecha de las tareas y el atributo de fecha.
+- 🐞 **Mientras escribes al entrar en la app ya no se borra lo escrito** (el guardián de repintado también cubre `auth`).
+- 🛡️ **Reglas más estrictas**: el catálogo tiene que ser un mapa con listas, los ingresos un entero de céntimos,
+  el nombre y el emoji de texto, y el color solo de la paleta. **Hay que volver a pegar `firestore.rules` en Firebase.**
+- 🛡️ **La app se defiende sola**: si llegara un catálogo roto, se pinta vacío en vez de dejar la pantalla en blanco;
+  los ingresos se usan siempre como número (nunca `NaN`).
+
+**Segunda revisión externa (sobre esta misma versión): 10 hallazgos, todos arreglados**
+- 🐞 **La hoja de un día del calendario se repinta con los datos**: antes, marcar una tarea hecho dejaba el círculo
+  igual y el segundo toque reabría la tarea (o duplicaba la reclamación).
+- 🐞 **`prop-all` guarda solo la lista del catálogo que cambia** (escribir siempre las dos pisaba un cambio recién
+  hecho en la otra lista).
+- 🐞 **Tarea mensual del día 31**: se quedaba en el 28 para siempre. Ahora se guarda el día original (`dueDay`) y
+  vuelve al 31 cuando el mes lo tiene (febrero sigue recortando, como debe).
+- 🐞 **Calendario más rápido con muchas tareas**: el salto a la fecha de hoy se calcula con aritmética en vez de
+  ir día a día (una tarea diaria de hace años ya no cuesta nada).
+- 🐞 **Tope de 100 por lista del catálogo en la app**, con un aviso claro en vez de «Sin permiso».
+- 🐞 **La guarda del doble toque se limpia** si la escritura falla y al «Deshacer» (antes bloqueaba un reintento).
+- 🛡️ **Al unirse a una pareja, el perfil que se escribe también pasa por `okProfile`** (nombre, emoji, ingresos y
+  color) — era el único camino sin la barrera.
+- 🛡️ **`optInt` admite `null`** (antes un `income: null` dejaba el documento entero sin poder guardarse).
+
+**Pruebas:** 31 de lógica (5 nuevas: rejilla, ocurrencias, mapa del día, puntos aportados y colores) + 4 nuevas de reglas.
+Verificado en navegador con datos reales de la demo (calendario, hoja del día, tarea desde el día, color por persona,
+tema neutro, «Lo que aportáis»): **sin errores de consola**.
+
 ## [0.8.0] — 2026-09-29 · Lista para vender: Xurripoints Plus, web legal y Google Play
 
 Joan: "¿cómo monetizarías la app?" → "okey, optimiza la app para poder comercializarla de la forma más óptima".

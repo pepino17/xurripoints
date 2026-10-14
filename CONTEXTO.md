@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-09-29** (v0.8.0).
+> Última actualización: **2026-10-14** (v0.9.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -21,6 +21,13 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 - (2026-09-29) **Monetización = freemium "Xurripoints Plus"**, un plan **por pareja**, con **prueba gratis de 14 días**.
   Lo que ya era gratis sigue gratis; sin anuncios; los xurripoints no se venden. **Solo español** de momento.
   **Web pública en GitHub Pages** (`docs/`). Todo en `docs/MONETIZACION.md` y `docs/PLAY_STORE.md`.
+- (2026-10-14) **Calendario** (lo pidió Joan: "tinc pendent posar calendari"): Tareas → Lista · Calendario, con el mes
+  y un punto por tarea con el color de cada uno. **No arrastra las atrasadas** (cada cosa en su fecha) y **no quita la lista**.
+- (2026-10-14) **Cada uno elige su color** (6 de paleta). Se guarda solo la **clave** en `profiles.{uid}.color`
+  (nunca un valor de color: lo que llega de la base va al CSS). Default: quien crea la pareja rosa, quien se une lila.
+- (2026-10-14) **Tema «Neutro» gratis** (fondo gris) para quien no quiere el pastel. Los 4 temas de color siguen en Plus.
+- (2026-10-14) **Los puntos por persona vuelven, pero en Historial** (no en Inicio) y en clave de equipo
+  («lo que aportáis», para saber quién puede pedir un favor). Ver la revisión de la regla 5 en `docs/PSICOLOGIA.md`.
 
 ## Estado
 - v0.1–v0.6 (2026-09-28): puntos, vales, tareas, gastos, gastos fijos, ahorro, Juntos (ideas, decidir, jugar),
@@ -41,11 +48,22 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.9.0 (2026-10-14)**: calendario, cada uno su color y los arreglos de la revisión externa (detalle en `CHANGELOG.md`).
+  - **Calendario**: Tareas → Lista · Calendario (mes, ←→, volver a hoy, un punto por tarea con el color de su persona,
+    toca un día y ves lo que toca; se puede crear una tarea para ese día). La lista sigue igual.
+  - **Tu color** (Pareja → Tu color): 6 colores; se aplican como variables CSS (`--a` = `members[0]`, `--b` = `members[1]`).
+  - **Tema Neutro** gratis. **«Lo que aportáis»** en Historial de puntos.
+  - **Arreglado** (revisión externa): «aceptarlas todas» perdía cambios del catálogo; doble toque en tareas que se
+    repiten apuntaba puntos de más; reabrir una tarea no anulaba su reclamación de 24 h; contestar una propuesta ya
+    resuelta decía «¡Hecho!»; contraste por debajo de 4,5:1; MAYÚSCULAS con letra espaciada; `esc()` que faltaban;
+    al entrar, mientras escribías, se borraba lo escrito.
+  - **Reglas más estrictas** (catálogo, ingresos, nombre/emoji, color) → **hay que volver a pegarlas en Firebase**.
+  - 31 pruebas de lógica + 4 nuevas de reglas. Verificado en navegador (demo) sin errores de consola.
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** para que los testers puedan descargar.
 - **Web:** https://pepino17.github.io/xurripoints/ (GitHub Pages desde `docs/`, sin Jekyll: `.nojekyll`).
-- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`, región **Madrid**), pegar **las reglas nuevas** y pasar la
-  config → se pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
+- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`, región **Madrid**), pegar **las reglas nuevas**
+  (v0.9: catálogo, ingresos, nombre/emoji y color) y pasar la config → se pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
   Para vender: **email de contacto** (hoy la web manda a GitHub Issues) y **Play Console** (`docs/PLAY_STORE.md`).
   Hasta entonces, salir de la pareja / borrar cuenta / propuestas en la nube solo están probados con la demo y con
   el emulador de reglas (no con un Firebase real).
@@ -74,23 +92,28 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
 .github/workflows/android.yml  compila el APK (release firmado) y lo publica en Releases
 ```
 
-## Pantallas (v0.7)
+## Pantallas (v0.9)
 - Barra: **Inicio · Tareas · ＋ · Dinero · Juntos**. **Pareja** desde los avatares de arriba. **Puntos y vales** desde Inicio.
 - **Inicio**: meta juntos + "tienes X para pedir favores" · Primeros pasos · **Para ti** (propuestas, gracias, cambios,
   peticiones, tareas de hoy) · para cuadrar · pregunta del día.
+- **Tareas**: **📋 Lista · 🗓️ Calendario** (v0.9). Lista = reparto + filtros + Hoy/Próximamente/Sin fecha.
+  Calendario = mes de lunes a domingo, un punto por tarea con el color de su persona, hoja del día y «nueva tarea para ese día».
 - **＋**: grandes = ya lo he hecho, gracias, gasto, nueva tarea (sin puntos: gracias, gasto, tarea, idea); "Más" = pedir
   un favor, lo ha hecho [pareja], idea, ahorrar.
-- **Pareja**: tarjeta ✨ Plus · Vosotros · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
+- **Pareja**: tarjeta ✨ Plus · Vosotros (**Tu perfil**, **Tu color**, tarro de gracias, código) · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
   App (recordatorio, colores, recomendar, privacidad, versión) · Cuenta (descargar una copia, salir, borrar).
+- **Puntos y vales → Historial**: «**Lo que aportáis**» (lo sumado por cada uno y lo que tiene para pedir favores).
 - **Plus** (v0.8) se enseña con `needPlus('clave')`: Dinero → Este mes (resumen + Excel) · Juntos → Jugar (preguntas, revisión)
-  · «Más preguntas ✨» · revisión de vie a dom en Inicio · colores en Pareja.
+  · «Más preguntas ✨» · revisión de vie a dom en Inicio · colores en Pareja (Fresa y Neutro son gratis).
 
 ## Modelo de datos (Firestore)
 - `users/{uid}` → `{ couple: CODIGO | null }`
-- `couples/{CODIGO}` → `{ code, members:[uidA, uidB], profiles:{uid:{name, emoji, sugar:'mami'|'papi', income(céntimos/mes), left?}},
+- `couples/{CODIGO}` → `{ code, members:[uidA, uidB], profiles:{uid:{name, emoji, sugar:'mami'|'papi', income(céntimos/mes), color?, left?}},
   catalog:{ earn:[{id,emoji,title,pts}], spend:[…] }, settings:{ taskPctA, split, noPoints }, goal, goalsDone,
   formerMembers?, closedAt?, createdAt, updatedAt }`
   - "A" = `members[0]` (quien creó la pareja, color rosa); "B" = `members[1]` (lila).
+  - `profiles.{uid}.color` (v0.9) = **clave** de la paleta (`rosa|lila|menta|cielo|melocoton|mostaza`), nunca un valor
+    de color. Si falta, se usa el de siempre por posición (A rosa, B lila). La app lo pinta en `--a` / `--b`.
   - **Salir** (v0.7): `members` sin mí, `formerMembers:[…, yo]`, `closedAt`, mi perfil = `{name, emoji, left:true}` (sin ingresos).
     Pareja cerrada → nadie se une; quien se queda ve la pantalla `alone` y puede borrarlo todo.
   - `settings.noPoints: true` = puntos en pausa (se oculta todo lo de puntos; los datos no se borran).
@@ -107,7 +130,7 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
 - `couples/{C}/ideas/{id}` → `{ list:'pelis'|'planes'|'comida', title, note, votes:{uid: 1|-1|0}, createdBy, createdAt, doneAt }`.
 - `couples/{C}/thanks/{id}` → `{ from, to, text, emoji, createdAt, seenAt, reaction }`.
 - `couples/{C}/jars/{id}` → `{ title, emoji, target }` · `couples/{C}/saves/{id}` → `{ jar, by, amount(± céntimos), note, date, createdAt }`.
-- `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat, due, doneAt, doneBy, log:[{by, at}] (≤30), createdBy, createdAt }`
+- `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat, due, dueDay?, doneAt, doneBy, log:[{by, at}] (≤30), createdBy, createdAt }`
 - **`couples/{C}/proposals/{id}`** (v0.7) → `{ kind:'split'|'taskPct'|'catalog'|'points-on', value, text, by, createdAt,
   status:'pending'|'accepted'|'rejected'|'cancelled', resolvedAt, resolvedBy }`. Lo aplica el móvil de **quien acepta**
   (`applyProposal`). Catálogo: `value = {op:'upsert'|'delete', kind:'earn'|'spend', item}` (`L.applyCatalogOp`).
