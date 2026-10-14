@@ -34,6 +34,39 @@ const DEMO_STASH = 'xurripoints_demo_stash';
 export function peekDemoStash() { try { return JSON.parse(localStorage.getItem(DEMO_STASH)) || null; } catch (e) { return null; } }
 export function dropDemoStash() { try { localStorage.removeItem(DEMO_STASH); } catch (e) { /* nada */ } }
 
+/* ---------------- Limpieza del móvil ---------------- */
+/** Claves que guarda la app en ESTE móvil (modo demo, código, tutorial, tema…). */
+const CLAVES_APP = /^(xp_|xurripoints_)/;
+function limpiarClaves() {
+  try {
+    const fuera = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && CLAVES_APP.test(k)) fuera.push(k); }
+    fuera.forEach(k => localStorage.removeItem(k));
+  } catch (e) { /* sin almacenamiento */ }
+}
+/** Borra la copia local que guarda Firestore (IndexedDB). Con `todo` se lleva también la sesión.
+    Sin esto, al borrar la cuenta los gastos, los puntos y los ingresos seguían en el disco del móvil. */
+async function limpiarIndexedDb({ todo = false } = {}) {
+  try {
+    if (!globalThis.indexedDB || !indexedDB.databases) return;
+    const dbs = await indexedDB.databases();
+    await Promise.all(dbs.map(d => !d.name || (!todo && /firebaseLocalStorageDb/.test(d.name))
+      ? null
+      : new Promise(res => {
+        const r = indexedDB.deleteDatabase(d.name);
+        r.onsuccess = r.onerror = r.onblocked = () => res();
+        setTimeout(res, 1500);   // no colgarse si el navegador la tiene bloqueada
+      })));
+  } catch (e) { /* sin IndexedDB */ }
+}
+/** Deja este móvil limpio: las claves de la app y la copia en caché de los datos.
+    `todo: true` además se lleva la sesión (al borrar la cuenta). Devuelve true si hay que recargar. */
+export async function limpiarEsteMovil({ todo = false } = {}) {
+  limpiarClaves();
+  await limpiarIndexedDb({ todo });
+  return true;
+}
+
 /* ---------------- Firebase ---------------- */
 /** Opciones solo para las pruebas (tests/store.test.mjs, con los emuladores): nombre de app, config,
     persistencia en memoria y conectar a los emuladores. La app usa los valores por defecto. */
@@ -121,7 +154,11 @@ export class FirebaseBackend {
     const emit = key => { seen.add(key); if (seen.has('couple') && COLS.every(c => seen.has(c))) onData({ ...data }); };
     const unsubs = [
       fb.onSnapshot(this.coupleRef(code), s => { data.couple = s.exists() ? s.data() : null; emit('couple'); }, onError),
-      ...COLS.map(col => fb.onSnapshot(fb.collection(this.db, 'couples', code, col), qs => {
+      ...COLS.map(col => fb.onSnapshot(col === 'log'
+        // El historial de avisos solo se enseña lo reciente: se traen los últimos y no crece sin freno.
+        // (Puntos y gastos NO se limitan: los saldos y el resumen del mes necesitan todos.)
+        ? fb.query(fb.collection(this.db, 'couples', code, col), fb.orderBy('createdAt', 'desc'), fb.limit(60))
+        : fb.collection(this.db, 'couples', code, col), qs => {
         // Solo ids "normales" (los que crea la app): un id raro no llega nunca a pintarse en la pantalla.
         data[col] = qs.docs.filter(d => SAFE_ID.test(d.id)).map(d => ({ id: d.id, ...d.data() }));
         emit(col);
@@ -169,6 +206,8 @@ export class FirebaseBackend {
     if (last) await this.deleteAll(code);
     await fb.setDoc(this.userRef(), { couple: null }, { merge: true });
     this.code = null;
+    // Fuera la copia en caché de la pareja de ESTE móvil (la sesión se queda: no te echamos).
+    return limpiarEsteMovil();
   }
   /** Borra la pareja entera (solo se puede siendo el único miembro: ver firestore.rules). */
   async deleteAll(code = this.code) {
@@ -180,7 +219,7 @@ export class FirebaseBackend {
     await fb.deleteDoc(this.coupleRef(code));
   }
   /** Borrar mi cuenta: pide la contraseña (Firebase exige haber entrado hace poco), sale de la pareja,
-      borra users/{uid} y la cuenta. */
+      borra users/{uid} y la cuenta, y deja ESTE móvil limpio (datos, sesión y claves de la app). */
   async deleteAccount(password) {
     const { fb } = this, u = this.auth.currentUser;
     if (!u) return;
@@ -188,6 +227,7 @@ export class FirebaseBackend {
     await this.leaveCouple();
     await fb.deleteDoc(this.userRef());
     await fb.deleteUser(u);
+    await limpiarEsteMovil({ todo: true });
   }
 }
 

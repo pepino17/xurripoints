@@ -36,11 +36,12 @@ export function addPeriod(s, repeat, keepDay = null) {
   return ymd(d);
 }
 export function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
-/** Próxima fecha de una tarea que se repite, al completarla hoy (salta los periodos atrasados). */
+/** Próxima fecha de una tarea que se repite, al completarla hoy (salta los periodos atrasados).
+    Con un `repeat` que no conocemos devuelve null: `addPeriod` no movería la fecha y esto se colgaría. */
 export function nextDue(due, repeat, today = ymd(), keepDay = null) {
-  if (!repeat || repeat === 'none') return null;
-  let d = due || today;
-  do { d = addPeriod(d, repeat, keepDay); } while (d <= today);
+  if (!['daily', 'weekly', 'monthly'].includes(repeat)) return null;
+  let d = due || today, guard = 0;
+  do { d = addPeriod(d, repeat, keepDay); } while (d <= today && ++guard < 500);
   return d;
 }
 
@@ -296,6 +297,7 @@ export function monthGrid(ym) {
     en un calendario cada cosa va en su día (a diferencia de la lista, que pone las atrasadas en hoy). */
 export function taskOccurrences(t, from, days = 42) {
   if (!isActive(t) || !t.due) return [];
+  if (t.repeat && t.repeat !== 'none' && !['daily', 'weekly', 'monthly'].includes(t.repeat)) return [];   // repeat corrupto: ni se intenta
   const end = addDays(from, days);
   const repeats = t.repeat && t.repeat !== 'none';
   if (!repeats) return (t.due >= from && t.due < end) ? [t.due] : [];

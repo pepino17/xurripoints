@@ -13,4 +13,5 @@ export {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
   doc, collection, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc,
   onSnapshot, runTransaction, deleteField, connectFirestoreEmulator,
+  query, orderBy, limit,   // el historial de avisos del `log` se trae solo lo reciente
 } from 'firebase/firestore';

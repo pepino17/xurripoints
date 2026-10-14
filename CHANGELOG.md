@@ -5,6 +5,57 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.11.0] — 2026-10-15 · Ronda de agentes: seguridad, rendimiento y un cuelgue
+
+Sesión de auditoría con varios agentes en paralelo (revisión, seguridad, rendimiento, versiones y pruebas).
+Lo que salió, arreglado. Lo que no, apuntado en `docs/IDEAS.md` con el porqué.
+
+**Seguridad (auditoría)**
+- 🔒 **Cada uno solo toca SU perfil.** Antes, un miembro podía escribir el perfil del otro (nombre e **ingresos**,
+  y con los ingresos cambiar el reparto de gastos) sin que el otro se enterase. Las reglas ahora exigen que lo que
+  cambie de `profiles` sea solo lo mío, y que las claves que se escriban sean las que usa la app.
+- 🔒 **No se puede nacer "caducado".** Una reclamación de puntos con una fecha del pasado contaba sola al momento
+  (la confianza de 24 h), o sea puntos gratis. Ahora la fecha tiene que ser la del servidor (±2 h de margen por el reloj del móvil).
+- 🔒 **Borrar la cuenta deja el móvil limpio**: se borran también los datos en caché (IndexedDB) y las claves de la app,
+  no solo la nube. Salir de la pareja limpia lo de la pareja y conserva tu sesión.
+- 🔒 **Los errores ya no cuentan de más**: fuera los mensajes internos de Firebase por pantalla.
+- 🔒 **Android**: `allowBackup="false"` (antes el backup de Google/`adb` se llevaba la sesión y los datos) y el
+  FileProvider deja de exponer todo el almacenamiento externo (solo `cache` y `files`, que es lo que la app comparte).
+- 📌 **Aceptado y documentado**: quien acierte el código de 6 caracteres puede leer el documento de una pareja que
+  aún espera (con los ingresos del que ya está). Cerrarlo del todo pide mover los ingresos fuera del documento.
+
+**Rendimiento (auditoría)**
+- ⚡ **Fuera lucide**: eran **365 KB para 36 iconos**. Ahora los 36 van en línea en `app/icons.js` (**7,3 KB, −98 %**),
+  verificados uno a uno contra los de antes, y ya no hay que "crear" iconos en cada repintado.
+- ⚡ **Repintado con freno**: si llegan varios documentos de golpe (o una acción toca dos colecciones), se pinta **una vez**.
+- ⚡ **Al volver del segundo plano** la pantalla se refresca (antes podía quedarse vieja hasta el siguiente cambio).
+- ⚡ **Se conserva el deslizamiento lateral** de las filas de filtros (antes volvían al principio al llegar un dato).
+- ⚡ **Las animaciones de entrada ya no se repiten** en cada repintado (solo al entrar en una pantalla).
+- ⚡ **`applyColors` solo toca el CSS si el color cambia** (antes invalidaba el estilo de toda la app en cada render).
+- ⚡ El aviso del minuto no repinta con la app en segundo plano, y el **historial de cambios** se trae solo los últimos 60.
+- ⚡ Fuera los **2 subconjuntos de fuente vietnamita** (31 KB menos dentro del APK; en español no se usaban).
+
+**Un cuelgue de verdad (lo encontró el agente de pruebas)**
+- 🐞 **`nextDue` con un `repeat` desconocido entraba en bucle infinito**: una tarea con el periodo corrupto en la base
+  dejaba el móvil pillado al abrirla o al programar los recordatorios. Ahora devuelve null (y el calendario la ignora).
+
+**Modo «casa» (arreglos de la revisión)**
+- 🐞 **La pantalla de emparejar no se pintaba sin pareja** (`W()` leía datos que aún no existen): rompía la primera
+  pantalla de una cuenta real. Se ve solo al configurar Firebase, así que se arregla antes de conectar nada.
+- 🐞 La pregunta «¿Con quién compartes?» **ya no se vuelve a abrir sola** si la cierras con la X.
+- 🐞 En un piso, si el reparto estaba en «sugar», el selector **ya no lo cambiaba a «a medias»** sin que lo eligieras.
+- 🐞 «Listo» y el aviso del historial van **después de guardar** (si falla la escritura, no se miente).
+- Textos que decían «pareja» donde ya no toca («lo verá tu pareja», «Sales de la pareja…», el aviso de privacidad, etc.).
+
+**Dependencias**
+- Capacitor **8.5.3** y los plugins a su último parche (cierra el CVE de `@capacitor/android` < 8.5.1).
+- Firebase **se queda en 12.19.0**: la 13.0.0 tiene 8 días y obliga a subir también `@firebase/rules-unit-testing`.
+- `npm audit` sigue con avisos **solo de herramientas de desarrollo** (`tar`, `sharp`, `xcode`): no entran en el APK.
+
+**Pruebas**
+- **72 de lógica** (38 nuevas) · **35 de reglas + 10 de datos** (3 y 5 nuevas). El agente de pruebas encontró el cuelgue;
+  la revisión encontró los 2 altos del modo «casa»; la seguridad, los 2 altos de las reglas.
+
 ## [0.10.0] — 2026-10-15 · Modo «casa»: ¿con quién compartes?
 
 Joan (audio 2026-10-09): *"quan comences una relació o quan entres a l'aplicació, no totes les parelles estan

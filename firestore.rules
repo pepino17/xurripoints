@@ -93,13 +93,17 @@ service cloud.firestore {
         && validCouple(request.resource.data);
 
       allow update: if signedIn() && (
-        // Un miembro edita perfiles, catálogo, ajustes… pero no los miembros ni el código.
-        // Plus: no lo puede tocar, salvo para empezar la prueba gratis.
+        // Un miembro edita SU perfil, el catálogo, los ajustes y la meta… pero no los miembros, ni el código,
+        // ni el perfil del otro (antes se le podía cambiar el nombre o los ingresos, y con ellos el reparto).
+        // Tampoco puede colar campos nuevos ni cerrar la pareja (eso es cosa de "salir").
         (me() in resource.data.members
           && request.resource.data.members == resource.data.members
           && request.resource.data.code == resource.data.code
           && (plusSame() || trialStart())
-          && validCouple(request.resource.data))
+          && validCouple(request.resource.data)
+          && request.resource.data.profiles.diff(resource.data.profiles).affectedKeys().hasOnly([me()])
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['profiles', 'catalog', 'settings', 'goal', 'goalsDone', 'plus', 'updatedAt']))
         ||
         // Alguien se une: solo se añade a sí mismo y solo toca su propio perfil. Nunca a una pareja cerrada.
         (resource.data.members.size() == 1
@@ -134,6 +138,11 @@ service cloud.firestore {
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 100000
           && optStr(request.resource.data, 'title', 80)
+          // La fecha la pone el móvil de quien escribe, pero no puede venir del pasado: si no, una
+          // reclamación nacería "caducada" y contaría sola al momento (2 h de margen por el reloj del móvil).
+          && request.resource.data.createdAt is int
+          && request.resource.data.createdAt >= request.time.toMillis() - 7200000
+          && request.resource.data.createdAt <= request.time.toMillis() + 7200000
           && (
             // reclamar: pendiente, para mí
             (request.resource.data.type == 'claim' && request.resource.data.status == 'pending'

@@ -27,7 +27,7 @@ async function couple2() {
     await setDoc(doc(ctx.firestore(), 'couples', C), { ...seedCouple, code: C, members: ['alice', 'bob'], profiles: { alice: P('alice'), bob: P('bob') }, createdAt: 1, updatedAt: 1 });
   });
 }
-const pt = (o) => ({ type: 'claim', from: null, to: 'alice', amount: 10, title: 'Fregar', emoji: '🧽', note: '', status: 'pending', createdBy: 'alice', createdAt: 1, resolvedAt: null, resolvedBy: null, taskId: null, ...o });
+const pt = (o) => ({ type: 'claim', from: null, to: 'alice', amount: 10, title: 'Fregar', emoji: '🧽', note: '', status: 'pending', createdBy: 'alice', createdAt: Date.now(), resolvedAt: null, resolvedBy: null, taskId: null, ...o });
 
 /* ---------------- Crear y unirse ---------------- */
 await env.clearFirestore();
@@ -113,6 +113,21 @@ await t('puntos: solo enteros y solo para miembros de la pareja', async () => {
   await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p3`), pt({ amount: 10.5 })));
   await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p4`), pt({ type: 'reward', to: 'carol', status: 'approved' })));
   await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/points/p5`), pt({ type: 'reward', to: 'bob', status: 'approved' })));
+});
+await t('no puedo hacerme una reclamación "caducada" para que cuente sola', async () => {
+  // Con createdAt del pasado lejano, la reclamación nacería aprobada (la confianza de 24 h) y serían puntos gratis.
+  await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p6`), pt({ createdAt: 1 })));
+  await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p7`), pt({ createdAt: Date.now() - 25 * 3600e3 })));
+  await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p8`), pt({ createdAt: Date.now() + 6 * 3600e3 })));
+  await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/points/p9`), pt()));
+});
+await t('no puedo tocar el perfil del otro (ni sus ingresos)', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.bob.income': 0, updatedAt: 9 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.bob.name': 'pepito', updatedAt: 9 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.income': 180000, updatedAt: 9 }));
+  // Y no puedo colar campos nuevos ni cerrar la pareja por mi cuenta
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { otraCosa: true, updatedAt: 9 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { closedAt: 123, updatedAt: 9 }));
 });
 await t('ids raros no se aceptan', async () => {
   await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/"><img src=x>`), pt()));

@@ -7,8 +7,9 @@ import { createBackend, hasFirebaseConfig, peekDemoStash, dropDemoStash } from '
 import * as L from './logic.js';
 import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS } from './content.js';
 import { CHANNEL } from './channel.js';
+import { iconoSvg } from './icons.js';
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -29,8 +30,10 @@ const eur = c => EUR.format((c || 0) / 100);
 const eurPlain = c => ((c || 0) / 100).toFixed(2).replace('.', ',');
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { /* nada */ } };
-const icons = () => { try { window.lucide && lucide.createIcons(); } catch (e) { /* nada */ } };
-const ic = name => `<i data-lucide="${name}"></i>`;
+/** Los iconos van en línea (app/icons.js): ya no hay que "crear" nada al repintar (antes lucide recorría
+    el documento entero en cada render). Se deja la función para no tocar los 4 sitios que la llaman. */
+const icons = () => {};
+const ic = name => iconoSvg(name);
 const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 const vibrate = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
 const isNative = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
@@ -197,8 +200,9 @@ const S = {
 };
 
 const C = () => S.data.couple;
-/** Modo «casa» (v0.10): con quién compartes y las palabras que usa la app («tu pareja» / «tu compi de piso»). */
-const home = () => L.homeOf(C());
+/** Modo «casa» (v0.10): con quién compartes y las palabras que usa la app («tu pareja» / «tu compi de piso»).
+    OJO: `S.data` es null en la pantalla de emparejar, así que aquí no se puede dar por hecho que hay pareja. */
+const home = () => L.homeOf(S.data && S.data.couple);
 const W = () => L.wordsOf(home());
 /** ¿Tiene sentido el «sugar mami/papi»? En un piso compartido, no. */
 const haySugar = () => home() !== 'piso';
@@ -275,7 +279,8 @@ function hintCard(k) {
   if (!HINTS[k] || !hintOpen(k)) return '';
   const [e, t] = HINTS[k];
   // {P} = «tu pareja» / «tu compi de piso» / «tu familiar», según el modo «casa» (v0.10).
-  return `<div class="hint-card"><span class="hc-e">${e}</span><p>${String(t).replace(/\{P\}/g, esc(W().la))}</p><button class="btn sm" data-act="hint-ok" data-v="${k}">Entendido</button></div>`;
+  // Con función de reemplazo: si el texto llevara `$&` no se interpretaría.
+  return `<div class="hint-card"><span class="hc-e">${e}</span><p>${String(t).replace(/\{P\}/g, () => esc(W().la))}</p><button class="btn sm" data-act="hint-ok" data-v="${k}">Entendido</button></div>`;
 }
 
 /* ---------------- Arranque ---------------- */
@@ -326,7 +331,8 @@ function watchCouple(code) {
     S.phase = data.couple.members.length >= 2 ? 'app' : data.couple.closedAt ? 'alone' : 'wait';
     if (was !== 'app' && S.phase === 'app') S.enter = true;
     if (S.phase === 'app') { notifyNewRequests(); runRecurring(); }
-    render();
+    // Con freno: si llegan varios documentos de golpe (o marcaste algo que toca dos colecciones), se pinta UNA vez.
+    pedirRender();
     if (S.phase === 'app') { maybeWelcome(); if (!S.dialog) maybeHomeQuestion(); syncReminders(); }
   }, err => { console.error(err); toast(errMsg(err)); });
 }
@@ -471,7 +477,7 @@ function errMsg(e) {
     'unavailable': 'Sin conexión. Se guardará cuando vuelva internet.',
     'failed-precondition': 'Falta crear la base de datos Firestore en Firebase.',
   };
-  return M[code] || (e && e.message) || 'Algo ha fallado.';
+  return M[code] || 'Algo ha fallado. Prueba otra vez.';
 }
 
 /* ---------------- Render principal ---------------- */
@@ -486,12 +492,20 @@ function typingInScreen() {
 /** Clave de un desplegable (<details>) para que siga abierto al repintar. */
 const detailsKey = d => d.dataset.k || ((d.querySelector('summary') || {}).textContent || '').trim();
 
+/** Repintado con freno: si llegan varios cambios de golpe, se pinta una sola vez (antes, 7 escrituras
+    seguidas = 7 repintados completos del DOM). */
+let pintarPronto = null;
+function pedirRender() { clearTimeout(pintarPronto); pintarPronto = setTimeout(render, 16); }
+
 function render() {
   if (typingInScreen()) { S.deferred = true; return; }
   const app = $('#app');
+  const entrando = S.enter;          // primera pintada de la pantalla (para las animaciones de entrada)
   const y = window.scrollY;
   // Los desplegables abiertos siguen abiertos (antes se cerraban solos cada minuto o al llegar datos).
   const openDetails = new Set($$('details[open]', app).map(detailsKey));
+  // Y las filas que se deslizan de lado (filtros, chips) se quedan donde estaban.
+  const scrollX = $$('.chips.scroll, .scroll', app).map(el => el.scrollLeft);
   document.body.dataset.phase = S.phase;
   if (S.phase === 'boot' || S.phase === 'loading') app.innerHTML = viewLoading();
   else if (S.phase === 'auth') app.innerHTML = viewAuth();
@@ -501,13 +515,19 @@ function render() {
   else if (S.phase === 'offline') app.innerHTML = viewOffline();
   else app.innerHTML = viewShell();
   if (openDetails.size) $$('details', app).forEach(d => { if (openDetails.has(detailsKey(d))) d.open = true; });
+  // Restaurar el deslizamiento lateral (si no, la fila de filtros volvía al principio cada vez que llegaba un dato).
+  const ahoraScroll = $$('.chips.scroll, .scroll', app);
+  scrollX.forEach((x, i) => { if (ahoraScroll[i] && x) ahoraScroll[i].scrollLeft = x; });
   applyTheme();
   applyColors();
   icons();
   // La hoja de un día del calendario se repinta con los datos: si no, marcar una tarea hecho dejaba el
   // círculo como estaba y el segundo toque reabría la tarea (hallazgo del revisor).
   if (S.sheet && S.sheet.calDay && $('#sheet-root').classList.contains('open')) swapSheet(calDaySheet(S.sheet.calDay));
-  if (S.enter) { S.enter = false; window.scrollTo(0, 0); } else window.scrollTo(0, y);
+  if (S.enter) { S.enter = false; window.scrollTo(0, 0); }
+  else window.scrollTo(0, y);
+  // Las animaciones de entrada solo la primera pintada de cada pantalla (antes se repetían en cada repintado).
+  document.body.classList.toggle('enter', entrando);
 }
 
 function viewOffline() {
@@ -600,7 +620,7 @@ function profileFields(p = {}, { colorFallback = '' } = {}) {
         <button type="button" class="chip ${sugar === 'papi' ? 'on' : ''}" data-act="pick" data-v="papi">🕶️ Sugar papi</button>
       </div>
     </div>
-    <label class="field"><span>Ingresos al mes <small>(opcional · solo para repartir gastos de forma proporcional; lo verá tu pareja)</small></span>
+    <label class="field"><span>Ingresos al mes <small>(opcional · solo para repartir gastos de forma proporcional; lo verá ${esc(W().la)})</small></span>
       <div class="money-inp"><input class="inp" id="pf-income" inputmode="decimal" placeholder="0" value="${p.income ? eurPlain(p.income) : ''}"><b>€</b></div></label>`;
 }
 function readProfile(base = {}) {
@@ -692,7 +712,7 @@ function viewShell() {
   <div class="bgfx" aria-hidden="true"></div>
   <header class="top">
     <div class="brand"><i class="xc"></i><span>Xurri<em>points</em></span></div>
-    <button class="duo ${S.tab === 'couple' ? 'on' : ''}" data-act="tab" data-tab="couple" aria-label="Pareja y ajustes">${av(ME())}${av(PA())}<span class="duo-gear">${ic('settings')}</span></button>
+    <button class="duo ${S.tab === 'couple' ? 'on' : ''}" data-act="tab" data-tab="couple" aria-label="${esc(W().sitio)} y ajustes">${av(ME())}${av(PA())}<span class="duo-gear">${ic('settings')}</span></button>
   </header>
   ${S.be.kind === 'firebase' && !navigator.onLine ? `<div class="offline">${ic('wifi-off')} Sin conexión · lo que apuntes se sube al volver</div>` : ''}
   ${S.be.kind === 'demo' ? `<button class="demo-bar" data-act="demo-switch">Demo · eres <b>${esc(prof(ME()).name)}</b> ${ic('repeat-2')} cambiar</button>` : ''}
@@ -1227,7 +1247,7 @@ function changesSheet() {
 }
 function deleteSheet() {
   return `<h3 class="sheet-title">Borrar mi cuenta 🗑️</h3>
-    <p class="muted">Sales de la pareja y se borra tu cuenta. ${esc(pname())} conserva lo que habéis apuntado juntos (sin tus ingresos). Si eres el último, se borra todo. <b>No se puede deshacer.</b></p>
+    <p class="muted">Se borra tu cuenta y sales de aquí. ${esc(pname())} conserva lo que habéis apuntado juntos (sin tus ingresos). Si eres el último, se borra todo. Se borra también lo que este móvil tiene guardado. <b>No se puede deshacer.</b></p>
     <label class="field"><span>Escribe tu contraseña para confirmar</span>
       <input class="inp" id="del-pass" type="password" autocomplete="current-password"></label>
     <button class="btn danger big wide" data-act="delete-do">Borrar mi cuenta</button>`;
@@ -1235,9 +1255,9 @@ function deleteSheet() {
 function legalSheet() {
   const tips = [
     ['🙅', 'Sin anuncios y sin vender datos', 'Vuestros datos solo sirven para que la app funcione. No se venden ni se usan para publicidad.'],
-    ['👀', 'Lo veis solo vosotros dos', 'Lo que apuntáis lo veis tú y tu pareja, nadie más. Los ingresos son opcionales.'],
+    ['👀', 'Lo veis solo vosotros dos', `Lo que apuntáis lo veis tú y ${W().la}, nadie más. Los ingresos son opcionales.`],
     ['☁️', 'Guardado en Google Firebase', 'Con conexión cifrada. En el modo demo, todo se queda en tu móvil.'],
-    ['📦', 'Tus datos son tuyos', 'Descarga una copia cuando quieras (Pareja → Cuenta). Al borrar tu cuenta, se borra.'],
+    ['📦', 'Tus datos son tuyos', `Descarga una copia cuando quieras (${W().sitio} → Cuenta). Al borrar tu cuenta, se borra también lo del móvil.`],
   ];
   return `<h3 class="sheet-title">Privacidad y condiciones 🔒</h3>
     <div class="tips">${tips.map(([e, t, x]) => `<div class="tip-row"><span class="tip-e">${e}</span><span><b>${t}</b><small>${x}</small></span></div>`).join('')}</div>
@@ -1400,16 +1420,19 @@ function applyColors() {
   const profiles = (S.data && S.data.couple && S.data.couple.profiles) || {};
   [['a', 0], ['b', 1]].forEach(([k, i]) => {
     const [base, deep, soft] = L.colorOf((profiles[members[i]] || {}).color, i).slice(2);
-    root.style.setProperty(`--${k}`, base);
-    root.style.setProperty(`--${k}-deep`, deep);
-    root.style.setProperty(`--${k}-soft`, soft);
+    // Solo se tocan las variables si de verdad cambian: escribirlas en :root invalida el estilo de todo el documento.
+    if (root.style.getPropertyValue(`--${k}`) !== base) root.style.setProperty(`--${k}`, base);
+    if (root.style.getPropertyValue(`--${k}-deep`) !== deep) root.style.setProperty(`--${k}-deep`, deep);
+    if (root.style.getPropertyValue(`--${k}-soft`) !== soft) root.style.setProperty(`--${k}-soft`, soft);
   });
 }
-/** Preguntas iniciales (v0.10): la primera vez que hay pareja, «¿con quién compartes?». Cambia las palabras. */
+/** Preguntas iniciales (v0.10): la primera vez que hay pareja, «¿con quién compartes?». Cambia las palabras.
+    Se apunta como preguntada AL ABRIRLA: si no, cerrarla con la X hacía que volviera a salir en cada cambio. */
 function maybeHomeQuestion() {
   if (S.dialog || S.sheet || S.phase !== 'app') return;
   if (C().settings && C().settings.home) return;
   if (lsGet('xp_home_asked')) return;
+  lsSet('xp_home_asked', '1');
   openSheet(homeSheet(true));
 }
 function homeSheet(first = false) {
@@ -2301,7 +2324,8 @@ function splitPicker(prefix, sel, includeDefault, customMe = 50) {
     ...(includeDefault ? [['default', '⭐', 'Vuestro reparto', cap(splitWords(d.mode, d.sugar, d.customPctA))]] : []),
     ['equal', '⚖️', 'A medias', '50/50'],
     ['proportional', '📊', 'Según ingresos', inc[me] > 0 && inc[pa] > 0 ? propText(inc) : 'Falta poner los ingresos de los dos'],
-    ...(haySugar() ? [sugarOpt(a), sugarOpt(b)] : []),   // en un piso compartido, «sugar mami/papi» no pinta nada
+    ...(haySugar() || String(sel || '').startsWith('sugar')   // si ya venía en «sugar», se sigue viendo (no se cambia solo)
+      ? [sugarOpt(a), sugarOpt(b)] : []),
     ['custom', '🎚️', 'A medida', 'Elegís el porcentaje'],
   ];
   return `<div class="radio-list" id="${prefix}-mode">${opts.map(([v, i, t, sub]) => `<button type="button" class="radio ${sel === v ? 'on' : ''}" data-act="pick" data-v="${esc(v)}">
@@ -2611,12 +2635,11 @@ const ACT = {
     const pass = $('#del-pass').value;
     if (!pass) { toast('Escribe tu contraseña ✍️'); return; }
     el.disabled = true;
-    const uid = S.user.uid;
     if (S.unwatch) { S.unwatch(); S.unwatch = null; }
     try {
       await S.be.deleteAccount(pass);
-      lsSet('xp_code_' + uid, null);
-      toast('Cuenta borrada. ¡Gracias por probar Xurripoints! 💞');
+      // deleteAccount ya ha borrado de este móvil los datos y la sesión: se recarga y queda en limpio.
+      location.reload();
     } catch (err) { el.disabled = false; toast(errMsg(err)); onUser(S.user); }
   },
   'tool-open': d => { S.tool = d.v; openSheet(toolHtml(d.v), { ctx: { tool: d.v } }); S.tool = d.v; },
@@ -2730,6 +2753,7 @@ const ACT = {
   'demo-switch': () => { const next = pname(); S.be.switchPersona(); toast(`Ahora eres ${next}`); },
   'demo-reset': async () => {
     if (!await askConfirm({ title: '¿Reiniciar la demo?', text: 'Se borra lo que hayas probado y vuelven los datos de ejemplo.', ok: 'Reiniciar' })) return;
+    lsSet('xp_home_asked', null);   // que vuelva a preguntar con quién compartes (si no, se queda en «pareja» en silencio)
     S.recurringDone.clear(); S.be.begin(newCoupleSeed()); S.tab = 'home'; S.enter = true;
   },
   'demo-exit': async () => {
@@ -3168,9 +3192,13 @@ const ACT = {
     const h = L.HOMES.some(x => x[0] === d.v) ? d.v : 'pareja';
     lsSet('xp_home_asked', '1');
     if (h === home()) { closeSheet(); return; }
-    S.be.updateCouple({ 'settings.home': h }).catch(err => toast(errMsg(err)));
-    if (hasPartner()) logChange('home', `ha cambiado con quién compartís: ahora «${L.homeLabel(h).toLowerCase()}»`);
-    closeSheet(); toast(`${L.HOMES.find(x => x[0] === h)[1]} Listo: ${L.homeLabel(h).toLowerCase()}`);
+    // El aviso y el cierre van DESPUÉS de guardar: si falla (sin conexión, reglas), no se miente.
+    S.be.updateCouple({ 'settings.home': h })
+      .then(() => {
+        if (hasPartner()) logChange('home', `ha cambiado con quién compartís: ahora «${L.homeLabel(h).toLowerCase()}»`);
+        closeSheet(); toast(`${L.HOMES.find(x => x[0] === h)[1]} Listo: ${L.homeLabel(h).toLowerCase()}`);
+      })
+      .catch(err => toast(errMsg(err)));
   },
   /* color de cada uno (v0.9) */
   'color-sheet': () => openSheet(colorSheet()),
@@ -3325,7 +3353,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (S.dial
 ['online', 'offline'].forEach(ev => window.addEventListener(ev, () => { if (S.phase === 'app' && !$('#sheet-root.open')) render(); }));
 
 // Refresca los "hace X min" y el cambio de día si la app se queda abierta.
-setInterval(() => { if (S.phase === 'app' && !$('#sheet-root.open')) render(); }, 60e3);
+setInterval(() => { if (S.phase === 'app' && !$('#sheet-root.open') && !document.hidden) render(); }, 60e3);
+
+// Al volver del segundo plano, se repinta: mientras la app estaba detrás pueden haber cambiado cosas
+// (y el WebView sigue vivo, así que sin esto la pantalla se queda vieja hasta el siguiente cambio).
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.phase === 'app') pedirRender(); });
 
 render();
 boot();
