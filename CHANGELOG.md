@@ -5,6 +5,32 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.10.0] — 2026-10-15 · Modo «casa»: ¿con quién compartes?
+
+Joan (audio 2026-10-09): *"quan comences una relació o quan entres a l'aplicació, no totes les parelles estan
+convivint juntes… inclús es podria fer per a companys de pis"* + *"s'hauria de fer com unes preguntes inicials"*.
+
+**Las preguntas iniciales**
+- La primera vez que entráis, una hoja pregunta **¿Con quién compartes?** con 4 opciones, cada una explicada:
+  **🏠 Vivimos juntos · ✈️ A distancia · 🧑‍🤝‍🧑 Compañeros de piso · 👨‍👩‍👧 Familia**.
+- Se puede **saltar** («Ahora no») y se cambia cuando queráis: **Pareja → ¿Con quién compartes?**.
+- Cambiarlo **deja aviso en el historial**, como todo lo que veis los dos.
+
+**Cambian las palabras (y algún detalle), no el motor**
+- «tu pareja» → **«tu compi de piso»** / **«tu familiar»**; «Crear nuestra pareja» → **«Crear nuestro piso»**;
+  «Salir de la pareja» → **«Salir del piso»**; y la pantalla **Pareja se llama Piso o Familia**.
+- En la ayuda de Puntos y en Pareja también (nada de «churri» para un compi de piso).
+- **En un piso compartido** desaparece **«sugar mami/papi»** del reparto de gastos (a medias, según ingresos o
+  a medida ya estaban y siguen). Todo lo demás —tareas, gastos, vales, gracias, planes y juegos— funciona igual.
+- **El motor sigue siendo de DOS personas**: esto no lo convierte en una app de piso con cinco. Los repartos,
+  las propuestas y las reglas están pensados para dos; más gente sería otro proyecto (queda en `docs/IDEAS.md`).
+
+**Técnica**
+- `couples/{C}.settings.home` = `pareja | distancia | piso | familia`. Las reglas solo aceptan esas 4 (o nada).
+- Las palabras viven en `L.HOMES` / `L.wordsOf` (lógica pura, con prueba): si llegara un valor raro de la base,
+  vuelven las de siempre («pareja»). El aviso por pantalla se rellena con `{P}` en `HINTS`.
+- 33 pruebas de lógica (1 nueva) + 5 nuevas de reglas.
+
 ## [0.9.0] — 2026-10-14 · Calendario, cada uno su color y arreglos de la revisión externa
 
 Joan (audio 2026-10-09): *"ara no es veuen tant els punts, de quant portes tu i quant porta l'altre, que això

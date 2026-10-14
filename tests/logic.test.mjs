@@ -393,6 +393,22 @@ t('colores de cada uno: solo se aceptan las claves de la paleta', () => {
   assert.deepEqual(L.DEFAULT_COLORS, ['rosa', 'lila']);
 });
 
+t('modo casa: las palabras de cada modo (y si llega basura, las de siempre)', () => {
+  assert.equal(L.HOMES.length, 4);
+  assert.ok(L.HOMES.every(h => h.length === 4 && h[0] && h[2] && h[3]));
+  assert.equal(L.homeOf({ settings: { home: 'piso' } }), 'piso');
+  assert.equal(L.homeOf({ settings: { home: 'vaya' } }), 'pareja');
+  assert.equal(L.homeOf({}), 'pareja');
+  assert.equal(L.homeOf(null), 'pareja');
+  assert.equal(L.wordsOf('piso').la, 'tu compi de piso');
+  assert.equal(L.wordsOf('familia').crear, 'Crear nuestra casa');
+  assert.equal(L.wordsOf('distancia').sitio, 'Pareja');
+  assert.equal(L.wordsOf(undefined).la, 'tu pareja');
+  assert.ok(L.HOMES.every(([k]) => L.wordsOf(k).la && L.wordsOf(k).sitio && L.wordsOf(k).casa && L.wordsOf(k).crear && L.wordsOf(k).salir));
+  assert.equal(L.homeLabel('piso'), 'Compañeros de piso');
+  assert.equal(L.homeLabel(undefined), 'Vivimos juntos');
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

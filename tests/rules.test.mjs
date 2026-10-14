@@ -87,6 +87,11 @@ await t('el color de cada uno solo puede ser una clave de la paleta', async () =
   await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 'verde', updatedAt: 6 }));
   await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.color': 'menta', updatedAt: 6 }));
 });
+await t('el modo «casa» solo acepta las formas que conoce la app', async () => {
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'settings.home': 'lo que sea', updatedAt: 8 }));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'settings.home': 42, updatedAt: 8 }));
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'settings.home': 'piso', updatedAt: 8 }));
+});
 await t('el nombre de una persona no puede ser un texto enorme', async () => {
   await assertFails(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.name': 'x'.repeat(60), updatedAt: 7 }));
   await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), { 'profiles.alice.name': 'Pepino', updatedAt: 7 }));

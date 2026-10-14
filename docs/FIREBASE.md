@@ -3,6 +3,27 @@
 Sin esto, la app solo funciona en **modo demo** (un móvil). Con esto, cada uno la tiene en su móvil
 y se sincroniza al instante. El plan gratuito (**Spark**) sobra para una pareja.
 
+## 0. Camino rápido (v0.9): Claude hace casi todo
+
+Lo que tiene que hacer Joan (solo la primera vez):
+
+1. **Crear el proyecto** (2 min): console.firebase.google.com → **Crear un proyecto** → `xurripoints` →
+   Google Analytics **desactivado** → Crear.
+2. **La base de datos** (1 min): menú izquierdo → **Compilación → Firestore Database** → **Crear base de datos** →
+   ubicación **europe-southwest1 (Madrid)** → **Modo de producción** → Crear.
+3. **Las cuentas** (1 min): **Compilación → Authentication** → **Comenzar** → **Método de acceso** →
+   **Correo electrónico/contraseña** → activar → **Guardar**.
+
+Y ya: a partir de ahí, **Claude puede hacer el resto** con la herramienta de Firebase (pasos 4-6):
+
+4. `firebase login` (se abre el navegador: solo hay que darle a **Permitir** con la cuenta de Google).
+5. `firebase deploy --only firestore:rules` → sube las reglas de `firestore.rules` sin copiar y pegar nada.
+6. `firebase apps:create web xurripoints-web` + `firebase apps:sdkconfig web` → saca la config,
+   se pega en `app/firebase-config.js`, commit + push, y sale un APK con sincronización.
+
+> Con eso, los pasos 4, 5 y 6 de abajo se hacen solos. Lo de abajo queda como referencia por si algún día
+> se hace a mano.
+
 ## 1. Crear el proyecto
 1. Entra en **https://console.firebase.google.com** con tu cuenta de Google.
 2. **Crear un proyecto** → nombre: `xurripoints` → Google Analytics: **desactivado** → **Crear**.

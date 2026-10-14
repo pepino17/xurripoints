@@ -27,7 +27,10 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   (nunca un valor de color: lo que llega de la base va al CSS). Default: quien crea la pareja rosa, quien se une lila.
 - (2026-10-14) **Tema «Neutro» gratis** (fondo gris) para quien no quiere el pastel. Los 4 temas de color siguen en Plus.
 - (2026-10-14) **Los puntos por persona vuelven, pero en Historial** (no en Inicio) y en clave de equipo
-  («lo que aportáis», para saber quién puede pedir un favor). Ver la revisión de la regla 5 en `docs/PSICOLOGIA.md`.
+  («lo que aportáis», para saber quién puede pedir un favor). Ver la revisión de la regla **4** en `docs/PSICOLOGIA.md`.
+- (2026-10-15) **Modo «casa» (v0.10)**: al empezar se pregunta **con quién compartes** (vivimos juntos / a distancia /
+  compañeros de piso / familia) y la app cambia las **palabras** («tu pareja» → «tu compi de piso») y algún detalle
+  (en piso, fuera «sugar mami/papi»). **El motor sigue siendo de 2 personas**; más gente sería otro proyecto.
 
 ## Estado
 - v0.1–v0.6 (2026-09-28): puntos, vales, tareas, gastos, gastos fijos, ahorro, Juntos (ideas, decidir, jugar),
@@ -48,6 +51,12 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.10.0 (2026-10-15)**: **modo «casa»** (entrega 2). Preguntas iniciales («¿Con quién compartes?») y las
+  palabras adaptadas. Detalle en `CHANGELOG.md`.
+  - `couples/{C}.settings.home` = `pareja | distancia | piso | familia`; las reglas solo aceptan esas 4 (o nada).
+  - Las palabras viven en `L.HOMES` / `L.wordsOf` (lógica pura, con prueba); con un valor raro vuelven las de siempre.
+  - En **piso** no se ofrece «sugar mami/papi» en el reparto de gastos.
+  - **Sigue siendo de DOS personas**: más gente en una «casa» queda apuntado en `docs/IDEAS.md`.
 - **v0.9.0 (2026-10-14)**: calendario, cada uno su color y los arreglos de la revisión externa (detalle en `CHANGELOG.md`).
   - **Calendario**: Tareas → Lista · Calendario (mes, ←→, volver a hoy, un punto por tarea con el color de su persona,
     toca un día y ves lo que toca; se puede crear una tarea para ese día). La lista sigue igual.
@@ -109,7 +118,7 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
 ## Modelo de datos (Firestore)
 - `users/{uid}` → `{ couple: CODIGO | null }`
 - `couples/{CODIGO}` → `{ code, members:[uidA, uidB], profiles:{uid:{name, emoji, sugar:'mami'|'papi', income(céntimos/mes), color?, left?}},
-  catalog:{ earn:[{id,emoji,title,pts}], spend:[…] }, settings:{ taskPctA, split, noPoints }, goal, goalsDone,
+  catalog:{ earn:[{id,emoji,title,pts}], spend:[…] }, settings:{ taskPctA, split, noPoints, home? }, goal, goalsDone,
   formerMembers?, closedAt?, createdAt, updatedAt }`
   - "A" = `members[0]` (quien creó la pareja, color rosa); "B" = `members[1]` (lila).
   - `profiles.{uid}.color` (v0.9) = **clave** de la paleta (`rosa|lila|menta|cielo|melocoton|mostaza`), nunca un valor

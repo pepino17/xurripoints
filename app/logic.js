@@ -331,6 +331,32 @@ export function dayTasks(list, members = []) {
   return [...(list || [])].sort((a, b) => rank(a) - rank(b) || String(a.title || '').localeCompare(String(b.title || '')));
 }
 
+/* ---------------- Modo «casa» (v0.10) ----------------
+   No todas las parejas conviven y no todo el mundo comparte piso con su pareja. Con esto, la app cambia
+   las PALABRAS (y un par de detalles) para no llamar «pareja» a quien no lo es. El motor sigue siendo de
+   DOS personas: no se convierte en una app de piso con cinco. */
+export const HOMES = [
+  ['pareja', '🏠', 'Vivimos juntos', 'Lo de siempre: tareas, gastos, planes y gracias, en la misma casa.'],
+  ['distancia', '✈️', 'A distancia', 'Cada uno en su casa: gastos, planes, gracias y los favores que os pidáis.'],
+  ['piso', '🧑‍🤝‍🧑', 'Compañeros de piso', 'Para repartir lo del piso: tareas, compra, platos y gastos.'],
+  ['familia', '👨‍👩‍👧', 'Familia', 'Para organizar la casa en familia: tareas, gastos y gracias.'],
+];
+const PALABRAS = {
+  pareja: { la: 'tu pareja', sitio: 'Pareja', casa: 'vuestra casa', crear: 'Crear nuestra pareja', salir: 'Salir de la pareja' },
+  distancia: { la: 'tu pareja', sitio: 'Pareja', casa: 'vuestra casa', crear: 'Crear nuestra pareja', salir: 'Salir de la pareja' },
+  piso: { la: 'tu compi de piso', sitio: 'Piso', casa: 'el piso', crear: 'Crear nuestro piso', salir: 'Salir del piso' },
+  familia: { la: 'tu familiar', sitio: 'Familia', casa: 'la casa', crear: 'Crear nuestra casa', salir: 'Salir de la casa' },
+};
+/** Con quién compartes, leído del documento de la pareja (settings.home). Si falta o no se reconoce: 'pareja'. */
+export function homeOf(couple) {
+  const h = couple && couple.settings && couple.settings.home;
+  return PALABRAS[h] ? h : 'pareja';
+}
+/** Las palabras que usa la app según el modo. Nunca devuelve nada vacío. */
+export function wordsOf(home) { return PALABRAS[home] || PALABRAS.pareja; }
+/** ¿Con quién compartes? (la fila de los ajustes, con sus 4 opciones). */
+export function homeLabel(home) { return (HOMES.find(h => h[0] === home) || HOMES[0])[2]; }
+
 /* ---------------- Ahorro (huchas) ---------------- */
 /** Lo ahorrado en una hucha: suma de aportaciones (las retiradas son negativas). */
 export function jarSaved(saves, jarId) { return saves.filter(s => s.jar === jarId).reduce((t, s) => t + (s.amount || 0), 0); }

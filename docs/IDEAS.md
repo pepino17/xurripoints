@@ -77,12 +77,13 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   (`docs/FIREBASE.md`) **y las reglas nuevas de la v0.9**. Es lo único que hoy impide usar la app en dos móviles.
 - ~~**Ver los puntos de cada uno**~~ → hecho en **v0.9.0**, en Historial y con guardas (ver `docs/PSICOLOGIA.md`,
   "tercera revisión").
-- **Preguntas iniciales: ¿con quién compartes?** No todas las parejas conviven (nòvios de 20 años, gente con hijos,
-  a distancia) y también vale para **compañeros de piso**. Idea: al empezar, unas preguntas (convivimos / a distancia /
-  piso compartido / familia) que **adapten** la app a esas funciones. Hoy todo el texto dice "pareja" (70 sitios).
-  → Siguiente entrega prevista (v0.10.0).
+- **Preguntas iniciales: ¿con quién compartes?** ~~No todas las parejas conviven…~~ → **hecho en v0.10.0**:
+  la hoja «¿Con quién compartes?» (vivimos juntos / a distancia / compañeros de piso / familia) y las palabras adaptadas.
+  Queda pendiente lo de **más de dos personas** en una casa (3-5 compis): hoy el motor, los repartos y las reglas son
+  para dos. Sería un cambio de fondo (miembros N, repartos por persona, reglas) → proyecto aparte.
 - **Puntos para compañeros de piso y para invitados**: el mismo sistema de puntos vale para repartir tareas, platos
-  y compra cuando compartes piso o cuando viene gente a casa (fines de semana, invitados). Va con lo de arriba.
+  y compra cuando compartes piso o cuando viene gente a casa (fines de semana, invitados). La primera parte ya está
+  (modo piso); lo de los invitados sigue en la lista.
 - ~~**Más colores / temas configurables**~~ → hecho en **v0.9.0**: 6 colores para cada uno y un tema **Neutro gratis**
   (los 4 de color siguen en Plus).
 - Joan avisó de que tenía **más ideas** y no las recordaba: preguntarle cuando salgan.

@@ -56,7 +56,11 @@ service cloud.firestore {
       // Números y formas del documento de la pareja que se pintan en pantalla: siempre enteros y listas.
       function validCouple(d) {
         return (!('settings' in d) || d.settings == null
-            || (d.settings is map && (!('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100))))
+            || (d.settings is map
+              && (!('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100))
+              // Modo «casa» (v0.10): solo las 4 formas de compartir que conoce la app.
+              && (!('home' in d.settings) || d.settings.home == null
+                || (d.settings.home is string && d.settings.home in ['pareja', 'distancia', 'piso', 'familia']))))
           && (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
           && okCatalog(d)
           && okProfiles(d);

@@ -8,7 +8,7 @@ import * as L from './logic.js';
 import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS } from './content.js';
 import { CHANNEL } from './channel.js';
 
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -161,7 +161,7 @@ const PLUS_FEATURES = [
   ['cards', '🎴', 'Más cartas en los juegos', 'Esto o aquello y ¿Quién es más probable…?'],
   ['theme', '🎨', 'Colores de la app', 'Menta, cielo, lavanda o melocotón'],
 ];
-const PLUS_SOON = [['🔔', 'Avisos al momento', 'Cuando tu pareja te pide o te propone algo'], ['📷', 'Fotos', 'Del ticket y de vuestros recuerdos']];
+const PLUS_SOON = [['🔔', 'Avisos al momento', 'Cuando te piden algo o te proponen un cambio'], ['📷', 'Fotos', 'Del ticket y de vuestros recuerdos']];
 const PLUS_PRICES = [['Anual', '19,99 €', 'al año', 'sale a 1,67 €/mes'], ['Mensual', '2,99 €', 'al mes', ''], ['Para siempre', '39,99 €', 'un pago', '']];
 /** Temas: solo cambian el fondo y las tarjetas; el color de cada uno se elige en su perfil (v0.9).
     [id, emoji, nombre, color de la barra del sistema] */
@@ -197,6 +197,11 @@ const S = {
 };
 
 const C = () => S.data.couple;
+/** Modo «casa» (v0.10): con quién compartes y las palabras que usa la app («tu pareja» / «tu compi de piso»). */
+const home = () => L.homeOf(C());
+const W = () => L.wordsOf(home());
+/** ¿Tiene sentido el «sugar mami/papi»? En un piso compartido, no. */
+const haySugar = () => home() !== 'piso';
 const MEMBERS = () => C().members;
 const ME = () => S.user.uid;
 const PA = () => MEMBERS().find(u => u !== ME());
@@ -262,14 +267,15 @@ const HINTS = {
   tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. Y en <b>Calendario</b> ves lo que toca cada día.'],
   money: ['💸', 'Apuntad lo que pagáis: cada gasto <b>se reparte solo</b> y aquí veis cuánto hay que cuadrar. En <b>Ahorro</b>, huchas para ahorrar juntos.'],
   plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta. <b>Jugar</b>: juegos para dos en un móvil.'],
-  points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si tu pareja dice «ahora no», los puntos vuelven.'],
-  couple: ['🤝', 'Lo que <b>acordáis</b> (repartos, precios, volver a los puntos) se cambia con una <b>propuesta</b>: cuando tu pareja dice que sí, cambia.'],
+  points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si {P} dice «ahora no», los puntos vuelven.'],
+  couple: ['🤝', 'Lo que <b>acordáis</b> (repartos, precios, volver a los puntos) se cambia con una <b>propuesta</b>: cuando {P} dice que sí, cambia.'],
 };
 const hintOpen = k => (k in S.hint ? S.hint[k] : !lsGet('xp_hint_' + k));
 function hintCard(k) {
   if (!HINTS[k] || !hintOpen(k)) return '';
   const [e, t] = HINTS[k];
-  return `<div class="hint-card"><span class="hc-e">${e}</span><p>${t}</p><button class="btn sm" data-act="hint-ok" data-v="${k}">Entendido</button></div>`;
+  // {P} = «tu pareja» / «tu compi de piso» / «tu familiar», según el modo «casa» (v0.10).
+  return `<div class="hint-card"><span class="hc-e">${e}</span><p>${String(t).replace(/\{P\}/g, esc(W().la))}</p><button class="btn sm" data-act="hint-ok" data-v="${k}">Entendido</button></div>`;
 }
 
 /* ---------------- Arranque ---------------- */
@@ -321,7 +327,7 @@ function watchCouple(code) {
     if (was !== 'app' && S.phase === 'app') S.enter = true;
     if (S.phase === 'app') { notifyNewRequests(); runRecurring(); }
     render();
-    if (S.phase === 'app') { maybeWelcome(); syncReminders(); }
+    if (S.phase === 'app') { maybeWelcome(); if (!S.dialog) maybeHomeQuestion(); syncReminders(); }
   }, err => { console.error(err); toast(errMsg(err)); });
 }
 
@@ -507,7 +513,7 @@ function render() {
 function viewOffline() {
   return `<div class="auth wait">
     <div class="big-coin sm"><i class="xc"></i></div>
-    <h1 class="h1">No he podido cargar vuestra pareja</h1>
+    <h1 class="h1">No he podido cargar vuestros datos</h1>
     <p class="muted">${esc(S.loadError || 'Sin conexión.')}</p>
     <p class="muted small">Revisa internet y vuelve a probar. Tus datos están a salvo.</p>
     <button class="btn primary big" data-act="retry">${ic('refresh-cw')} Reintentar</button>
@@ -617,12 +623,12 @@ function viewPair() {
   return `<div class="auth form pair">
     <div class="big-coin sm"><i class="xc"></i></div>
     <h1 class="h1">¿Quién eres? 💞</h1>
-    <p class="muted">Rellena tu perfil y crea vuestra pareja, o únete con el código de tu churri.</p>
+    <p class="muted">Rellena tu perfil y crea ${esc(W().casa)}, o únete con el código de ${esc(W().la)}.</p>
     <div class="stack">${profileFields()}</div>
     <div class="pair-actions">
       ${stash ? `<label class="switch-row"><input type="checkbox" id="pf-stash" checked><span class="sw" aria-hidden="true"></span>
         <span><b>Traer lo de la demo</b><small>Tus tareas, ideas, vales y huchas (sin el dinero ni los puntos de prueba)</small></span></label>` : ''}
-      <button class="btn primary big" data-act="pair-create">${ic('heart-handshake')} Crear nuestra pareja</button>
+      <button class="btn primary big" data-act="pair-create">${ic('heart-handshake')} ${esc(W().crear)}</button>
       <div class="or"><span>o tengo un código</span></div>
       <div class="join">
         <input class="inp code-inp" id="join-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" autocomplete="off">
@@ -638,14 +644,14 @@ function viewWait() {
   return `<div class="auth wait">
     <div class="auth-art sm" aria-hidden="true"><div class="orbit"><span>💌</span><span>✨</span></div><div class="big-coin float"><i class="xc"></i></div></div>
     <h1 class="h1">¡Ya casi!</h1>
-    <p class="muted">Pásale este código a tu churri. Cuando se una desde su móvil, esta pantalla cambiará sola.</p>
+    <p class="muted">Pásale este código a ${esc(W().la)}. Cuando se una desde su móvil, esta pantalla cambiará sola.</p>
     <div class="code-tiles">${[...code].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('')}</div>
     <div class="row-btns">
       <button class="btn" data-act="copy-code">${ic('copy')} Copiar</button>
       <button class="btn primary" data-act="share-code">${ic('send')} Enviar</button>
     </div>
-    <p class="muted small">Esperando a tu pareja… <span class="dots"><i></i><i></i><i></i></span></p>
-    <details class="more wait-join" data-k="wait-join"><summary>¿Tu pareja ya creó la suya? <small>únete con su código</small></summary>
+    <p class="muted small">Esperando a ${esc(W().la)}… <span class="dots"><i></i><i></i><i></i></span></p>
+    <details class="more wait-join" data-k="wait-join"><summary>¿Ya la creó ${esc(W().la)}? <small>únete con su código</small></summary>
       <div class="join"><input class="inp code-inp" id="join-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" autocomplete="off">
         <button class="btn mint" data-act="wait-join">Unirme</button></div>
     </details>
@@ -660,9 +666,9 @@ function viewAlone() {
   const demo = S.be.kind === 'demo';
   return `<div class="auth wait">
     <div class="big-emoji">🌿</div>
-    <h1 class="h1">${esc(prof(gone).name)} ha salido de la pareja</h1>
-    <p class="muted">Lo que apuntasteis juntos sigue aquí, solo para ti. Nadie más puede unirse a esta pareja.</p>
-    <p class="muted small">Cuando quieras, bórralo todo y empieza de cero (con una pareja nueva o con la misma).</p>
+    <h1 class="h1">${esc(prof(gone).name)} ha salido</h1>
+    <p class="muted">Lo que apuntasteis juntos sigue aquí, solo para ti. Nadie más puede entrar aquí con ese código.</p>
+    <p class="muted small">Cuando quieras, bórralo todo y empieza de cero.</p>
     ${demo ? `<p class="note">🔁 Demo: así lo ve quien se queda.</p>` : ''}
     <button class="btn primary big" data-act="alone-reset">${ic('trash-2')} Borrar todo y empezar de cero</button>
     ${demo ? `<button class="btn link" data-act="demo-exit">Salir del modo demo</button>` : `<button class="btn link" data-act="logout">Cerrar sesión</button>`}
@@ -1124,11 +1130,11 @@ function viewCouple() {
   const plusSub = ps.forever ? 'Para siempre · gracias por apoyar la app 💞'
     : ps.active ? `${ps.tier === 'trial' ? 'Prueba gratis' : 'Activo'} · ${ps.daysLeft === 1 ? 'queda 1 día' : `quedan ${ps.daysLeft} días`}`
     : ps.trialUsed ? 'Resumen del mes, Excel, revisión semanal y más' : `Probadlo ${L.TRIAL_DAYS} días gratis, sin tarjeta`;
-  return `${pageHead('Pareja', { back: true, help: 'couple' })}${hintCard('couple')}
+  return `${pageHead(W().sitio, { back: true, help: 'couple' })}${hintCard('couple')}
     <section class="couple-hero">
       <div class="ch-avs">${av(me, 'xl')}<span class="ch-heart">💗</span>${av(pa, 'xl')}</div>
       <p class="ch-names">${esc(p.name)} <span>&</span> ${esc(q.name)}</p>
-      <p class="muted small">Juntos en Xurripoints desde el ${since.getDate()} de ${MONTHS[since.getMonth()]} de ${since.getFullYear()}</p>
+      <p class="muted small">En Xurripoints desde el ${since.getDate()} de ${MONTHS[since.getMonth()]} de ${since.getFullYear()}</p>
     </section>
     <button class="plus-card ${ps.active ? 'on' : ''}" data-act="plus-open">
       <span class="pc-e">✨</span><span class="pc-body"><b>Xurripoints Plus</b><small>${plusSub}</small></span>${ic('chevron-right')}</button>
@@ -1137,9 +1143,10 @@ function viewCouple() {
     <section class="card list">
       ${row('profile-edit', esc(p.emoji), 'Tu perfil', `${esc(p.name)} · Sugar ${p.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(p)}`)}
       ${row('color-sheet', '🎨', 'Tu color', `El de tu avatar y tus tareas · ${L.colorOf(p.color, me === a ? 0 : 1)[1]}`)}
+      ${row('home-sheet', '🏠', '¿Con quién compartes?', `${esc(L.homeLabel(home()))} · cambia las palabras de la app`)}
       <div class="set-row"><span class="sr-ic">${esc(q.emoji)}</span><span class="sr-body"><b>${esc(q.name)}</b><small>Sugar ${q.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(q)}</small></span></div>
       ${row('quick', '🫙', 'Tarro de gracias', `${(S.data.thanks || []).length} gracias guardadas`, 'data-type="thanks"')}
-      <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código de pareja</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
+      <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código para invitar</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
     </section>
 
     <h2 class="h sm set-h">Lo que acordáis <small>se cambia con una propuesta</small></h2>
@@ -1165,7 +1172,7 @@ function viewCouple() {
     <section class="card list">
       ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
       ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `${esc((THEMES.find(x => x[0] === curTheme()) || THEMES[0])[2])} · Neutro gratis`)}
-      ${row('share-app', '📲', 'Recomendar a otra pareja', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
+      ${row('share-app', '📲', 'Recomendar a otros', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
       ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
       ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
         : row('check-update', '✨', `Versión ${VERSION}`, S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones', '', ic('refresh-cw'))}
@@ -1176,15 +1183,15 @@ function viewCouple() {
       ${demo ? `
         ${row('demo-switch', '🔁', 'Cambiar de persona', `Ahora eres ${esc(p.name)}`, '', '')}
         ${row('demo-reset', '🧹', 'Reiniciar la demo', 'Vuelve a los datos de ejemplo', '', '')}
-        ${row('leave', '🚪', 'Salir de la pareja', 'Pruébalo: verás lo que le queda a quien se queda', '', '')}
+        ${row('leave', '🚪', esc(W().salir), 'Pruébalo: verás lo que le queda a quien se queda', '', '')}
         ${row('data-export', '📦', 'Descargar una copia', 'Todos vuestros datos en un archivo', '', ic('download'))}
         ${row('demo-exit', '👋', 'Salir del modo demo', hasFirebaseConfig() ? 'Para crear vuestra cuenta de verdad' : 'Borra los datos de prueba', '', '')}`
       : `
         <div class="set-row"><span class="sr-ic">✉️</span><span class="sr-body"><b>Tu cuenta</b><small>${esc(S.user.email || '')}</small></span></div>
         ${row('data-export', '📦', 'Descargar una copia', 'Todos vuestros datos en un archivo (gratis, siempre)', '', ic('download'))}
         ${row('logout', '🔒', 'Cerrar sesión', 'Tus datos siguen guardados en la nube', '', '')}
-        ${row('leave', '🚪', 'Salir de la pareja', `${esc(q.name)} conserva lo común; tus ingresos se borran`, '', '')}
-        ${row('delete-sheet', '🗑️', 'Borrar mi cuenta', 'Sales de la pareja y se borra tu cuenta', '', '')}`}
+        ${row('leave', '🚪', esc(W().salir), `${esc(q.name)} conserva lo común; tus ingresos se borran`, '', '')}
+        ${row('delete-sheet', '🗑️', 'Borrar mi cuenta', `Sales y se borra tu cuenta`, '', '')}`}
     </section>
     <p class="foot">Xurripoints v${VERSION} · hecho con 💞 · sin anuncios</p>`;
 }
@@ -1398,6 +1405,22 @@ function applyColors() {
     root.style.setProperty(`--${k}-soft`, soft);
   });
 }
+/** Preguntas iniciales (v0.10): la primera vez que hay pareja, «¿con quién compartes?». Cambia las palabras. */
+function maybeHomeQuestion() {
+  if (S.dialog || S.sheet || S.phase !== 'app') return;
+  if (C().settings && C().settings.home) return;
+  if (lsGet('xp_home_asked')) return;
+  openSheet(homeSheet(true));
+}
+function homeSheet(first = false) {
+  const cur = home();
+  return `<h3 class="sheet-title">¿Con quién compartes? 🏠</h3>
+    <p class="muted">${first ? 'Una pregunta rápida para dejar la app a vuestro aire: ' : ''}cambia las palabras y algún detalle. Se puede cambiar cuando queráis.</p>
+    <div class="home-grid">${L.HOMES.map(([k, e, t, x]) => `<button class="home-opt ${k === cur ? 'on' : ''}" data-act="home-set" data-v="${k}">
+      <span class="ho-e">${e}</span><span class="ho-body"><b>${esc(t)}</b><small>${esc(x)}</small></span>${k === cur ? `<span class="ho-on">${ic('check')}</span>` : ''}</button>`).join('')}</div>
+    ${first ? `<button class="btn link" data-act="home-skip">Ahora no</button>` : ''}`;
+}
+
 function themeSheet() {
   const cur = curTheme();
   return `<h3 class="sheet-title">Colores de la app 🎨</h3>
@@ -1506,7 +1529,7 @@ async function askConfirm({ title, text = '', ok = 'Sí', danger = false }) {
 /* ---------------- Bienvenida (tutorial en 5 pasos, con dibujitos de la app) ---------------- */
 const WELCOME = [
   { v: `<div class="wv-chips"><span>🧽 Tareas</span><span>💸 Gastos</span><span>🍿 Planes</span><span>💛 Gracias</span></div>`,
-    t: 'Vuestra casa, en equipo', x: 'Para organizaros en pareja <b>sin llevar la cuenta</b>: tareas, gastos, planes y gracias.' },
+    t: 'Vuestra casa, en equipo', x: 'Para organizaros <b>sin llevar la cuenta</b>: tareas, gastos, planes y gracias.' },
   { v: `<div class="wv-plus">${ic('plus')}</div>`,
     t: 'Todo empieza en el +', x: 'El botón <b>+</b> de abajo sirve para apuntar cualquier cosa: una tarea hecha, un gasto, unas gracias…' },
   { v: `<div class="wv-task"><span class="wv-check">${ic('check')}</span><b>Fregar los platos</b><span class="pts"><i class="xc"></i>+10</span></div>
@@ -1540,7 +1563,7 @@ function showWelcome() {
     icons();
   };
   const go = step => { i = Math.max(0, Math.min(slides.length - 1, i + step)); paint(); };
-  const close = () => { lsSet('xp_welcome_v2', '1'); root.classList.remove('open'); root.innerHTML = ''; root.onclick = root.ontouchstart = root.ontouchend = null; S.dialog = null; };
+  const close = () => { lsSet('xp_welcome_v2', '1'); root.classList.remove('open'); root.innerHTML = ''; root.onclick = root.ontouchstart = root.ontouchend = null; S.dialog = null; setTimeout(maybeHomeQuestion, 350); };
   S.dialog = close;
   root.classList.add('open');
   root.onclick = e => { const b = e.target.closest('[data-wl]'); if (b) { const a = b.dataset.wl; if (a === 'close') close(); else go(a === 'next' ? 1 : -1); } };
@@ -1653,11 +1676,11 @@ function tipsSheet() {
     ['🎯', 'Sois un equipo', 'Los puntos de los dos llenan una meta común. Mirad la barra, no quién tiene más.'],
     ['🤝', 'Lo común se acuerda', 'Repartos, precios y volver a los puntos se cambian con una <b>propuesta</b> que el otro acepta. Y todo cambio se ve en el historial.'],
     ['🗣️', 'Lo importante se habla', 'Si algo se repite o molesta, habladlo en persona. La app ayuda, no sustituye una conversación.'],
-    ['🌿', 'Es un juego', 'Si un día no apetece apuntar nada, no pasa nada. Y si los puntos sobran, <b>pausadlos</b> en Pareja → Puntos y vales.'],
-    ['🚩', 'Si algo no va bien', 'Si la app se usa para controlar o dar permisos, pausad los puntos y hablad. Cada uno puede <b>salir de la pareja</b> cuando quiera. Si hay miedo, pedid ayuda (en España, el 016 es gratis y no sale en la factura).'],
+    ['🌿', 'Es un juego', `Si un día no apetece apuntar nada, no pasa nada. Y si los puntos sobran, <b>pausadlos</b> en ${W().sitio} → Puntos y vales.`],
+    ['🚩', 'Si algo no va bien', 'Si la app se usa para controlar o dar permisos, pausad los puntos y hablad. Cada uno puede <b>salir</b> cuando quiera. Si hay miedo, pedid ayuda (en España, el 016 es gratis y no sale en la factura).'],
   ];
   return `<h3 class="sheet-title">Para que la app sume 🌿</h3>
-    <p class="muted">Pensado con lo que dice la psicología de pareja.</p>
+    <p class="muted">Pensado con lo que dice la psicología de la convivencia.</p>
     <div class="tips">${tips.map(([e, t, x]) => `<div class="tip-row"><span class="tip-e">${e}</span><span><b>${t}</b><small>${x}</small></span></div>`).join('')}</div>`;
 }
 function questionCard() {
@@ -2186,7 +2209,7 @@ function catalogForm(kind, it) {
   it = it || { emoji: kind === 'earn' ? '✨' : '🎟️', title: '', pts: kind === 'earn' ? 10 : 30 };
   const rule = kind === 'earn'
     ? 'Tareas de casa y cosas «invisibles» (gestiones, citas, planes). Los mimos no se cobran: van a <b>Gracias</b> 💛'
-    : 'Un vale es un <b>favor</b> concreto que te hace tu pareja. Nada de permisos (amigos, familia, tu tiempo) ni deseos sin concretar.';
+    : `Un vale es un <b>favor</b> concreto que te hace ${esc(W().la)}. Nada de permisos (amigos, familia, tu tiempo) ni deseos sin concretar.`;
   return `<h3 class="sheet-title">${isNew ? (kind === 'earn' ? 'Nueva acción' : 'Nuevo vale') : 'Editar'}</h3>
     <p class="muted small">${rule}${hasPartner() ? ` ${esc(pname())} tendrá que aceptar el cambio.` : ''}</p>
     <div class="stack">
@@ -2278,7 +2301,7 @@ function splitPicker(prefix, sel, includeDefault, customMe = 50) {
     ...(includeDefault ? [['default', '⭐', 'Vuestro reparto', cap(splitWords(d.mode, d.sugar, d.customPctA))]] : []),
     ['equal', '⚖️', 'A medias', '50/50'],
     ['proportional', '📊', 'Según ingresos', inc[me] > 0 && inc[pa] > 0 ? propText(inc) : 'Falta poner los ingresos de los dos'],
-    sugarOpt(a), sugarOpt(b),
+    ...(haySugar() ? [sugarOpt(a), sugarOpt(b)] : []),   // en un piso compartido, «sugar mami/papi» no pinta nada
     ['custom', '🎚️', 'A medida', 'Elegís el porcentaje'],
   ];
   return `<div class="radio-list" id="${prefix}-mode">${opts.map(([v, i, t, sub]) => `<button type="button" class="radio ${sel === v ? 'on' : ''}" data-act="pick" data-v="${esc(v)}">
@@ -2445,7 +2468,7 @@ const ACT = {
   'wait-join': async (d, el) => {
     const code = $('#join-code').value.trim().toUpperCase();
     if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
-    if (code === S.code) { toast('Ese es tu propio código 😉 Pásaselo a tu pareja.'); return; }
+    if (code === S.code) { toast(`Ese es tu propio código 😉 Pásaselo a ${W().la}.`); return; }
     const p = (S.data && S.data.couple && S.data.couple.profiles && S.data.couple.profiles[ME()]) || { name: 'Churri', emoji: '🐻', sugar: 'mami', income: 0 };
     el.disabled = true;
     try {
@@ -2563,16 +2586,16 @@ const ACT = {
   'leave': async () => {
     const demo = S.be.kind === 'demo';
     if (!await askConfirm({
-      title: '¿Salir de la pareja?',
-      text: `${pname()} conservará lo que habéis apuntado juntos (sin tus ingresos) y nadie más podrá unirse a esta pareja. No se puede deshacer.${demo ? ' (Demo: después verás lo que le queda a quien se queda.)' : ''}`,
-      ok: 'Salir de la pareja', danger: true,
+      title: `¿${esc(W().salir)}?`,
+      text: `${pname()} conservará lo que habéis apuntado juntos (sin tus ingresos) y nadie más podrá entrar con ese código. No se puede deshacer.${demo ? ' (Demo: después verás lo que le queda a quien se queda.)' : ''}`,
+      ok: esc(W().salir), danger: true,
     })) return;
     const uid = S.user.uid;
     if (S.unwatch) { S.unwatch(); S.unwatch = null; }
     closeSheet(true);
     try { await S.be.leaveCouple(); }
     catch (err) { toast(errMsg(err)); onUser(S.user); return; }
-    if (!demo) { lsSet('xp_code_' + uid, null); onUser(S.user); toast('Has salido de la pareja'); }
+    if (!demo) { lsSet('xp_code_' + uid, null); onUser(S.user); toast(`Has salido. Hasta siempre 💛`); }
   },
   'alone-reset': async (d, el) => {
     if (!await askConfirm({ title: '¿Borrar todo?', text: 'Se borran para siempre los datos de esta pareja.', ok: 'Borrar todo', danger: true })) return;
@@ -3137,6 +3160,17 @@ const ACT = {
     S.be.updateCouple({ [`profiles.${ME()}`]: p }).catch(err => toast(errMsg(err)));
     if (p.income !== (prof(ME()).income || 0)) logChange('income', 'ha actualizado sus ingresos (cuentan en el reparto «según ingresos»)');
     closeSheet(); toast('Perfil guardado 💗');
+  },
+  /* modo «casa» (v0.10) */
+  'home-sheet': () => openSheet(homeSheet()),
+  'home-skip': () => { lsSet('xp_home_asked', '1'); closeSheet(); },
+  'home-set': d => {
+    const h = L.HOMES.some(x => x[0] === d.v) ? d.v : 'pareja';
+    lsSet('xp_home_asked', '1');
+    if (h === home()) { closeSheet(); return; }
+    S.be.updateCouple({ 'settings.home': h }).catch(err => toast(errMsg(err)));
+    if (hasPartner()) logChange('home', `ha cambiado con quién compartís: ahora «${L.homeLabel(h).toLowerCase()}»`);
+    closeSheet(); toast(`${L.HOMES.find(x => x[0] === h)[1]} Listo: ${L.homeLabel(h).toLowerCase()}`);
   },
   /* color de cada uno (v0.9) */
   'color-sheet': () => openSheet(colorSheet()),
