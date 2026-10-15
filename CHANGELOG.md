@@ -5,6 +5,20 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.12.1] — 2026-10-15 · Documentación, capturas de Play y CI
+
+Misma app que la 0.12.0 (sin cambios de código); esta versión sale porque un push que toca el workflow
+siempre recompila:
+
+- **Textos legales al día**: la privacidad dice que «tu color» sí se guarda (desde la v0.9), que al **borrar la cuenta
+  se limpia también el móvil**, y las condiciones avisan de que el cobro de Plus **todavía no está activado**.
+- **Portada y README**: ya no dicen «solo para parejas» (existe el modo «casa»: pareja, a distancia, compis de piso, familia).
+- **Ficha de Google Play** actualizada (calendario, color propio, tema neutro, modo casa) y **seguridad de los datos**
+  con la limpieza del móvil.
+- **6 capturas nuevas para Play** (1080×1920) en `assets/play/`, generadas con el modo demo
+  (`node scripts/make-play-screenshots.mjs`).
+- **CI más fino**: un push que solo toque `docs/`, `assets/`, `scripts/`, `tests/` o `.agents/` ya no recompila el APK.
+
 ## [0.12.0] — 2026-10-15 · Segunda ronda de agentes: 6 auditorías y todo lo que sacaron
 
 Ronda con 6 agentes en paralelo (revisión completa, seguridad, rendimiento, interfaz, textos y pruebas).

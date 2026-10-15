@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.12.0';
+const VERSION = '0.12.1';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
