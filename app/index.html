@@ -8,6 +8,12 @@
   <title>Xurripoints</title>
   <link rel="icon" href="icon.svg" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <!-- Cuando haya Firebase configurado, esto ahorra una ida y vuelta antes del primer dato. -->
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+  <!-- Las dos fuentes que sí se usan (el subconjunto latino): sin esto, el título cambia de letra al cargar. -->
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92usiIk_WBq8U_9v0c2WS01xC9TeA.woff2" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/wlpwgwvFAVdoq2_v-6QU.woff2" />
   <link rel="stylesheet" href="fonts.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>

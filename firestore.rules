@@ -60,10 +60,21 @@ service cloud.firestore {
               && (!('taskPctA' in d.settings) || isInt(d.settings.taskPctA, 0, 100))
               // Modo «casa» (v0.10): solo las 4 formas de compartir que conoce la app.
               && (!('home' in d.settings) || d.settings.home == null
-                || (d.settings.home is string && d.settings.home in ['pareja', 'distancia', 'piso', 'familia']))))
+                || (d.settings.home is string && d.settings.home in ['pareja', 'distancia', 'piso', 'familia']))
+              // Reparto de gastos (v0.12): el modo y el porcentaje de la app, y «sugar» solo si es de la pareja.
+              // Sin esto, un cliente modificado se ponía un 0 % y el otro pagaba todo sin aviso.
+              && (!('split' in d.settings) || d.settings.split == null || okSplit(d))))
           && (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
           && okCatalog(d)
           && okProfiles(d);
+      }
+      /** El reparto elegido: el modo que conoce la app, el % entero 0-100 y «sugar» de los dos miembros. */
+      function okSplit(d) {
+        return d.settings.split is map
+          && (!('mode' in d.settings.split) || d.settings.split.mode in ['equal', 'proportional', 'sugar', 'custom'])
+          && (!('customPctA' in d.settings.split) || isInt(d.settings.split.customPctA, 0, 100))
+          && (!('sugar' in d.settings.split) || d.settings.split.sugar == null
+            || (d.settings.split.sugar is string && d.settings.split.sugar in d.members));
       }
       // Xurripoints Plus (couples/{code}.plus). La app solo puede EMPEZAR la prueba gratis: una vez por pareja
       // y como mucho 15 días. El plan de pago lo escribe el servidor (Cloud Function con el Admin SDK, que no
@@ -136,7 +147,7 @@ service cloud.firestore {
           && request.resource.data.createdBy == me()
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
-          && request.resource.data.amount <= 100000
+          && request.resource.data.amount <= 10000
           && optStr(request.resource.data, 'title', 80)
           // La fecha la pone el móvil de quien escribe, pero no puede venir del pasado: si no, una
           // reclamación nacería "caducada" y contaría sola al momento (2 h de margen por el reloj del móvil).

@@ -18,7 +18,7 @@
   --butter: #FFE7A0; --butter-deep: #E9B64A;
   --peach: #FFD1B5; --peach-deep: #EE9A6C;
   --mint: #8EDCB8; --mint-deep: #1F7355; --mint-soft: #DCF5E9;
-  --berry: #E9566F; --berry-soft: #FFE3E7;
+  --berry: #B3304A; --berry-soft: #FFE3E7;   /* 5:1 sobre el crema y sobre --berry-soft (antes 3,5:1) */
 
   --r: 22px;
   --r-sm: 14px;
@@ -111,7 +111,7 @@ small { font-size: .88em; }
 .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--line-2); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.big { min-height: 54px; font-size: 1.05rem; padding: 14px 22px; }
-.btn.sm { min-height: 36px; padding: 7px 14px; font-size: .9rem; box-shadow: 0 2px 0 var(--line-2); }
+.btn.sm { min-height: 44px; padding: 6px 14px; font-size: .9rem; box-shadow: 0 2px 0 var(--line-2); }
 .btn.wide { width: 100%; }
 .btn.primary { background: var(--a); box-shadow: 0 4px 0 var(--a-deep); }
 .btn.primary:active:not(:disabled) { box-shadow: 0 1px 0 var(--a-deep); }
@@ -153,7 +153,7 @@ input[type="date"].inp { min-height: 50px; }
 .emoji-row::-webkit-scrollbar { display: none; }
 .emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
 .emo { border: 2px solid transparent; background: #fff; border-radius: 14px; font-size: 1.5rem; height: 48px; cursor: pointer; box-shadow: 0 2px 0 var(--line); }
-.emo.sm { font-size: 1.25rem; height: 42px; min-width: 44px; flex: none; }
+.emo.sm { font-size: 1.25rem; height: 44px; min-width: 44px; flex: none; }
 .emo.on { border-color: var(--a); background: var(--a-soft); transform: scale(1.06); }
 .stepper { display: flex; align-items: center; gap: 10px; }
 .stepper .inp { max-width: 110px; }
@@ -193,8 +193,7 @@ input[type="range"] { width: 100%; accent-color: var(--a-deep); height: 32px; }
 
 /* Avatares */
 .av {
-  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
-  font-size: 1.15rem; line-height: 1; flex: none; border: 2.5px solid #fff;
+  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;  font-size: 1.15rem; line-height: 1; flex: none; border: 2.5px solid #fff;
   box-shadow: 0 3px 8px -4px rgba(120, 40, 80, .5);
 }
 .av.a { background: var(--a-soft); }
@@ -538,6 +537,7 @@ button.set-row { cursor: pointer; }
 .sheet-title.center { margin-right: 0; }
 .sheet .stack { margin-top: 10px; }
 #sheet-root.closing .sheet { animation: down .18s ease-in both; }
+#sheet-root.closing { pointer-events: none; }   /* mientras se cierra, que un segundo toque no vuelva a guardar */
 #sheet-root.closing .scrim { animation: fade .18s reverse both; }
 @keyframes up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes down { to { transform: translateY(100%); } }
@@ -661,7 +661,7 @@ body:not([data-phase="app"]) #toast-root { bottom: calc(24px + var(--safe-b)); }
 .goal-body b { font: 700 1.15rem/1.2 var(--display); font-variation-settings: "SOFT" 100, "WONK" 1; }
 .goal-body small { color: var(--ink-2); font-size: .86rem; }
 .goal-bar { display: block; height: 12px; border-radius: 99px; background: rgba(255, 255, 255, .8); overflow: hidden; margin: 4px 0 2px; box-shadow: inset 0 1px 2px rgba(120, 40, 80, .15); }
-.goal-bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--a), var(--peach-deep) 50%, var(--b)); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+.goal-bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--a), var(--butter) 50%, var(--b)); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
 .goal.done { background: linear-gradient(120deg, var(--butter), #FFD3E0); animation: glow 2.4s ease-in-out infinite; }
 .goal.empty { border: 2.5px dashed var(--line-2); background: transparent; box-shadow: none; }
 @keyframes glow { 50% { box-shadow: 0 0 0 6px rgba(255, 231, 160, .6), var(--shadow); } }
@@ -877,7 +877,7 @@ body:not([data-phase="app"]) #toast-root { bottom: calc(24px + var(--safe-b)); }
 .add-tile small { color: var(--ink-2); font-size: .84rem; line-height: 1.25; }
 
 /* Inicio: resumen */
-.hero { border-radius: 26px; overflow: hidden; box-shadow: var(--shadow); border: 1.5px solid #fff; background: linear-gradient(150deg, #FFE7EE, #FFF1E8 55%, #F1ECFF); margin-top: 6px; }
+.hero { border-radius: 26px; overflow: hidden; box-shadow: var(--shadow); border: 1.5px solid #fff; background: linear-gradient(150deg, var(--a-soft), #FFF1E8 55%, var(--b-soft)); margin-top: 6px; }
 .hero-pts { display: block; width: 100%; border: 0; background: none; padding: 14px 16px 12px; cursor: pointer; text-align: left; }
 .hero-lb { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
 .hero-lb em { font-style: normal; letter-spacing: 0; text-transform: none; color: var(--a-deep); display: flex; align-items: center; font-size: .86rem; }
@@ -899,7 +899,7 @@ body:not([data-phase="app"]) #toast-root { bottom: calc(24px + var(--safe-b)); }
 .todo { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow); }
 .todo.claim { border-left: 5px solid var(--mint); }
 .todo.vale { border-left: 5px solid var(--butter-deep); }
-.todo.thanks { background: linear-gradient(110deg, #FFE3EC, #FFF3E6); }
+.todo.thanks { background: linear-gradient(110deg, var(--a-soft), var(--butter) 140%); }
 .td-e { font-size: 1.5rem; }
 .td-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .td-body small { color: var(--ink-2); font-size: .85rem; }
@@ -1088,7 +1088,7 @@ details.more .stack { margin-top: 0; }
 .game-card .plus-tag { margin: 2px 0 0; }
 .sum-edit .plus-tag { margin-right: 2px; }
 .plus-card { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 14px; padding: 13px 14px; border-radius: var(--r); cursor: pointer; text-align: left; color: var(--ink);
-  border: 1.5px solid var(--butter-deep); background: linear-gradient(115deg, #FFF3CC, #FFE3EC 60%, #EFE9FF); box-shadow: var(--shadow); }
+  border: 1.5px solid var(--butter-deep); background: linear-gradient(115deg, var(--butter), #FFF3E6 60%, var(--b-soft)); box-shadow: var(--shadow); }
 .plus-card.on { border-color: var(--mint-deep); background: linear-gradient(115deg, var(--mint-soft), #FFF6E0 70%); }
 .plus-card .pc-e { font-size: 1.7rem; }
 .plus-card .pc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -1225,6 +1225,31 @@ details.more .stack { margin-top: 0; }
 
 .theme-opt { position: relative; }
 .theme-opt .to-plus { position: absolute; top: 4px; right: 8px; font-size: .8rem; font-style: normal; }
+
+/* ================================================================
+   v0.12 · Tacto y accesibilidad (auditoría de interfaz)
+   Todo lo que se toca, mínimo 44×44 px; y el calendario con más sitio por día.
+   ================================================================ */
+.duo { padding: 4px; }                                  /* Pareja: más área de toque sin cambiar el dibujo */
+.duo .av { width: 42px; height: 42px; }
+.edit-dot { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }  /* era 32×32 */
+.chip { min-height: 44px; display: inline-flex; align-items: center; }
+.help-btn { width: 44px; height: 44px; }
+.vbtn { width: 44px; height: 44px; }
+.col-chip { min-height: 44px; }
+.seg button { min-height: 44px; }
+.cal-grid, .cal-head { gap: 2px; }                      /* el día del calendario pasa de 43 a ≥45 px en un móvil de 360 */
+.sheet { max-height: 90dvh; }                           /* con el teclado abierto, la hoja no se sale */
+/* El tema Neutro apaga también los degradados pastel (si no, parecía un fallo). */
+:root[data-theme="neutro"] .hero,
+:root[data-theme="neutro"] .todo.thanks,
+:root[data-theme="neutro"] .plus-card,
+:root[data-theme="neutro"] .month-sum,
+:root[data-theme="neutro"] .who-card,
+:root[data-theme="neutro"] .goal,
+:root[data-theme="neutro"] .thanks-card,
+:root[data-theme="neutro"] .add-tile.butter { background: var(--card-2); }
+:root[data-theme="neutro"] .hero-goal.done { background: color-mix(in srgb, var(--a-soft) 55%, var(--card)); }
 
 /* ================================================================
    v0.10 · Modo «casa»: ¿con quién compartes?

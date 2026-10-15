@@ -48,23 +48,39 @@ function limpiarClaves() {
     Sin esto, al borrar la cuenta los gastos, los puntos y los ingresos seguían en el disco del móvil. */
 async function limpiarIndexedDb({ todo = false } = {}) {
   try {
-    if (!globalThis.indexedDB || !indexedDB.databases) return;
-    const dbs = await indexedDB.databases();
-    await Promise.all(dbs.map(d => !d.name || (!todo && /firebaseLocalStorageDb/.test(d.name))
-      ? null
-      : new Promise(res => {
-        const r = indexedDB.deleteDatabase(d.name);
+    if (!globalThis.indexedDB) return;
+    // Si el navegador no sabe enumerar (Firefox/Safari), se borran los nombres que usa Firebase.
+    const nombres = indexedDB.databases
+      ? (await indexedDB.databases()).map(d => d.name).filter(Boolean)
+      : ['firebaseLocalStorageDb', 'firestore/[DEFAULT]/xurripoints/main'];
+    await Promise.all(nombres
+      .filter(n => todo || !/firebaseLocalStorageDb/.test(n))
+      .map(n => new Promise(res => {
+        const r = indexedDB.deleteDatabase(n);
         r.onsuccess = r.onerror = r.onblocked = () => res();
         setTimeout(res, 1500);   // no colgarse si el navegador la tiene bloqueada
       })));
   } catch (e) { /* sin IndexedDB */ }
 }
-/** Deja este móvil limpio: las claves de la app y la copia en caché de los datos.
+/** Deja este móvil limpio: las claves de la app, la copia en caché de los datos, los archivos exportados
+    (CSV/JSON en la caché del APK) y los recordatorios programados.
     `todo: true` además se lleva la sesión (al borrar la cuenta). Devuelve true si hay que recargar. */
 export async function limpiarEsteMovil({ todo = false } = {}) {
   limpiarClaves();
   await limpiarIndexedDb({ todo });
+  await limpiarArchivosExportados();
+  try { if (globalThis.__xpNotify && __xpNotify.clear) await __xpNotify.clear(); } catch (e) { /* sin notificaciones */ }
   return true;
+}
+/** Las copias que exporta la app (Excel y el JSON de datos) se quedan en la caché del móvil: se borran. */
+async function limpiarArchivosExportados() {
+  try {
+    const F = globalThis.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem;
+    if (!F) return;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const nombres = [`xurripoints-copia-${hoy}.json`, `xurripoints-gastos-${hoy}.csv`];
+    for (const f of nombres) await F.deleteFile({ path: f, directory: 'CACHE' }).catch(() => { });
+  } catch (e) { /* nada */ }
 }
 
 /* ---------------- Firebase ---------------- */
@@ -234,6 +250,18 @@ export class FirebaseBackend {
 /* ---------------- Demo (un solo dispositivo) ---------------- */
 const DEMO_KEY = 'xurripoints_demo_v1';
 
+/** Antes de que la app se vaya a segundo plano o se cierre, se vuelca lo que quede pendiente. */
+const demos = new Set();
+let volcadoProgramado = false;
+function programarVolcado(be) {
+  demos.add(be);
+  if (volcadoProgramado) return;
+  volcadoProgramado = true;
+  const volcar = () => { demos.forEach(d => d.volcar()); demos.clear(); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) volcar(); });
+  window.addEventListener('pagehide', volcar);
+}
+
 function setPath(obj, path, value) {
   const keys = path.split('.');
   let o = obj;
@@ -250,10 +278,20 @@ class DemoBackend {
     if (this.data) COLS.forEach(c => { if (!Array.isArray(this.data[c])) this.data[c] = []; }); // demos antiguas
   }
   get uid() { return this.data ? this.data.me : null; }
+  /** Guarda en el móvil. La verdad es `this.data` (memoria): escribir en localStorage es disco y es lo
+      caro, así que se junta media décima de segundo (varias escrituras de una acción = 1 sola).
+      Se vuelca igual si la app pasa a segundo plano o se cierra. */
   save() {
-    try { localStorage.setItem(DEMO_KEY, JSON.stringify(this.data)); } catch (e) { /* sin almacenamiento */ }
     const snap = this.snapshot();
+    if (!this._pendiente) {
+      this._pendiente = setTimeout(() => this.volcar(), 120);
+      programarVolcado(this);
+    }
     queueMicrotask(() => this.listeners.forEach(fn => fn(snap)));
+  }
+  volcar() {
+    clearTimeout(this._pendiente); this._pendiente = null;
+    try { localStorage.setItem(DEMO_KEY, JSON.stringify(this.data)); } catch (e) { /* sin almacenamiento */ }
   }
   snapshot() {
     const d = this.data;
@@ -345,6 +383,7 @@ class DemoBackend {
   }
   /** Salir de la demo. Con keep, lo útil se guarda aparte para llevarlo a la pareja real. */
   signOut({ keep = false } = {}) {
+    clearTimeout(this._pendiente); this._pendiente = null;   // que no se vuelva a escribir lo que estamos borrando
     try {
       if (keep && this.data) localStorage.setItem(DEMO_STASH, JSON.stringify(this.data));
       localStorage.removeItem(DEMO_KEY);

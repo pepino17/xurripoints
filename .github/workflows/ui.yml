@@ -1,0 +1,38 @@
+name: Interfaz (prueba de humo)
+
+# Recorre la app de verdad en un Chrome headless: entra en modo demo, pasa por todas las pestañas y hojas,
+# mira el calendario, el historial de puntos y el menú ＋, y falla si hay cualquier error de consola o si
+# falta una pantalla. Sin dependencias: solo Node y Chrome (que ya viene en los runners de GitHub).
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: ¿Hay Chrome?
+        run: google-chrome --version || chromium --version || chromium-browser --version
+
+      - name: Prueba de humo de la interfaz
+        run: node tests/ui.smoke.mjs
+
+      - name: Captura si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pantalla-cuando-falla
+          path: |
+            tests/*.png
+            /tmp/xp-smoke-*
+          if-no-files-found: ignore
+          retention-days: 7

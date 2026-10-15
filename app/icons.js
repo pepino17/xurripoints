@@ -48,5 +48,7 @@ export function iconoSvg(name, cls = '') {
   const nodos = ICONOS[limpio] || '';
   const extra = String(cls == null ? '' : cls).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
   const clase = ['lucide', limpio ? 'lucide-' + limpio : 'lucide-x', extra].filter(Boolean).join(' ');
-  return `<svg class="${clase}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${nodos}</svg>`;
+  // aria-hidden + focusable="false": los iconos van dentro de frases ("🔁 por turnos", chevrons…),
+  // así que para un lector de pantalla no deben leerse (el texto de al lado ya lo dice).
+  return `<svg class="${clase}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${nodos}</svg>`;
 }

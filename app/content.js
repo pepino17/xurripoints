@@ -70,7 +70,7 @@ export const QUESTION_PACKS = [
     '¿Cómo sería nuestra casa ideal?', '¿Qué te gustaría haber hecho antes de los próximos cinco años?',
     '¿Qué proyecto pequeño podríamos empezar este mes?', '¿Qué te gustaría celebrar a lo grande algún día?',
     '¿Qué te gustaría cambiar de nuestra rutina?', '¿Cómo te imaginas un día normal nuestro cuando seamos mayores?',
-    '¿Qué sueño tuyo no me has contado todavía?', '¿Qué te gustaría que dijeran de nosotros como pareja?',
+    '¿Qué sueño tuyo no me has contado todavía?', '¿Qué te gustaría que dijeran de nosotros?',
     '¿Qué ciudad te gustaría conocer a fondo?', '¿Qué haríamos con un año sabático?',
     '¿Qué te gustaría que hiciéramos más a menudo con amigos o familia?', '¿Qué hábito sano te gustaría que cuidáramos juntos?',
     '¿Qué te hace ilusión del año que viene?', '¿Qué aventura haríamos si nos atreviéramos?',

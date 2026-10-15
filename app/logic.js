@@ -37,11 +37,16 @@ export function addPeriod(s, repeat, keepDay = null) {
 }
 export function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
 /** Próxima fecha de una tarea que se repite, al completarla hoy (salta los periodos atrasados).
-    Con un `repeat` que no conocemos devuelve null: `addPeriod` no movería la fecha y esto se colgaría. */
+    Con un `repeat` que no conocemos devuelve null: `addPeriod` no movería la fecha y esto se colgaría.
+    El salto es por aritmética: una tarea diaria de hace años no se recorre día a día (y no se queda corta). */
 export function nextDue(due, repeat, today = ymd(), keepDay = null) {
   if (!['daily', 'weekly', 'monthly'].includes(repeat)) return null;
-  let d = due || today, guard = 0;
-  do { d = addPeriod(d, repeat, keepDay); } while (d <= today && ++guard < 500);
+  const base = due || today;
+  const dias = Math.round((parseYmd(today) - parseYmd(base)) / 86400e3);
+  if (repeat === 'daily') return addDays(base, Math.max(1, dias + 1));                 // el día siguiente a hoy (y siempre avanza)
+  if (repeat === 'weekly') return addDays(base, Math.max(1, Math.ceil((dias + 1) / 7)) * 7); // el mismo día de la semana, la próxima vez
+  let d = base, guard = 0;
+  do { d = addPeriod(d, repeat, keepDay); } while (d <= today && ++guard < 2000);
   return d;
 }
 
@@ -216,12 +221,14 @@ export function isActive(t) { return (t.repeat && t.repeat !== 'none') || !t.don
 export function taskDays(t, from = ymd(), days = 7) {
   if (!isActive(t) || !t.due) return [];
   const end = addDays(from, days);
-  const repeats = t.repeat && t.repeat !== 'none';
+  // Un `repeat` que no conocemos no se repite: se trata como una tarea de una vez, en su fecha (y no se cuelga).
+  const repeats = !!t.repeat && t.repeat !== 'none' && ['daily', 'weekly', 'monthly'].includes(t.repeat);
+  const keep = t.dueDay || null;                                            // el día del mes original (una del 31 no se queda en el 28)
   if (!repeats) { const d = t.due < from ? from : t.due; return d < end ? [d] : []; }
   const out = [];
   let cur = t.due;
-  if (cur < from) { out.push(from); cur = nextDue(t.due, t.repeat, from); }
-  for (let i = 0; cur < end && i < 40; i++, cur = addPeriod(cur, t.repeat)) if (!out.includes(cur)) out.push(cur);
+  if (cur < from) { out.push(from); cur = nextDue(t.due, t.repeat, from, keep); }
+  for (let i = 0; cur < end && i < 40; i++, cur = addPeriod(cur, t.repeat, keep)) if (!out.includes(cur)) out.push(cur);
   return out;
 }
 export function taskLoad(tasks, members) {
@@ -241,7 +248,8 @@ export function autoAssign(tasks, members, targetPctA = 50) {
   const [a, b] = members;
   const { load } = taskLoad(tasks, members);
   const ta = Math.max(targetPctA, 1) / 100, tb = Math.max(100 - targetPctA, 1) / 100;
-  const free = tasks.filter(t => isActive(t) && !t.assignee && !t.rotate).sort((x, y) => taskWeight(y) - taskWeight(x));
+  const free = tasks.filter(t => isActive(t) && !t.rotate && (!t.assignee || !members.includes(t.assignee)))
+    .sort((x, y) => taskWeight(y) - taskWeight(x));
   const out = [];
   for (const t of free) {
     const w = taskWeight(t);
@@ -297,9 +305,9 @@ export function monthGrid(ym) {
     en un calendario cada cosa va en su día (a diferencia de la lista, que pone las atrasadas en hoy). */
 export function taskOccurrences(t, from, days = 42) {
   if (!isActive(t) || !t.due) return [];
-  if (t.repeat && t.repeat !== 'none' && !['daily', 'weekly', 'monthly'].includes(t.repeat)) return [];   // repeat corrupto: ni se intenta
   const end = addDays(from, days);
-  const repeats = t.repeat && t.repeat !== 'none';
+  // Un `repeat` que no conocemos se trata como tarea de una vez (se ve en su fecha y no cuelga nada).
+  const repeats = !!t.repeat && t.repeat !== 'none' && ['daily', 'weekly', 'monthly'].includes(t.repeat);
   if (!repeats) return (t.due >= from && t.due < end) ? [t.due] : [];
   const keep = t.dueDay || null;
   // Salto rápido por aritmética (una tarea diaria de hace años no se recorre día a día): el bucle de abajo
@@ -352,7 +360,7 @@ const PALABRAS = {
 /** Con quién compartes, leído del documento de la pareja (settings.home). Si falta o no se reconoce: 'pareja'. */
 export function homeOf(couple) {
   const h = couple && couple.settings && couple.settings.home;
-  return PALABRAS[h] ? h : 'pareja';
+  return (typeof h === 'string' && PALABRAS[h]) ? h : 'pareja';
 }
 /** Las palabras que usa la app según el modo. Nunca devuelve nada vacío. */
 export function wordsOf(home) { return PALABRAS[home] || PALABRAS.pareja; }
@@ -502,7 +510,8 @@ export function weekStats({ tasks = [], thanks = [], ideas = [], expenses = [], 
     tasksDone: fromLog + fromPoints,
     thanks: thanks.filter(t => (t.createdAt || 0) >= from).length,
     plans: ideas.filter(x => (x.doneAt || 0) >= from).map(x => x.title),
-    spent: expenses.filter(e => e.kind !== 'settle' && (e.date || '') > fromDay).reduce((s, e) => s + (e.amount || 0), 0),
+    // Solo cuentan las fechas de verdad: una fecha basura ('sin-fecha') colaba y sumaba su importe a la semana.
+    spent: expenses.filter(e => e.kind !== 'settle' && /^\d{4}-\d{2}-\d{2}$/.test(e.date || '') && e.date > fromDay).reduce((s, e) => s + (e.amount || 0), 0),
     points: weekTogether(points, now),
   };
 }

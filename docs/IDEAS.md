@@ -88,9 +88,32 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   (los 4 de color siguen en Plus).
 - Joan avisó de que tenía **más ideas** y no las recordaba: preguntarle cuando salgan.
 
+## Deuda técnica (rondas de agentes 2026-10-15)
+> Lo que los auditores señalaron y **no** se ha hecho. Ninguno bloquea nada hoy.
+- **CSS muerto: ~8,5 KB (79 reglas)** que no usa ninguna clase viva: familias `purse-*`, `debt-*`,
+  `ticket/.stub/.is-claim/.is-vale`, `tk-body/-kicker/-note/-meta/-actions`, `money-chip`, `load-card/.load-legend`,
+  `month-card/.month-total/.paidbar`, `wl-emoji`, `goal-emoji/-body`, `thanks-card/.th-*`, `hero-pts/-lb/-duo`,
+  `.hd/.hd-heart`, `.h-row`, `.nowrap`, `.fab`, `.sum-side`, `.qa-ic`. Ojo al borrar: `tk-title` existe como **id**
+  (`#tk-title`) y `h-row` es parte de `switch-row`. Con el informe del auditor del 2026-10-15.
+- **Iconos con sprite** (`<use href="#i-x">` + un bloque `<symbol>` inyectado una vez): −30-40 % de nodos por repintado.
+  Se descartó en la v0.12 por riesgo (si el `<use>` falla, se quedan sin iconos TODAS las pantallas).
+- **`points` y `expenses` sin límite**: no se pueden recortar sin romper saldos y el resumen del mes (necesitan todo
+  el histórico). La salida es un **documento de totales agregados** (`couples/{code}.totals`, actualizado en la misma
+  escritura) y entonces sí: últimos 40 movimientos + «ver todo».
+- **Plus**: la prueba gratis se puede reiniciar borrando la pareja y el reloj del móvil la alarga; y todo lo de Plus
+  se decide en el cliente (el repo es público). Se cierra **cuando haya servidor**: App Check + Cloud Function +
+  la marca de prueba en `users/{uid}`. Ver `docs/MONETIZACION.md`.
+- **Código de pareja de 6 letras (≈30 bits)**: subirlo a 8 cuando se conecte Firebase (entonces se puede probar el
+  emparejamiento de verdad) y activar **App Check**.
+- **`app.js` en 3.200 líneas**: partir en `ui.js`, `sheets.js`, `state.js` y `views/`. Es la deuda más grande que
+  queda; ahora hay 98 + 29 pruebas que lo cubrirían.
+- **Backend demo sin `createCouple`/`joinCouple`/`signUp`/`signIn`/`resetPassword`/`deleteAccount`**: hoy son
+  inalcanzables (esas pantallas solo salen con la nube), pero conviene que den un mensaje claro en vez de un TypeError.
+- **Bundling opcional con esbuild** (ya está instalado): `app.js` + los 5 módulos → −30 KB gzip y −5 peticiones.
+  Solo sirve para la web pública (dentro del APK los ficheros son locales), así que no compensa.
+
 ## Deuda técnica (revisión externa 2026-10-14)
-> Lo que el revisor señaló y **no** entra en la v0.9.0. Ninguno bloquea; están ordenados por lo que más duele.
-- **`app/app.js` son 3.113 líneas (210 KB)**: partir en `ui.js`, `sheets.js`, `state.js` y `views/` (home, points, tasks,
+> Lo que el revisor señaló y **no** entra en la v0.9.0. Ninguno bloquea; están ordenados por lo que más duele.- **`app/app.js` son 3.113 líneas (210 KB)**: partir en `ui.js`, `sheets.js`, `state.js` y `views/` (home, points, tasks,
   money, juntos, couple, plus, games, forms), cada vista con sus `data-act` en un `registerActs()`. Sin bundler:
   `index.html` sigue con un `<script type="module" src="app.js">`. Aparte, borrar CSS muerto (`.fab`, `.purse-*`,
   `.debt-*`, `.ticket`, `.money-chip`, …).

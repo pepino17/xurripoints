@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.11.0';
+const VERSION = '0.12.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -30,10 +30,10 @@ const eur = c => EUR.format((c || 0) / 100);
 const eurPlain = c => ((c || 0) / 100).toFixed(2).replace('.', ',');
 const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { /* nada */ } };
-/** Los iconos van en línea (app/icons.js): ya no hay que "crear" nada al repintar (antes lucide recorría
-    el documento entero en cada render). Se deja la función para no tocar los 4 sitios que la llaman. */
-const icons = () => {};
 const ic = name => iconoSvg(name);
+/** Los iconos van en línea (app/icons.js): no hay nada que "crear" al repintar (antes lucide recorría el
+    documento entero en cada render). Se deja la función vacía para no tocar los sitios que la llaman. */
+const icons = () => { };
 const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 const vibrate = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
 const isNative = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
@@ -62,10 +62,13 @@ function ago(ts) {
   if (d === 1) return 'ayer';
   if (d < 7) return `hace ${d} días`;
   const dt = new Date(ts);
+  if (Number.isNaN(dt.getTime())) return '';          // fecha corrupta: mejor vacío que romper la pantalla
   return `${dt.getDate()} ${MONTHS[dt.getMonth()].slice(0, 3)}`;
 }
 function dueLabel(due) {
   if (!due) return '';
+  const d0 = L.parseYmd(due);
+  if (!d0 || Number.isNaN(d0.getTime())) return '';   // fecha corrupta en la base: no rompe el repintado
   const today = L.ymd();
   const diff = Math.round((L.parseYmd(due) - L.parseYmd(today)) / 86400e3);
   if (diff === 0) return 'Hoy';
@@ -118,7 +121,7 @@ const QUESTIONS = [
   '¿Qué te ha hecho reír hoy?', '¿Hay algo que te gustaría que hiciéramos más a menudo?',
   '¿Qué te gustaría aprender este año?', '¿Cómo te gusta que te cuiden cuando estás malito o malita?',
   '¿Qué tradición nuestra te gustaría crear?', '¿Qué es lo más bonito que alguien ha hecho por ti?',
-  '¿Qué tres palabras nos describen como pareja?', '¿Qué momento del día es tu favorito para estar juntos?',
+  '¿Qué tres palabras nos describen?', '¿Qué momento del día es tu favorito para estar juntos?',
   '¿Qué sueño tienes para dentro de cinco años?', '¿Qué comida te recuerda a tu infancia?',
   '¿De qué te sientes orgulloso u orgullosa últimamente?', '¿Qué necesitas más ahora mismo: espacio, compañía, ayuda o mimos?',
   '¿Qué te gustaría que te preguntara más a menudo?', '¿Qué cosa pequeña te alegraría mañana?',
@@ -268,10 +271,11 @@ function pageHead(title, { back = false, action = '', help = '' } = {}) {
    La primera vez que entras en una pantalla, una tarjeta explica para qué sirve. Se cierra con
    "Entendido" y se vuelve a abrir con el botón ? del título. */
 const HINTS = {
+  home: ['🏠', 'Aquí manda la <b>meta juntos</b> y lo que espera tu respuesta. Toca <b>tienes X para pedir favores</b> para ver vuestros puntos y vales.'],
   tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. Y en <b>Calendario</b> ves lo que toca cada día.'],
   money: ['💸', 'Apuntad lo que pagáis: cada gasto <b>se reparte solo</b> y aquí veis cuánto hay que cuadrar. En <b>Ahorro</b>, huchas para ahorrar juntos.'],
   plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta. <b>Jugar</b>: juegos para dos en un móvil.'],
-  points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si {P} dice «ahora no», los puntos vuelven.'],
+  points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si {P} dice «ahora no», los puntos vuelven. En <b>Historial</b> tenéis <b>lo que aportáis</b> cada uno.'],
   couple: ['🤝', 'Lo que <b>acordáis</b> (repartos, precios, volver a los puntos) se cambia con una <b>propuesta</b>: cuando {P} dice que sí, cambia.'],
 };
 const hintOpen = k => (k in S.hint ? S.hint[k] : !lsGet('xp_hint_' + k));
@@ -296,6 +300,12 @@ async function boot() {
 }
 
 async function onUser(user) {
+  // Firebase renueva el token cada hora y vuelve a avisar: si seguimos con la misma pareja, no se
+  // desmonta y se vuelve a montar todo (11 oyentes + pantalla de "cargando") por nada.
+  if (user && S.user && S.user.uid === user.uid && S.code && S.unwatch) {
+    const guardado = S.be.kind === 'firebase' ? lsGet('xp_code_' + user.uid) : S.code;
+    if (guardado === S.code) return;
+  }
   if (S.unwatch) { S.unwatch(); S.unwatch = null; }
   S.user = user; S.data = null; S.code = null; S.seenPending = null; S.myPending = null; S.seenThanks = null;
   S.seenProps = null; S.myProps = null; S.seenLogs = null;
@@ -334,7 +344,13 @@ function watchCouple(code) {
     // Con freno: si llegan varios documentos de golpe (o marcaste algo que toca dos colecciones), se pinta UNA vez.
     pedirRender();
     if (S.phase === 'app') { maybeWelcome(); if (!S.dialog) maybeHomeQuestion(); syncReminders(); }
-  }, err => { console.error(err); toast(errMsg(err)); });
+  }, err => {
+    // Si una colección no se puede escuchar (reglas sin pegar, permiso denegado), antes la app se quedaba
+    // para siempre en "Contando xurripoints…": ahora sale la pantalla de reintentar.
+    console.error(err);
+    S.loadError = errMsg(err);
+    S.phase = 'offline'; render();
+  });
 }
 
 /** Aviso dentro de la app cuando llega una petición nueva de la pareja. */
@@ -345,7 +361,9 @@ function notifyNewRequests() {
     const fresh = mine.filter(t => !S.seenPending.has(t.id));
     if (fresh.length) {
       const t = fresh[0];
-      toast(`💌 ${pname()} ${t.type === 'redeem' ? 'te pide un vale' : 'ha hecho'}: ${t.title}`);
+      // Si llegan varias a la vez, se dice cuántas (antes solo avisaba de la primera y las demás en silencio).
+      const extra = fresh.length > 1 ? ` (y ${fresh.length - 1} más)` : '';
+      toast(`💌 ${pname()} ${t.type === 'redeem' ? 'te pide un vale' : 'ha hecho'}: ${t.title}${extra}`);
       vibrate([30, 60, 30]);
     }
   }
@@ -471,11 +489,11 @@ function errMsg(e) {
     'auth/too-many-requests': 'Demasiados intentos. Espera un poco y vuelve a probar.',
     'auth/network-request-failed': 'Sin conexión. Revisa internet.',
     'auth/requires-recent-login': 'Por seguridad, vuelve a escribir tu contraseña.',
-    'auth/operation-not-allowed': 'Falta activar Email/Contraseña en Firebase (Authentication).',
-    'auth/configuration-not-found': 'Falta activar Authentication en Firebase.',
-    'permission-denied': 'Sin permiso. ¿Están publicadas las reglas de Firestore?',
+    'auth/operation-not-allowed': 'Todavía no está lista la conexión de la app. Si la acabas de instalar, falta un paso de configuración: avisa a quien te la pasó.',
+    'auth/configuration-not-found': 'Todavía no está lista la conexión de la app. Si la acabas de instalar, falta un paso de configuración: avisa a quien te la pasó.',
+    'permission-denied': 'No me dejan guardar esto todavía. Si acabas de instalar la app, avisa a quien te la pasó.',
     'unavailable': 'Sin conexión. Se guardará cuando vuelva internet.',
-    'failed-precondition': 'Falta crear la base de datos Firestore en Firebase.',
+    'failed-precondition': 'Todavía no está lista la conexión de la app. Avisa a quien te la pasó.',
   };
   return M[code] || 'Algo ha fallado. Prueba otra vez.';
 }
@@ -495,37 +513,41 @@ const detailsKey = d => d.dataset.k || ((d.querySelector('summary') || {}).textC
 /** Repintado con freno: si llegan varios cambios de golpe, se pinta una sola vez (antes, 7 escrituras
     seguidas = 7 repintados completos del DOM). */
 let pintarPronto = null;
+let ultimoHtml = null;                      // lo último que se pintó, para no repintar lo mismo
 function pedirRender() { clearTimeout(pintarPronto); pintarPronto = setTimeout(render, 16); }
 
 function render() {
+  clearTimeout(pintarPronto);               // si se llama a mano con un freno pendiente, no pintar dos veces
   if (typingInScreen()) { S.deferred = true; return; }
   const app = $('#app');
   const entrando = S.enter;          // primera pintada de la pantalla (para las animaciones de entrada)
   const y = window.scrollY;
-  // Los desplegables abiertos siguen abiertos (antes se cerraban solos cada minuto o al llegar datos).
-  const openDetails = new Set($$('details[open]', app).map(detailsKey));
-  // Y las filas que se deslizan de lado (filtros, chips) se quedan donde estaban.
-  const scrollX = $$('.chips.scroll, .scroll', app).map(el => el.scrollLeft);
   document.body.dataset.phase = S.phase;
-  if (S.phase === 'boot' || S.phase === 'loading') app.innerHTML = viewLoading();
-  else if (S.phase === 'auth') app.innerHTML = viewAuth();
-  else if (S.phase === 'pair') app.innerHTML = viewPair();
-  else if (S.phase === 'wait') app.innerHTML = viewWait();
-  else if (S.phase === 'alone') app.innerHTML = viewAlone();
-  else if (S.phase === 'offline') app.innerHTML = viewOffline();
-  else app.innerHTML = viewShell();
-  if (openDetails.size) $$('details', app).forEach(d => { if (openDetails.has(detailsKey(d))) d.open = true; });
-  // Restaurar el deslizamiento lateral (si no, la fila de filtros volvía al principio cada vez que llegaba un dato).
-  const ahoraScroll = $$('.chips.scroll, .scroll', app);
-  scrollX.forEach((x, i) => { if (ahoraScroll[i] && x) ahoraScroll[i].scrollLeft = x; });
+  let html;
+  if (S.phase === 'boot' || S.phase === 'loading') html = viewLoading();
+  else if (S.phase === 'auth') html = viewAuth();
+  else if (S.phase === 'pair') html = viewPair();
+  else if (S.phase === 'wait') html = viewWait();
+  else if (S.phase === 'alone') html = viewAlone();
+  else if (S.phase === 'offline') html = viewOffline();
+  else html = viewShell();
+  // Si sale exactamente lo mismo, no se toca el DOM: cambiar una colección que no se ve no repinta nada.
+  if (html !== ultimoHtml) {
+    ultimoHtml = html;
+    const openDetails = new Set($$('details[open]', app).map(detailsKey));
+    const scrollX = $$('.chips.scroll, .scroll', app).map(el => el.scrollLeft);
+    app.innerHTML = html;
+    if (openDetails.size) $$('details', app).forEach(d => { if (openDetails.has(detailsKey(d))) d.open = true; });
+    const ahoraScroll = $$('.chips.scroll, .scroll', app);
+    scrollX.forEach((x, i) => { if (ahoraScroll[i] && x) ahoraScroll[i].scrollLeft = x; });
+    if (entrando) window.scrollTo(0, 0); else window.scrollTo(0, y);
+  }
   applyTheme();
   applyColors();
-  icons();
   // La hoja de un día del calendario se repinta con los datos: si no, marcar una tarea hecho dejaba el
   // círculo como estaba y el segundo toque reabría la tarea (hallazgo del revisor).
   if (S.sheet && S.sheet.calDay && $('#sheet-root').classList.contains('open')) swapSheet(calDaySheet(S.sheet.calDay));
-  if (S.enter) { S.enter = false; window.scrollTo(0, 0); }
-  else window.scrollTo(0, y);
+  if (S.enter) S.enter = false;
   // Las animaciones de entrada solo la primera pintada de cada pantalla (antes se repetían en cada repintado).
   document.body.classList.toggle('enter', entrando);
 }
@@ -706,8 +728,12 @@ function viewShell() {
     + (S.data.thanks || []).filter(t => t.to === ME() && !t.seenAt).length;
   const today = L.ymd();
   const nTasks = S.data.tasks.filter(t => L.isActive(t) && t.assignee === ME() && t.due && t.due <= today).length;
-  const tab = (id, icon, label, badge = 0) => `<button class="tab ${S.tab === id ? 'on' : ''}" data-act="tab" data-tab="${id}" aria-label="${label}">
+  const tab = (id, icon, label, badge = 0) => {
+    // «Puntos y vales» no es una pestaña: cuelga de Inicio, así que Inicio se queda marcado (antes no se marcaba nada).
+    const on = S.tab === id || (id === 'home' && S.tab === 'points');
+    return `<button class="tab ${on ? 'on' : ''}" data-act="tab" data-tab="${id}" aria-label="${label}">
       <span class="tab-ic">${ic(icon)}${badge ? `<b class="badge">${badge}</b>` : ''}</span><span class="tab-lb">${label}</span></button>`;
+  };
   return `
   <div class="bgfx" aria-hidden="true"></div>
   <header class="top">
@@ -837,6 +863,7 @@ function viewHome() {
     : `🤝 Para cuadrar: ${net[me] > 0 ? `${esc(pname())} → tú` : `tú → ${esc(pname())}`} <b>${eur(Math.abs(net[me]))}</b>`;
   return `
   ${updateBanner()}
+  ${hintCard('home')}
   ${pts ? heroTogether() : ''}
   ${stepsCard()}
   <section class="block">
@@ -908,7 +935,7 @@ function viewPoints() {
       ${all.length ? `<div class="card list">${all.map(historyRow).join('')}</div>` : `<p class="empty">Todavía no hay movimientos.</p>`}`;
   }
   return `${pageHead('Puntos y vales', { back: true, help: 'points' })}${hintCard('points')}
-    <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button class="${S.ptab === k ? 'on' : ''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
+    <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button class="${S.ptab === k ? 'on' : ''}" role="tab" aria-selected="${S.ptab === k}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
     ${body}`;
 }
 /** Cómo vais de puntos: lo que ha aportado cada uno y lo que tiene para pedir favores (v0.9).
@@ -1009,8 +1036,8 @@ function viewTasks() {
     </section>` : ''}`;
   return `${pageHead('Tareas', { help: 'tasks', action: `<button class="btn sm soft" data-act="task-new">${ic('plus')} Nueva</button>` })}${hintCard('tasks')}
     <div class="seg" role="tablist">
-      <button class="${S.taskView === 'cal' ? '' : 'on'}" data-act="task-view" data-v="list">📋 Lista</button>
-      <button class="${S.taskView === 'cal' ? 'on' : ''}" data-act="task-view" data-v="cal">🗓️ Calendario</button>
+      <button class="${S.taskView === 'cal' ? '' : 'on'}" role="tab" aria-selected="${S.taskView !== 'cal'}" data-act="task-view" data-v="list">📋 Lista</button>
+      <button class="${S.taskView === 'cal' ? 'on' : ''}" role="tab" aria-selected="${S.taskView === 'cal'}" data-act="task-view" data-v="cal">🗓️ Calendario</button>
     </div>
     ${S.taskView === 'cal' ? calendarBody() : listHtml}`;
 }
@@ -1139,7 +1166,8 @@ function viewCouple() {
   const me = ME(), pa = PA(), p = prof(me), q = prof(pa);
   const t = taskPctA();
   const [a, b] = MEMBERS();
-  const since = new Date(C().createdAt || Date.now());
+  const t0 = num(C().createdAt);
+  const since = new Date(t0 > 0 ? t0 : Date.now());
   const incomeTxt = x => (x.income ? `${eur(x.income)}/mes` : 'sin indicar');
   const pts = !noPoints(), demo = S.be.kind === 'demo';
   const nProps = pendingProposals().length;
@@ -1191,7 +1219,7 @@ function viewCouple() {
     <h2 class="h sm set-h">App</h2>
     <section class="card list">
       ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
-      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `${esc((THEMES.find(x => x[0] === curTheme()) || THEMES[0])[2])} · Neutro gratis`)}
+      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `Fresa y Neutro gratis${isPlus() ? '' : ' · los otros 4 con Plus'}`)}
       ${row('share-app', '📲', 'Recomendar a otros', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
       ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
       ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
@@ -1451,7 +1479,7 @@ function themeSheet() {
     <div class="theme-grid">${THEMES.map(([k, e, n, c]) => `<button class="theme-opt ${k === cur ? 'on' : ''}" data-act="theme-set" data-v="${k}" style="--tc:${c}">
       <span class="to-sw">${e}</span><b>${n}</b>${k && !FREE_THEMES.includes(k) && !isPlus() ? '<i class="to-plus">✨</i>' : ''}</button>`).join('')}</div>
     ${isPlus() ? '' : `<p class="note">✨ Los temas de color son de <b>Plus</b>. <b>Fresa</b> es el de siempre y <b>Neutro es gratis</b>.</p>`}
-    <p class="muted small">Tu color (el de tu avatar) se cambia en <b>Pareja → Tu perfil</b>.</p>`;
+    <p class="muted small">Tu color (el de tu avatar) se cambia en <b>${esc(W().sitio)} → Tu perfil</b>.</p>`;
 }
 /** Elegir el color de cada uno (se guarda solo la clave en `profiles.{uid}.color`). */
 function colorSheet() {
@@ -1459,7 +1487,7 @@ function colorSheet() {
   return `<h3 class="sheet-title">Tu color 🎨</h3>
     <p class="muted">Es el color de tu avatar: aparece en las tareas, el calendario y los repartos. Cada uno elige el suyo.</p>
     <div class="chips col-grid">${L.PERSON_COLORS.map(([k, n, base]) => `<button type="button" class="col-chip ${mine === k ? 'on' : ''}" data-act="color-set" data-v="${k}" style="--cc:${base}"><i></i>${esc(n)}</button>`).join('')}</div>
-    <p class="muted small">Si no eliges nada, se queda como estaba (rosa para quien creó la pareja, lila para quien se unió).</p>`;
+    <p class="muted small">Si no eliges nada, cada uno tiene el suyo (el de quien creó esto y el de quien se unió).</p>`;
 }
 
 /* ================================================================
@@ -1502,8 +1530,12 @@ function toast(msg, opts = {}) {
   if (opts.action) el.querySelector('.toast-btn').onclick = () => { opts.onAction && opts.onAction(); el.remove(); };
   root.innerHTML = '';
   root.appendChild(el);
-  setTimeout(() => el.classList.add('out'), opts.action ? 5000 : 3200);
-  setTimeout(() => el.remove(), opts.action ? 5400 : 3600);
+  // Los avisos llevan datos ("+10 cuando te dé las gracias"): duran 7 s y, si los tocas, se quedan hasta
+  // que los cierres (antes se iban a los 3,2 s, y con TDAH se te escapaba el mensaje).
+  let fuera1 = null, fuera2 = null;
+  const programar = (ms) => { clearTimeout(fuera1); clearTimeout(fuera2); fuera1 = setTimeout(() => el.classList.add('out'), ms); fuera2 = setTimeout(() => el.remove(), ms + 400); };
+  programar(7000);
+  el.onclick = e => { if (e.target.closest('.toast-btn')) return; clearTimeout(fuera1); clearTimeout(fuera2); el.classList.remove('out'); };
 }
 function celebrate(emojis = ['💗', '✨', '💞', '🪙']) {
   const layer = document.createElement('div');
@@ -1562,6 +1594,8 @@ const WELCOME = [
     t: 'Dinero sin dramas', x: 'Elegís <b>cómo repartís</b> una vez y cada gasto se reparte solo. La app os dice cuánto hay que cuadrar.' },
   { v: `<div class="wv-goal"><span>🏖️</span><span class="goal-bar"><span style="width:62%"></span></span></div>`,
     t: 'Sois un equipo', x: 'Lo que afecta a los dos (repartos, precios) se cambia con una <b>propuesta</b> que el otro acepta. Y en Inicio, <b>primeros pasos</b> para empezar.' },
+  { v: `<div class="wv-chips"><span>🗓️ Calendario</span><span>🎨 Tu color</span><span>🏠 Vuestro aire</span></div>`,
+    t: 'A vuestro aire', x: 'Las tareas se ven en <b>calendario</b>, cada uno elige <b>su color</b>, el fondo puede ser pastel o <b>neutro</b>… y la app os llama como <b>vosotros digáis</b> (pareja, compis de piso, familia).' },
 ];
 const DEMO_SLIDE = { v: `<div class="wv-plus demo">${ic('repeat-2')}</div>`, t: 'Estás en la versión de prueba', x: 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y a responder.' };
 function maybeWelcome() { if (!lsGet('xp_welcome_v2') && !S.dialog) showWelcome(); }
@@ -1751,9 +1785,10 @@ function ideaRow(x) {
     const cls = hidden ? (v[u] ? 'hidden' : '') : v[u] === 1 ? 'up' : v[u] === -1 ? 'down' : '';
     return `<span class="vote-dot ${cls}" title="${hidden && v[u] ? 'Ya ha votado' : ''}">${av(u, 'xs')}</span>`;
   };
-  const dt = x.doneAt ? new Date(x.doneAt) : null;
+  const dt = x.doneAt ? new Date(num(x.doneAt)) : null;
+  const dtOk = dt && !Number.isNaN(dt.getTime()) ? dt : null;
   return `<div class="idea ${st.match ? 'match' : ''} ${x.doneAt ? 'done' : ''}">
-    <button class="idea-main" data-act="idea-open" data-id="${x.id}"><b>${esc(x.title)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}${dt ? `<small>📸 ${dt.getDate()} de ${MONTHS[dt.getMonth()]}</small>` : ''}</button>
+    <button class="idea-main" data-act="idea-open" data-id="${x.id}"><b>${esc(x.title)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}${dtOk ? `<small>📸 ${dtOk.getDate()} de ${MONTHS[dtOk.getMonth()]}</small>` : ''}</button>
     <span class="idea-votes">${members.map(dot).join('')}</span>
     ${x.doneAt ? '' : `<span class="idea-my">
       <button class="vbtn ${v[me] === 1 ? 'on up' : ''}" data-act="idea-vote" data-id="${x.id}" data-v="1" aria-label="Me apetece">👍</button>
@@ -1948,7 +1983,7 @@ function spinWheel() {
 /* ---------------- JUNTOS · Jugar (en el mismo móvil) ---------------- */
 const GAMES = [
   ['ttt', '❌⭕', 'Tres en raya', 'El clásico. Rápido y sin trampas.'],
-  ['c4', '🟣🩷', 'Conecta 4', 'Cuatro en línea antes que tu churri.'],
+  ['c4', '🟣🩷', 'Conecta 4', 'Cuatro en línea antes que el otro.'],
   ['rps', '✊✋✌️', 'Piedra, papel o tijera', 'Elige en secreto y pásale el móvil.'],
   ['tot', '🤔', 'Esto o aquello', '¿Coincidís? Cada uno elige en secreto.'],
   ['who', '🫵', '¿Quién es más probable…?', 'A la de tres, señalad a quién. Risas aseguradas.'],
@@ -2019,7 +2054,7 @@ function renderGame() {
     if (G.phase === 'end') {
       return `${head}<div class="big-emoji">${G.hits >= 5 ? '💞' : G.hits >= 3 ? '😊' : '🤭'}</div>
         <p class="g-status">Coincidís en ${G.hits} de ${G.deck.length}</p>
-        <p class="muted center">${G.hits >= 5 ? '¡Sois almas gemelas (al menos en esto)!' : G.hits >= 3 ? 'Ni tan iguales ni tan distintos: perfecto.' : 'Los opuestos se atraen, ¿no? 😄'}</p>
+        <p class="muted center">${G.hits >= 5 ? '¡Pensáis igual (al menos en esto)!' : G.hits >= 3 ? 'Ni tan iguales ni tan distintos: perfecto.' : 'Los opuestos se atraen, ¿no? 😄'}</p>
         <button class="btn primary big wide" data-act="g-again">Otra ronda</button>`;
     }
     if (G.phase === 'p1' || G.phase === 'p2') {
@@ -2493,7 +2528,7 @@ const ACT = {
     const code = $('#join-code').value.trim().toUpperCase();
     if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
     if (code === S.code) { toast(`Ese es tu propio código 😉 Pásaselo a ${W().la}.`); return; }
-    const p = (S.data && S.data.couple && S.data.couple.profiles && S.data.couple.profiles[ME()]) || { name: 'Churri', emoji: '🐻', sugar: 'mami', income: 0 };
+    const p = (S.data && S.data.couple && S.data.couple.profiles && S.data.couple.profiles[ME()]) || { name: 'Alguien', emoji: '🙂', sugar: 'mami', income: 0 };
     el.disabled = true;
     try {
       await S.be.joinCouple(code, p);
@@ -2526,7 +2561,7 @@ const ACT = {
   },
 
   /* tutorial: primeros pasos y ayudas de cada pantalla */
-  'steps-hide': () => { lsSet('xp_steps_off', '1'); render(); toast('Los tienes en Pareja → Ayuda'); },
+  'steps-hide': () => { lsSet('xp_steps_off', '1'); render(); toast(`Los tienes en ${W().sitio} → Ayuda`); },
   'steps-show': () => { lsSet('xp_steps_off', null); S.tab = 'home'; S.enter = true; render(); },
   'step-go': d => {
     const go = tab => { S.tab = tab; S.enter = true; render(); };
@@ -2622,7 +2657,7 @@ const ACT = {
     if (!demo) { lsSet('xp_code_' + uid, null); onUser(S.user); toast(`Has salido. Hasta siempre 💛`); }
   },
   'alone-reset': async (d, el) => {
-    if (!await askConfirm({ title: '¿Borrar todo?', text: 'Se borran para siempre los datos de esta pareja.', ok: 'Borrar todo', danger: true })) return;
+    if (!await askConfirm({ title: '¿Borrar todo?', text: 'Se borran para siempre los datos de aquí.', ok: 'Borrar todo', danger: true })) return;
     if (S.be.kind === 'demo') { S.recurringDone.clear(); S.tab = 'home'; S.enter = true; S.be.begin(newCoupleSeed()); return; }
     el.disabled = true;
     const uid = S.user.uid;
@@ -2680,7 +2715,7 @@ const ACT = {
     lsSet('xp_review_at', String(Date.now()));
     closeSheet(); celebrate(['💞', '🌱', '✨']); toast('¡Revisión hecha! Buena semana, equipo 💞'); render();
   },
-  'g-pack': d => { S.game = qaGame(d.v); paintGame(); },
+  'g-pack': d => { if (!needPlus('packs')) return; S.game = qaGame(d.v); paintGame(); },
   'theme-sheet': () => openSheet(themeSheet()),
   'theme-set': d => {
     if (!canUseTheme(d.v || '')) { if (!needPlus('theme')) return; }
@@ -2761,14 +2796,14 @@ const ACT = {
       // Con cuenta de verdad disponible: te puedes llevar lo útil (tareas, ideas, vales, huchas) a la pareja real.
       const v = await askChoice({
         title: '¿Salir del modo demo?',
-        text: '¿Te llevas tus tareas, ideas, vales y huchas a vuestra pareja de verdad? (El dinero y los puntos de prueba no.)',
+        text: `¿Te llevas tus tareas, ideas, vales y huchas a ${W().casa} de verdad? (El dinero y los puntos de prueba no.)`,
         buttons: [['keep', 'Sí, llevármelas', 'primary'], ['drop', 'No, borrarlo todo', 'soft-berry']],
       });
       if (!v) return;
-      await S.be.signOut({ keep: v === 'keep' });
+      try { await S.be.signOut({ keep: v === 'keep' }); } catch (err) { toast(errMsg(err)); return; }
     } else {
       if (!await askConfirm({ title: '¿Salir del modo demo?', text: 'Se borran los datos de prueba.', ok: 'Salir', danger: true })) return;
-      await S.be.signOut();
+      try { await S.be.signOut(); } catch (err) { toast(errMsg(err)); return; }
     }
     lsSet('xp_mode', null);
     S.be = await createBackend('cloud');
@@ -2777,7 +2812,7 @@ const ACT = {
   'logout': async () => {
     if (!await askConfirm({ title: '¿Cerrar sesión?', text: 'Tus datos siguen guardados en la nube.', ok: 'Cerrar sesión' })) return;
     if (S.user && S.be.kind === 'firebase') lsSet('xp_code_' + S.user.uid, null);
-    await S.be.signOut();
+    try { await S.be.signOut(); } catch (err) { toast(errMsg(err)); }
   },
 
   /* emparejar */
@@ -2876,7 +2911,14 @@ const ACT = {
   },
   'approve': d => {
     const t = findPoint(d.id); if (!t || t.status !== 'pending') return;
-    if (t.type === 'redeem' && L.balances(S.data.points, MEMBERS())[t.from] < t.amount) { toast(`A ${pname()} ya no le llegan los puntos`); return; }
+    // Si al vale ya no le llegan los puntos (porque su saldo bajó), no se queda colgado para siempre:
+    // se anula y se avisa a los dos (antes solo decía "ya no le llegan" y seguía pendiente).
+    if (t.type === 'redeem' && L.available(S.data.points, MEMBERS(), t.from) < t.amount) {
+      S.be.update('points', t.id, { status: 'cancelled', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
+      logChange('vale-sin-saldo', `anuló el vale «${t.title}» de ${prof(t.from).name}: ya no le llegaban los puntos`, null);
+      toast(`Ese vale se ha anulado: a ${prof(t.from).name} ya no le llegaban los puntos`);
+      return;
+    }
     S.be.update('points', t.id, { status: 'approved', resolvedAt: Date.now(), resolvedBy: ME() }).catch(err => toast(errMsg(err)));
     celebrate();
     toast(t.type === 'redeem' ? `¡Vale aceptado! +${t.amount} para ti 💗` : `Gracias enviadas: +${t.amount} para ${pname()} 💛`);
@@ -2980,7 +3022,7 @@ const ACT = {
     const after = before + sign * amount;
     if (sign > 0 && j.target && before < j.target && after >= j.target) { celebrate(['🐷', '🎉', '💞', '✨']); toast(`¡Hucha llena! ${j.title} ${j.emoji} 🎉`); }
     else if (sign > 0) { celebrate(['🐷', '💶', '✨']); toast(`+${eur(amount)} a ${j.title} 🐷`); }
-    else { toast(`Sacado ${eur(amount)} de ${j.title}`); logChange('save-out', `sacó ${eur(amount)} de la hucha «${j.title}»${note ? ` (${note})` : ''}`); }
+    else { toast(`Sacado ${eur(amount)} de ${j.title}`); logChange('save-out', `${prof(ME()).name} sacó ${eur(amount)} de la hucha «${j.title}»${note ? ` (${note})` : ''}`); }
   },
   'toggle-done-ideas': () => { S.showDoneIdeas = !S.showDoneIdeas; render(); },
   'idea-new': () => openSheet(ideaForm()),
@@ -3055,7 +3097,10 @@ const ACT = {
     const title = $('#tk-title').value.trim();
     if (!title) { toast('Ponle un nombre a la tarea ✍️'); return; }
     const who = picked('tk-who') || 'free';
-    const repeat = picked('tk-repeat') || 'none';
+    let repeat = picked('tk-repeat') || 'none';
+    // «Por turnos» sin repetición no tiene sentido (el turno no giraría nunca): se deja semanal.
+    const giraSemanal = who === 'rotate' && repeat === 'none';
+    if (giraSemanal) repeat = 'weekly';
     const prevTask = d.id ? findTask(d.id) : null;
     const due = $('#tk-due').value || null;
     const data = {
@@ -3068,7 +3113,8 @@ const ACT = {
     };
     if (d.id) S.be.update('tasks', d.id, data).catch(err => toast(errMsg(err)));
     else S.be.add('tasks', { ...data, doneAt: null, doneBy: null, log: [], createdBy: ME(), createdAt: Date.now() }).done.catch(err => toast(errMsg(err)));
-    closeSheet(); toast(d.id ? 'Tarea guardada' : 'Tarea añadida 📝');
+    closeSheet();
+    toast(d.id ? (giraSemanal ? 'Tarea guardada · por turnos, cada semana 🔁' : 'Tarea guardada') : (giraSemanal ? 'Tarea añadida · por turnos, cada semana 🔁' : 'Tarea añadida 📝'));
   },
   'task-delete': async d => {
     if (!await askConfirm({ title: '¿Borrar esta tarea?', ok: 'Borrar', danger: true })) return;
@@ -3092,9 +3138,13 @@ const ACT = {
   },
   'task-auto': () => {
     const plan = L.autoAssign(S.data.tasks, MEMBERS(), taskPctA());
-    plan.forEach(([id, u]) => S.be.update('tasks', id, { assignee: u }).catch(err => toast(errMsg(err))));
-    const mine = plan.filter(p => p[1] === ME()).length;
-    toast(`Repartidas: ${mine} para ti y ${plan.length - mine} para ${pname()} 🔀`);
+    // Solo se tocan las que siguen libres AHORA (el otro móvil puede haber asignado o borrado alguna).
+    const libres = new Set(S.data.tasks.filter(t => L.isActive(t) && !t.assignee && !t.rotate).map(t => t.id));
+    const aplica = plan.filter(([id]) => libres.has(id));
+    if (!aplica.length) { toast('No hay tareas libres que repartir'); return; }
+    aplica.forEach(([id, u]) => S.be.update('tasks', id, { assignee: u }).catch(err => toast(errMsg(err))));
+    const mine = aplica.filter(p => p[1] === ME()).length;
+    toast(`Repartidas: ${mine} para ti y ${aplica.length - mine} para ${pname()} 🔀`);
   },
   'task-target': () => openSheet(targetSheet(), {
     onMount: () => {
@@ -3196,7 +3246,7 @@ const ACT = {
     S.be.updateCouple({ 'settings.home': h })
       .then(() => {
         if (hasPartner()) logChange('home', `ha cambiado con quién compartís: ahora «${L.homeLabel(h).toLowerCase()}»`);
-        closeSheet(); toast(`${L.HOMES.find(x => x[0] === h)[1]} Listo: ${L.homeLabel(h).toLowerCase()}`);
+        closeSheet(); toast(`${L.HOMES.find(x => x[0] === h)[1]} ¡Listo! ${L.homeLabel(h)}`);
       })
       .catch(err => toast(errMsg(err)));
   },

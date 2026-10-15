@@ -858,6 +858,331 @@ t('modo casa: un ajuste que no es un objeto no rompe las palabras', () => {
   assert.equal(L.homeLabel('vaya'), 'Vivimos juntos');
 });
 
+/* ================================================================
+   Segunda ronda: lo que toca a fechas, calendario, dinero y Plus (v0.9–v0.11).
+   ================================================================ */
+
+t('mensual del 31: el día se conserva mes a mes (y febrero solo lo recorta)', () => {
+  let d = '2026-01-31';
+  const prox = [];
+  for (let i = 0; i < 12; i++) { d = L.nextDue(d, 'monthly', d, 31); prox.push(d); }
+  assert.deepEqual(prox, [
+    '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30', '2026-07-31',
+    '2026-08-31', '2026-09-30', '2026-10-31', '2026-11-30', '2026-12-31', '2027-01-31',
+  ], 'febrero baja al 28, pero el mes siguiente vuelve al 31 (no se queda en el 28)');
+  assert.equal(L.addPeriod('2026-04-30', 'monthly', 31), '2026-05-31', 'tras un abril de 30 vuelve al 31');
+  assert.equal(L.addPeriod('2027-02-28', 'monthly', 31), '2027-03-31', '2027 no es bisiesto y marzo recupera el 31');
+});
+
+t('tareas muy antiguas: una mensual del año 2000 llega bien a hoy', () => {
+  assert.equal(L.nextDue('2000-01-31', 'monthly', '2026-10-15', 31), '2026-10-31', 'con dueDay no se descuelga');
+  assert.equal(L.nextDue('2000-01-31', 'monthly', '2026-10-15'), '2026-10-28', 'sin dueDay (tareas de antes): se queda en el 28');
+  assert.equal(L.nextDue(null, 'daily', '2026-09-28'), '2026-09-29', 'sin fecha se cuenta desde hoy');
+  assert.deepEqual(L.taskOccurrences({ id: 'm', pts: 5, repeat: 'monthly', due: '2000-01-31', dueDay: 31 }, '2026-10-15', 20), ['2026-10-31'],
+    'el calendario recorre 26 años sin colgarse');
+});
+
+// Arreglado en v0.12.0: `nextDue` salta por aritmética (antes cortaba a las 500 vueltas y devolvía una fecha del pasado).
+t('próxima fecha: una diaria de hace años no vuelve al pasado', () => {
+  assert.equal(L.nextDue('2000-01-01', 'daily', '2026-10-15'), '2026-10-16');
+  assert.deepEqual(L.taskDays({ repeat: 'daily', due: '2000-01-01' }, '2026-10-10', 3), ['2026-10-10', '2026-10-11', '2026-10-12']);
+});
+
+// Arreglado en v0.12.0: `taskDays` (los recordatorios) ya le pasa el día del mes a `addPeriod`, como el calendario.
+t('recordatorios: la mensual del 31 sigue cayendo el 31', () => {
+  assert.deepEqual(L.taskDays({ repeat: 'monthly', due: '2026-01-31', dueDay: 31 }, '2026-02-01', 90), ['2026-02-01', '2026-02-28', '2026-03-31', '2026-04-30']);
+});
+
+t('repeat corrupto: nada se cuelga y no se inventa ninguna fecha', () => {
+  for (const raro of ['yearly', 'DAILY', 'Monthly', 42, true, {}]) {
+    assert.equal(L.nextDue('2026-01-01', raro, '2026-09-28'), null, `nextDue con repeat ${JSON.stringify(raro)}`);
+    // Un repeat raro no se repite: la tarea se ve en su fecha (como una de una vez) y no desaparece.
+    assert.deepEqual(L.taskOccurrences({ id: 'x', pts: 5, repeat: raro, due: '2026-10-05' }, '2026-10-01', 30), ['2026-10-05'], `calendario con repeat ${JSON.stringify(raro)}`);
+  }
+  // Sin periodo («», null, 'none') no hay bucle que hacer: la tarea es de una sola vez y aparece en su día.
+  for (const sinPeriodo of ['', null, undefined, 'none']) {
+    assert.equal(L.nextDue('2026-01-01', sinPeriodo, '2026-09-28'), null, `nextDue con ${JSON.stringify(sinPeriodo)}`);
+    assert.deepEqual(L.taskOccurrences({ id: 'x', pts: 5, repeat: sinPeriodo, due: '2026-10-05' }, '2026-10-01', 30), ['2026-10-05'], `calendario con ${JSON.stringify(sinPeriodo)}`);
+  }
+  assert.deepEqual(L.taskDays({ repeat: 'yearly', due: '2026-10-01' }, '2026-10-10', 7), ['2026-10-10'], 'un repeat raro atrasado cuenta hoy, sin colgarse');
+  assert.equal(L.addPeriod('2026-05-10', 'loquesea'), '2026-05-10', 'fecha sin mover');
+});
+
+t('calendario: los bordes del rango y una diaria de hace seis años', () => {
+  const once = { id: 'o', title: 'Una vez', pts: 5, repeat: 'none', due: '2026-10-01' };
+  assert.deepEqual(L.taskOccurrences(once, '2026-10-01', 1), ['2026-10-01'], 'el día de inicio entra');
+  assert.deepEqual(L.taskOccurrences({ ...once, due: '2026-10-08' }, '2026-10-01', 7), [], 'el último día del rango NO entra');
+  assert.deepEqual(L.taskOccurrences({ ...once, due: '2026-10-07' }, '2026-10-01', 7), ['2026-10-07'], 'un día antes del final sí');
+  const vieja = L.taskOccurrences({ id: 'd', title: 'Platos', pts: 5, repeat: 'daily', due: '2020-01-01' }, '2026-10-01', 42);
+  assert.equal(vieja.length, 42, 'el salto rápido no pierde ni repite días');
+  assert.equal(vieja[0], '2026-10-01');
+  assert.equal(vieja[41], '2026-11-11');
+  assert.ok(vieja.every((d, i) => i === 0 || L.addDays(vieja[i - 1], 1) === d), 'días seguidos, sin huecos');
+});
+
+t('calendario: la semanal de 2016 cae siempre en lunes y la del 31 en bisiesto', () => {
+  const w = L.taskOccurrences({ id: 'w', title: 'Platos', pts: 5, repeat: 'weekly', due: '2016-01-04' }, '2026-10-01', 42);
+  assert.equal(w[0], '2026-10-05', 'el primer lunes después del inicio');
+  assert.ok(w.every(d => L.parseYmd(d).getDay() === 1), 'todas en lunes, como el día original');
+  assert.ok(w.every((d, i) => i === 0 || L.addDays(w[i - 1], 7) === d), 'de siete en siete');
+  assert.ok(w.every(d => d >= '2026-10-01'));
+  assert.deepEqual(L.taskOccurrences({ id: 'm', pts: 5, repeat: 'monthly', due: '2028-01-31', dueDay: 31 }, '2028-02-01', 60), ['2028-02-29', '2028-03-31'], 'año bisiesto: el 29 y luego el 31');
+});
+
+t('calendario: la rejilla lleva las filas justas (4 en febrero, 6 en un mes largo)', () => {
+  assert.equal(L.monthGrid('2027-02').length, 4, 'febrero de 2027 empieza en lunes: 4 filas exactas');
+  assert.equal(L.monthGrid('2026-02').length, 5, 'febrero de 2026 empieza en domingo: 5 filas');
+  assert.equal(L.monthGrid('2026-08').length, 6, 'agosto de 2026 empieza en sábado y tiene 31 días: 6 filas');
+  assert.deepEqual(L.monthGrid('2026-00'), [], 'mes 0 → nada');
+  assert.deepEqual(L.monthGrid(''), []);
+  assert.deepEqual(L.monthGrid(null), []);
+  assert.deepEqual(L.gridRange(L.monthGrid('2026-10')), { from: '2026-09-28', days: 35 });
+});
+
+t('calendario: el rango de una rejilla irregular, vacía o sin rejilla', () => {
+  assert.deepEqual(L.gridRange([['2026-09-28', '2026-09-29'], ['2026-09-30']]), { from: '2026-09-28', days: 3 });
+  assert.equal(L.gridRange([]), null);
+  assert.equal(L.gridRange(null), null);
+  assert.equal(L.gridRange(undefined), null);
+  const r = L.gridRange(L.monthGrid('2026-02'));
+  assert.equal(L.parseYmd(r.from).getDay(), 1, 'la rejilla siempre empieza en lunes');
+  assert.equal(r.days % 7, 0, 'y son semanas enteras');
+});
+
+t('calendario: dos tareas que caen el mismo día salen las dos', () => {
+  const T = [
+    { id: 'd', title: 'D', pts: 5, repeat: 'daily', due: '2026-10-01' },
+    { id: 'w', title: 'W', pts: 5, repeat: 'weekly', due: '2026-10-03' },
+    { id: 'o', title: 'O', pts: 5, repeat: 'none', due: '2026-10-02', doneAt: 5 },
+  ];
+  const m = L.tasksByDay(T, '2026-10-01', 4);
+  assert.deepEqual(Object.keys(m), ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'], 'solo los días con algo, en orden');
+  assert.deepEqual(m['2026-10-03'].map(t => t.id), ['d', 'w'], 'la diaria y la semanal coinciden ese día');
+  assert.deepEqual(m['2026-10-02'].map(t => t.id), ['d'], 'la ya hecha no aparece');
+  assert.equal(L.tasksByDay([], '2026-10-01', 7)['2026-10-01'], undefined);
+});
+
+t('calendario: el orden de un día no toca la lista original', () => {
+  const list = [
+    { id: '1', title: 'Zzz', assignee: null },
+    { id: '2', title: 'Aaa', assignee: null },
+    { id: '3', title: 'Mmm', assignee: 'b' },
+  ];
+  const copia = JSON.stringify(list);
+  const ord = L.dayTasks(list, []);
+  assert.deepEqual(ord.map(t => t.id), ['2', '3', '1'], 'sin nadie en la pareja manda el título');
+  assert.notEqual(ord, list, 'devuelve una lista nueva');
+  assert.equal(JSON.stringify(list), copia, 'la original no se toca');
+  assert.deepEqual(L.dayTasks([{ id: 'x', title: 'X' }], M).map(t => t.id), ['x'], 'una tarea sin título ni persona no revienta');
+});
+
+t('modo casa: cualquier basura cae en «pareja» y las palabras nunca van vacías', () => {
+  const basura = [
+    { settings: { home: 'PISO' } }, { settings: { home: 'piso2' } }, { settings: { home: '' } },
+    { settings: { home: 0 } }, { settings: { home: null } }, { settings: [] }, 'piso', 42, [], true, undefined, null,
+  ];
+  for (const c of basura) {
+    const h = L.homeOf(c);
+    assert.ok(L.HOMES.some(([k]) => k === h), `homeOf(${JSON.stringify(c)}) → ${JSON.stringify(h)} debería ser una de las 4 claves`);
+    assert.equal(L.wordsOf(h).la, L.wordsOf('pareja').la, `con ${JSON.stringify(c)} habla de «tu pareja»`);
+  }
+  const campos = ['la', 'sitio', 'casa', 'crear', 'salir'];
+  for (const [k] of L.HOMES) for (const f of campos) assert.ok(L.wordsOf(k)[f], `${k}.${f} no puede quedar vacío`);
+  assert.notEqual(L.wordsOf('piso').casa, L.wordsOf('familia').casa, 'cada modo tiene sus palabras');
+  assert.equal(new Set(L.HOMES.map(h => h[2])).size, 4, 'las 4 etiquetas son distintas');
+  assert.equal(L.homeLabel(null), 'Vivimos juntos');
+  assert.equal(L.homeLabel('familia'), 'Familia');
+});
+
+// Arreglado en v0.12.0: `homeOf` solo acepta texto con una clave conocida (antes un array colaba y descuadraba).
+t('modo casa: un home que no es texto cae en «pareja»', () => {
+  assert.equal(L.homeOf({ settings: { home: ['piso'] } }), 'pareja');
+  assert.equal(L.homeOf({ settings: { home: {} } }), 'pareja');
+  assert.equal(L.homeOf({ settings: { home: 'piso' } }), 'piso');
+});
+
+t('colores: la base oscura de los 6 se lee sobre el fondo suave y sobre blanco', () => {
+  const lum = hex => {
+    const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (x, y) => { const a = lum(x), b = lum(y); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
+  for (const [key, , mid, dark, soft] of L.PERSON_COLORS) {
+    assert.equal(ratio(dark, '#FFFFFF') >= 4.5, true, `${key}: la base oscura (${dark}) tiene que leerse sobre blanco`);
+    assert.equal(ratio(dark, soft) >= 3, true, `${key}: la base oscura (${dark}) tiene que distinguirse del fondo suave (${soft})`);
+    assert.ok(lum(soft) > 0.7, `${key}: el fondo suave (${soft}) tiene que ser claro`);
+    assert.ok(lum(dark) < 0.25, `${key}: la base (${dark}) tiene que ser oscura`);
+    assert.ok(ratio(mid, soft) > 1.4, `${key}: el color de la persona (${mid}) se ve sobre su fondo suave`);
+  }
+  for (const col of [2, 3, 4]) assert.equal(new Set(L.PERSON_COLORS.map(c => c[col])).size, 6, `los 6 colores de la columna ${col} son distintos`);
+});
+
+t('puntos: importes 0 y negativos, tipos que no conocemos y destino de fuera', () => {
+  assert.deepEqual(L.balances([{ type: 'claim', from: null, to: 'a', amount: 0, status: 'approved' }], M), { a: 0, b: 0 }, 'un 0 no mueve nada');
+  assert.deepEqual(L.balances([{ type: 'gift', from: 'a', to: 'b', amount: -5, status: 'approved' }], M), { a: 5, b: -5 }, 'un importe corrupto resta igual');
+  assert.deepEqual(L.balances([{ type: 'loquesea', from: 'a', to: 'b', amount: 5, status: 'approved' }], M), { a: -5, b: 5 }, 'el saldo mira el estado y las partes, no el tipo');
+  assert.deepEqual(L.balances([{ type: 'claim', from: null, to: 'a', amount: 9 }], M), { a: 0, b: 0 }, 'sin status no cuenta');
+  assert.deepEqual(L.earnedBy([
+    { type: 'claim', from: null, to: 'a', amount: 0, status: 'approved' },
+    { type: 'claim', from: null, to: 'zzz', amount: 9, status: 'approved' },
+  ], M), { a: 0, b: 0 });
+  assert.equal(L.reserved([
+    { type: 'redeem', from: 'a', to: 'b', amount: 0, status: 'pending' },
+    { type: 'redeem', from: 'zzz', to: 'a', amount: 9, status: 'pending' },
+  ], 'a'), 0, 'nadie más aparta puntos por mí');
+  assert.equal(L.reserved([{ type: 'redeem', from: 'a', to: 'b', amount: 30, status: 'rejected' }], 'a'), 0, 'un vale rechazado ya no aparta');
+  assert.equal(L.available([
+    { type: 'claim', from: null, to: 'a', amount: 50, status: 'approved' },
+    { type: 'redeem', from: 'a', to: 'b', amount: 50, status: 'pending' },
+  ], M, 'a'), 0, 'todo apartado en vales: disponible a cero');
+});
+
+t('meta juntos: manda el momento en que se resolvió, y sin `since` cuenta todo', () => {
+  const now = Date.now(), D = 86400e3;
+  assert.equal(L.goalProgress([{ from: null, to: 'a', amount: 10, status: 'approved', createdAt: now - 30 * D, resolvedAt: now - D }], { since: now - 2 * D }, now), 10, 'vale el resolvedAt, no la fecha de creación');
+  assert.equal(L.goalProgress([{ from: null, to: 'a', amount: 7, status: 'approved' }], { since: undefined }, now), 7, 'sin `since` cuenta desde el principio');
+  assert.equal(L.goalProgress([{ from: null, to: 'a', amount: -4, status: 'approved', createdAt: 1 }], { since: 0 }, now), -4, 'importes corruptos restan');
+  assert.equal(L.goalProgress([{ type: 'claim', from: null, to: 'a', amount: 5, status: 'pending', createdAt: now - 25 * 3600e3 }], { since: 0 }, now), 5, 'una reclamación aceptada sola suma');
+});
+
+t('revisión semanal: importes 0, liquidaciones, log sin fecha y puntos que ya eran de una tarea', () => {
+  const now = Date.now(), D = 86400e3;
+  const w = L.weekStats({
+    tasks: [{ log: [{ by: 'a' }, { at: 0 }, { at: now }] }],
+    expenses: [
+      { kind: 'expense', amount: 0, date: L.ymd(new Date(now)) },
+      { amount: 500, date: L.ymd(new Date(now - D)) },
+      { kind: 'expense', amount: 111 },
+      { kind: 'settle', amount: 777, date: L.ymd(new Date(now)) },
+    ],
+    points: [
+      { type: 'claim', from: null, to: 'a', amount: 3, status: 'approved', createdAt: now, taskId: 't' },
+      { type: 'reward', from: null, to: 'a', amount: 4, status: 'approved', createdAt: now },
+    ],
+  }, now);
+  assert.deepEqual(w, { tasksDone: 2, thanks: 0, plans: [], spent: 500, points: 7 });
+});
+
+// Arreglado en v0.12.0: `weekStats` descarta las fechas que no son fechas (antes 'sin-fecha' colaba y sumaba).
+t('revisión semanal: una fecha basura no suma gasto', () => {
+  assert.equal(L.weekStats({ expenses: [{ kind: 'expense', amount: 999, date: 'sin-fecha' }] }).spent, 0);
+  assert.equal(L.weekStats({ expenses: [{ kind: 'expense', amount: 500, date: L.ymd() }] }).spent, 500);
+});
+
+t('resumen del mes: importes 0 y negativos, categoría vacía y fijo sin id', () => {
+  const E = [
+    { kind: 'expense', amount: 0, category: '', date: '2026-09-01' },
+    { kind: 'expense', amount: -500, date: '2026-09-02' },
+    { amount: 100, date: '' },
+    { kind: 'expense', amount: 100, date: '2026-09-03', recurringId: '' },
+  ];
+  const s = L.monthSummary(E, '2026-09');
+  assert.equal(s.total, -400, 'un importe negativo (devolución) resta');
+  assert.equal(s.count, 3, 'el gasto sin fecha no entra en el mes');
+  assert.deepEqual(s.byCat, [['otros', -400]], 'sin categoría cae en «otros»');
+  assert.equal(s.fixed, 0, 'un recurringId vacío no es gasto fijo');
+  assert.equal(s.diffPct, null, 'sin mes anterior no hay %');
+});
+
+t('CSV: categoría desconocida, pagador de fuera, sin shares y fila sin fecha', () => {
+  const E = [
+    { kind: 'expense', amount: 0, category: '', paidBy: 'a', date: '', shares: { a: 0, b: 0 }, title: 'Cero' },
+    { kind: 'expense', amount: 1234, category: 'desconocida', paidBy: 'zzz', date: '2026-09-02', shares: { a: 600, b: 634 }, title: 'Raro' },
+    { kind: 'settle', amount: 500, paidBy: 'a', date: '2026-09-03', shares: { b: 500, a: 0 } },
+    { kind: 'expense', amount: 100, date: '2026-09-04', paidBy: 'b', title: 'Sin shares', category: 'x' },
+  ];
+  const lines = L.expensesCsv(E, M, { names: { a: 'Ana' }, cats: {} }).slice(1).split('\r\n');
+  assert.equal(lines.length, 5, 'cabecera + 4 gastos');
+  assert.equal(lines[1], ';Cero;;0,00;Ana;0,00;0,00;Gasto', 'sin fecha va la primera y un importe 0 es 0,00');
+  assert.equal(lines[2], '2026-09-02;Raro;desconocida;12,34;;6,00;6,34;Gasto', 'pagador de fuera y categoría sin nombre');
+  assert.equal(lines[3], '2026-09-03;Liquidación;;5,00;Ana;;;Pago a ', 'liquidación: coge el primer uid de shares');
+  assert.equal(lines[4], '2026-09-04;Sin shares;x;1,00;;0,00;0,00;Gasto');
+});
+
+t('CSV y euros: más basura y los números que llegan como número', () => {
+  assert.equal(L.csvCell(12), '12');
+  assert.equal(L.csvCell(true), 'true');
+  assert.equal(L.csvCell(undefined), '');
+  assert.equal(L.csvCell('a"b;c'), '"a""b;c"', 'comillas y punto y coma: entrecomillado y comilla doblada');
+  assert.equal(L.csvCell('\n=1+1'), '"\n=1+1"', 'un salto de línea va entrecomillado: no coloca filas nuevas');
+  assert.equal(L.parseEur(0), 0);
+  assert.equal(L.parseEur('0,00'), 0);
+  assert.equal(L.parseEur('1.000.000'), 100000000);
+  assert.equal(L.parseEur('12.345'), 1234500, '1.234 = mil doscientos');
+  assert.equal(L.parseEur('1.234.567'), 123456700);
+  assert.equal(L.parseEur('  10  ,  5 '), 1050);
+  assert.equal(L.parseEur('12,'), 1200);
+  for (const basura of ['1,000,000', '-0,01', '+5', '1e3', '1,234', '..5', true, NaN, {}]) {
+    assert.ok(Number.isNaN(L.parseEur(basura)), `debería ser NaN: ${JSON.stringify(basura)}`);
+  }
+});
+
+t('reparto automático: no deja ninguna libre y no toca nada de la lista', () => {
+  const T = [
+    Object.freeze({ id: '1', pts: 20, repeat: 'weekly', assignee: 'a' }),
+    Object.freeze({ id: '2', pts: 10, repeat: 'weekly' }),
+    Object.freeze({ id: '3', pts: 10, repeat: 'weekly' }),
+    Object.freeze({ id: '4', pts: 30, repeat: 'weekly', rotate: true }),
+    Object.freeze({ id: '5', pts: 5, repeat: 'none', doneAt: 1 }),
+  ];
+  const copia = JSON.stringify(T);
+  const plan = L.autoAssign(T, M, 50); // congeladas: si escribiera algo, reventaría aquí
+  assert.deepEqual(plan, [['2', 'b'], ['3', 'b']], 'las libres van a quien va por detrás');
+  assert.ok(plan.every(([, uid]) => M.includes(uid)), 'nadie de fuera de la pareja');
+  assert.equal(new Set(plan.map(p => p[0])).size, plan.length, 'sin repetir ninguna');
+  assert.equal(JSON.stringify(T), copia, 'la lista original no cambia');
+  assert.ok(T.every(t => !('assignee' in t) || t.id === '1'), 'nadie cambia de persona');
+  const C = [
+    { id: '1', pts: 5, repeat: 'weekly' }, { id: '2', pts: 5, repeat: 'weekly' },
+    { id: '3', pts: 5, repeat: 'weekly' }, { id: '4', pts: 5, repeat: 'weekly' },
+  ];
+  const cargas = { a: 0, b: 0 };
+  for (const [id, uid] of L.autoAssign(C, M, 50)) cargas[uid] += C.find(x => x.id === id).pts;
+  assert.equal(cargas.a, cargas.b, 'con todo igual, cada uno carga lo mismo');
+});
+
+t('carga: quien no está en la pareja no carga a nadie, y en turnos hacen falta dos', () => {
+  assert.deepEqual(L.taskLoad([{ id: 'r', pts: 30, repeat: 'weekly', assignee: 'zzz' }], M), { load: { a: 0, b: 0 }, free: 30 }, 'la tarea de alguien de fuera queda libre');
+  assert.deepEqual(L.taskLoad([{ id: 'r', pts: 30, repeat: 'weekly', rotate: true }], ['a']), { load: { a: 0 }, free: 30 }, 'con una sola persona no hay turnos');
+  assert.equal(L.taskWeight({ pts: 10, repeat: 'yearly' }), 10, 'un repeat que no conocemos cuenta como una vez');
+  assert.equal(L.taskWeight({ pts: 10 }), 10, 'sin repeat, cuenta como una vez');
+});
+
+// Arreglado en v0.12.0: `autoAssign` también reparte la tarea de alguien que ya no está en la pareja.
+t('reparto automático: también reparte la de quien ya no está', () => {
+  assert.deepEqual(L.autoAssign([{ id: 'r', pts: 30, repeat: 'weekly', assignee: 'zzz' }], M, 50), [['r', 'a']]);
+});
+
+t('Plus: planes con datos raros, `until` corrupto y la prueba de 14 días exacta', () => {
+  const now = Date.now(), D = 86400e3;
+  assert.deepEqual(L.plusState({ plus: {} }, now), { active: false, trialUsed: true, tier: 'trial', daysLeft: 0, forever: false }, 'un plus vacío ya gastó la prueba');
+  const raro = L.plusState({ plus: { tier: 'premium', until: now + D } }, now);
+  assert.equal(raro.tier, 'trial', 'un tier que no conocemos se trata como prueba');
+  assert.equal(raro.active, true);
+  assert.equal(L.plusState({ plus: { tier: 'plus', until: 0 } }, now).active, false, 'until 0: caducado');
+  assert.equal(L.plusState({ plus: { tier: 'plus', until: 'vaya' } }, now).active, false, 'until que no es número: caducado');
+  assert.equal(L.plusState({ plus: { tier: 'plus', until: 'vaya' } }, now).tier, 'plus', 'aunque no valga, el tier se respeta');
+  assert.equal(L.plusState({ plus: { tier: 'trial', until: null } }, now).daysLeft, 0, 'una prueba sin fin no vale y no da días infinitos');
+  assert.equal(L.plusState({ plus: [] }, now).active, false, 'un plus que no es un objeto normal no activa nada');
+  assert.equal(L.plusState({ plus: { tier: 'plus', until: null } }, now).forever, true);
+  assert.deepEqual(L.trialDoc(null, 0), { tier: 'trial', source: 'trial', since: 0, until: 14 * D, by: null });
+  assert.equal(L.trialDoc('a', now).until - now, 14 * D, 'la prueba dura 14 días justos');
+});
+
+t('azar y estado: el índice del día cambia cada día y un movimiento sin status no puntúa', () => {
+  const semana = ['2026-06-15', '2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20', '2026-06-21'];
+  const idx = semana.map(d => L.dayIndex(40, d));
+  assert.ok(idx.every(i => Number.isInteger(i) && i >= 0 && i < 40), `fuera de rango: ${idx}`);
+  assert.equal(new Set(idx).size, 7, 'la pregunta cambia cada día');
+  assert.equal(new Set(semana.map(d => L.dayIndex(7, d))).size, 7, 'con 7 preguntas, una distinta cada día');
+  assert.equal(L.dayIndex(1, '2026-06-15'), 0);
+  const now = Date.now();
+  assert.equal(L.effStatus({ status: 'pending', createdAt: now - 48 * 3600e3 }, now), 'pending', 'sin tipo no hay confianza por defecto');
+  assert.equal(L.effStatus({ type: 'claim', createdAt: now - 48 * 3600e3 }, now), undefined, 'sin status, no está aprobado');
+  assert.deepEqual(L.balances([{ type: 'claim', from: null, to: 'a', amount: 99 }], M), { a: 0, b: 0 }, 'sin status no hay puntos fantasma');
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

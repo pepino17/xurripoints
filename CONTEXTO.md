@@ -51,6 +51,24 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.12.0 (2026-10-15)**: segunda ronda de agentes (6 auditorías en paralelo). Detalle en `CHANGELOG.md`.
+  - **6 bugs de verdad arreglados**: bucle infinito con un `repeat` corrupto · fechas del pasado en los recordatorios
+    (una diaria vieja) · **una fecha corrupta congelaba la pantalla** · **la app se quedaba en «cargando» si falla
+    escuchar Firestore** (justo lo que se ve al conectar Firebase sin pegar las reglas) · la mensual del 31 en los
+    recordatorios · la tarea de quien ya no está no se repartía.
+  - **Seguridad**: `settings.split` validado en las reglas · tope de puntos por movimiento a 10.000 · borrar la cuenta
+    limpia también los recordatorios programados y las copias exportadas · `@capacitor/cli` a devDependencies.
+  - **Rendimiento**: no se repinta si el HTML sale igual · el modo demo agrupa las escrituras en disco (y vuelca al
+    pasar a segundo plano) · no se desmontan los 11 oyentes en cada renovación de token · fuera los latin-ext de las
+    fuentes (−88 KB en el APK) y precarga de las dos que se usan.
+  - **Interfaz**: rojo de aviso a 4,5:1 · todo lo táctil ≥44 px · avisos de 7 s que se quedan al tocarlos · días del
+    calendario ≥45 px en un móvil de 360 · Inicio marcado en la barra · **Neutro apaga el pastel y tu color llega a Inicio**.
+  - **Textos**: fuera los restos de «pareja» · errores en llano (sin jerga de Firebase) · tutorial de 7 pasos y ayuda
+    nueva en Inicio · textos legales al día.
+  - **Pruebas**: **98 de lógica** · 37 de reglas + 10 de datos · y **`tests/ui.smoke.mjs`** (29 comprobaciones de
+    interfaz con Chrome de verdad) que corre en cada push.
+- **v0.11.0 (2026-10-15)**: ronda de agentes: seguridad (perfil del otro, puntos «caducados», limpieza al borrar la
+  cuenta), rendimiento (fuera lucide: 365 KB → 7,3 KB, repintado con freno) y un cuelgue (`nextDue`). Detalle en `CHANGELOG.md`.
 - **v0.10.0 (2026-10-15)**: **modo «casa»** (entrega 2). Preguntas iniciales («¿Con quién compartes?») y las
   palabras adaptadas. Detalle en `CHANGELOG.md`.
   - `couples/{C}.settings.home` = `pareja | distancia | piso | familia`; las reglas solo aceptan esas 4 (o nada).

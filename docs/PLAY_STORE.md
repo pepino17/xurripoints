@@ -70,7 +70,9 @@ Cómo empezar: crea tu cuenta, crea vuestra pareja y envía el código de 6 letr
 - **Capturas** (mín. 2, recomendadas 4–8, móvil vertical): usar el **modo demo** en tamaño móvil:
   Inicio (meta juntos) · Tareas (reparto) · Dinero (para cuadrar) · Nuevo gasto (reparto) · Juntos (ideas con match) ·
   Hoja de Plus · Resumen del mes · Revisión semanal.
-- **Icono** 512×512: `assets/icon-only.png` (revisar tamaño) · **Gráfico destacado** 1024×500: pendiente (pídeselo a Claude).
+- **Icono** 512×512: `assets/icon-only.png` (revisar tamaño) · **Gráfico destacado** 1024×500: **hecho** en
+  `assets/feature-graphic-1024x500.png` (se regenera con `node scripts/make-feature-graphic.mjs`, que usa el icono
+  y las tipografías de la app).
 
 ## Encuestas de Play Console (respuestas)
 

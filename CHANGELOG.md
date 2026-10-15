@@ -5,6 +5,74 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.12.0] — 2026-10-15 · Segunda ronda de agentes: 6 auditorías y todo lo que sacaron
+
+Ronda con 6 agentes en paralelo (revisión completa, seguridad, rendimiento, interfaz, textos y pruebas).
+Salieron **34 hallazgos** y **6 bugs de verdad**. Todos los que valían la pena, arreglados.
+
+**Bugs de verdad (encontrados por los agentes)**
+- 🐞 **Un `repeat` corrupto en una tarea colgaba el móvil** (bucle infinito en `nextDue`). Ahora devuelve null y la
+  tarea se ve como una de una vez, en su fecha (no desaparece).
+- 🐞 **Una tarea diaria muy antigua devolvía fechas del PASADO** (el bucle se cortaba a las 500 vueltas): los
+  recordatorios llegaban a programar días de 2001. Ahora el salto es por aritmética, exacto y rápido.
+- 🐞 **Una fecha corrupta en la base rompía TODOS los repintados** (`dueLabel` petaba dentro de `render()` y la app
+  se quedaba congelada). Ahora una fecha inválida se pinta vacía.
+- 🐞 **Si fallaba escuchar una colección** (reglas sin pegar, permiso denegado), la app se quedaba para siempre en
+  «Contando xurripoints…». Ahora sale la pantalla de reintentar. **Este es el fallo que verías tú al conectar Firebase.**
+- 🐞 **La mensual del día 31 se quedaba en el 28 para siempre** en los recordatorios (el calendario sí lo hacía bien).
+- 🐞 **Un gasto con fecha basura sumaba a la semana** en la revisión semanal.
+- 🐞 **Una tarea de quien ya no está en la pareja no se repartía nunca** con «repartir de forma justa».
+
+**Seguridad (2ª ronda)**
+- 🛡️ El **reparto de gastos** (`settings.split`) ahora se valida: el modo que conoce la app, el % entero 0-100 y
+  «sugar» solo de uno de los dos miembros (antes un cliente modificado se ponía un 0 % y el otro pagaba todo).
+- 🛡️ Tope de puntos por movimiento de 100.000 a **10.000** (la app nunca pasa de 1.000).
+- 🛡️ **Borrar la cuenta limpia más cosas del móvil**: los recordatorios programados (podían salir en la pantalla de
+  bloqueo con el nombre de la pareja) y las copias exportadas (el JSON/CSV se quedaban en la caché del APK).
+- 🛡️ Si el navegador no sabe enumerar las bases de datos, se borran por nombre conocido (antes se quedaba la caché).
+- 🛡️ `@capacitor/cli` pasa a devDependencies (es herramienta de compilación, no viaja en el APK).
+- 📌 **Documentado y aceptado**: la prueba de Plus se puede reiniciar borrando la pareja y el reloj del móvil la
+  alarga; el código de pareja son 30 bits. Se cierran **cuando haya servidor** (App Check + Cloud Function + código
+  más largo): ver `docs/IDEAS.md`.
+
+**Rendimiento (2ª ronda, medido)**
+- ⚡ **No se repinta si lo que sale es lo mismo**: un cambio del otro móvil que no se ve ya no repinta ~300 elementos.
+- ⚡ **Salto de pintado arreglado**: se limpia el freno al empezar `render()` (antes, llamar a mano con un freno
+  pendiente pintaba dos veces: 6 sitios).
+- ⚡ **El modo demo ya no escribe en disco en cada toque**: se junta la escritura (varias escrituras de una acción =
+  una sola) y se vuelca al pasar a segundo plano o al cerrar. Es el camino que usa hoy el APK.
+- ⚡ **No se vuelve a montar todo cada hora**: Firebase renueva el token y avisaba; ahora, si sigues en la misma
+  pareja, no se desmontan y remontan los 11 oyentes ni sale «cargando».
+- ⚡ **Fuera los subconjuntos latin-ext de las fuentes** (−88 KB en el APK; español y catalán caben en el latino) y
+  **precarga** de las dos fuentes que sí se usan (antes la cabecera cambiaba de letra al cargar).
+- ⚡ `preconnect` a Firestore e Identity (una ida y vuelta menos cuando se conecte Firebase).
+
+**Interfaz y accesibilidad**
+- 🎨 **El rojo de aviso no llegaba a 4,5:1** en 6 sitios (badges, «Borrar mi cuenta», «Te faltan X puntos», fechas
+  atrasadas, errores). Ahora sí.
+- 🎨 **Todo lo que se toca mide ≥44 px**: los botones de decidir («¡Gracias!», «Vale», «Lo hablamos») medían 36, el
+  lápiz de editar 32, y también se han subido el avatar de Pareja, los filtros, la ayuda, los votos y los colores.
+- 🎨 **Los avisos duran 7 s y, si los tocas, se quedan** (antes 3,2 s y se iban: con TDAH se escapaban).
+- 🎨 **Los días del calendario ya no se quedan en 43 px**: con menos hueco, un móvil de 360 px los ve a ≥45.
+- 🎨 **En «Puntos y vales» ya se marca Inicio** en la barra de abajo (antes no se marcaba nada).
+- 🎨 **El tema Neutro apaga el pastel de verdad** (la tarjeta de Inicio, Gracias, Plus, el mes…) y **tu color llega a
+  Inicio** (el degradado de arriba usa los colores de cada uno, no rosa y lila fijos).
+- 🎨 Iconos con `aria-hidden` (no se leen en voz alta dentro de frases) y `role="tab"` en las pestañas de dentro.
+
+**Textos**
+- ✍️ Fuera los restos de «pareja» donde ya no toca (pregunta del día, «antes que tu churri», el aviso de privacidad,
+  «Pareja → Tu perfil»…): ahora usan las palabras del modo «casa».
+- ✍️ **Mensajes de error en llano**: ya no dicen «Falta activar Email/Contraseña en Firebase» ni «¿Están publicadas
+  las reglas?». Ahora: «Todavía no está lista la conexión de la app. Avisa a quien te la pasó.»
+- ✍️ El tutorial (5 → **7 pasos**) y las ayudas explican lo nuevo: calendario, color propio, tema neutro y cómo os
+  llama la app. Y **Inicio ya tiene su tarjeta de ayuda y su botón ?**.
+
+**Pruebas**
+- **98 de lógica** (antes 72): los 5 fallos que encontró el agente están ahora cubiertos con pruebas que antes
+  estaban comentadas.
+- **37 de reglas + 10 de datos** (CI) y **29 comprobaciones de interfaz** nuevas en `tests/ui.smoke.mjs`, que ahora
+  corre solo en GitHub Actions: entra en la app con un Chrome de verdad y falla si hay un error de consola.
+
 ## [0.11.0] — 2026-10-15 · Ronda de agentes: seguridad, rendimiento y un cuelgue
 
 Sesión de auditoría con varios agentes en paralelo (revisión, seguridad, rendimiento, versiones y pruebas).
