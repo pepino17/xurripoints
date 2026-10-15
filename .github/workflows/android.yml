@@ -8,6 +8,10 @@ on:
     paths-ignore:            # un push solo de docs/CHANGELOG no recompila el APK
       - '**.md'
       - 'docs/**'
+      - 'assets/**'          # imágenes (icono, gráfico de Play, capturas): no van dentro de la app
+      - 'scripts/**'         # herramientas de local (iconos, capturas): el build no las usa
+      - 'tests/**'
+      - '.agents/**'
   workflow_dispatch:
 
 jobs:

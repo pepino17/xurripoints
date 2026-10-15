@@ -4,7 +4,7 @@
 
 # Xurripoints
 
-**Vuestra casa, en equipo.** App Android para parejas: tareas, gastos compartidos, planes y gracias — y puntos para pediros favores.
+**Vuestra casa, en equipo.** App Android para quien comparte casa —pareja, a distancia, compis de piso o familia—: tareas con **calendario**, gastos compartidos, planes y gracias — y puntos para pediros favores.
 
 [![Descargar app](https://img.shields.io/badge/⬇%20Descargar%20app-Android-F58BAA?style=for-the-badge&labelColor=3B2335)](https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk)
 
