@@ -5,6 +5,31 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.13.0] — 2026-10-27 · Lista de la compra, Google Calendar y los puntos de cada uno en Inicio
+
+Lo que pidió Joan el 2026-10-21 (menos enlazar las cuentas, que ya existe y solo falta conectar Firebase):
+
+- 🛒 **Lista de la compra compartida**: Tareas → **📋 Lista · 🗓️ Calendario · 🛒 Compra**. Un campo para apuntar
+  («Leche, pilas…»), tocar = comprado (y se ve quién lo trajo, para no comprarlo dos veces), tocar otra vez = vuelve a
+  la lista. Lo comprado va plegado con «Borrar lo comprado». También desde el **＋ → Más → «Algo que hace falta»**,
+  y en Inicio sale «🛒 N cosas por comprar» si hay algo. **Sin puntos y sin contar quién compra más.**
+  - Datos: `couples/{C}/shopping/{id}` = `{ title, by, createdAt, doneAt, doneBy }`. Entra en la escucha, en la
+    copia descargable y en el borrado de la pareja. La demo trae 3 de ejemplo.
+  - **Reglas nuevas** (`shopping`): solo miembros, a tu nombre al crear, texto de 1 a 80, no nace comprado, y al
+    marcarlo solo cambian `doneAt`/`doneBy` (a tu nombre). **Hay que volver a pegar las reglas en Firebase.**
+- 📅 **«A mi Google Calendar»** (gratis): en la hoja de una tarea con fecha y en la hoja de cada día del calendario
+  (una por tarea + «Apuntar otra cosa ese día»). Abre Google Calendar con el evento de todo el día ya rellenado y
+  cada uno lo guarda en **su** calendario. **No hay sincronización automática** (sin cuentas ni permisos de Google);
+  la sincronización de verdad queda en `docs/IDEAS.md`. Lógica en `L.gcalUrl` (con prueba: fin de mes, de año, bisiesto
+  y fechas raras → nada).
+- 🪙 **Los puntos de cada uno, en Inicio**, debajo de la meta juntos: los dos saldos «para pedir favores» lado a lado,
+  mismo tamaño, mismo orden en los dos móviles y cada uno con su color. Sin «va ganando». Si los puntos están en
+  pausa, no sale. Revisión de la regla 4 en `docs/PSICOLOGIA.md` (cuarta revisión).
+- Ayuda de Tareas e Inicio al día · las hojas mantienen abiertos sus desplegables al repintarse · privacidad y
+  ficha de Play con la lista de la compra y Google Calendar.
+- Pruebas: **99 de lógica** (+1, Google Calendar) · reglas y datos con la compra (corren en GitHub Actions) ·
+  la prueba de humo recorre la compra y los puntos de Inicio.
+
 ## [0.12.1] — 2026-10-15 · Documentación, capturas de Play y CI
 
 Misma app que la 0.12.0 (sin cambios de código); esta versión sale porque un push que toca el workflow

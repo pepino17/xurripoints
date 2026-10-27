@@ -150,10 +150,32 @@ async function recorrido(bv, url) {
   await sleep(700);
   comprueba(!!(await bv.js(`document.querySelector('#sheet-root.open')`)), `se abre el día del calendario (${dia})`);
   comprueba(await bv.js(`!!document.querySelector('#sheet-root [data-act="task-new-day"]')`), 'se puede crear una tarea para ese día');
+  comprueba(await bv.js(`document.querySelectorAll('#sheet-root [data-act="gcal"]').length`) >= 2, 'el día tiene «A mi Google Calendar» (por tarea y «otra cosa»)');
   await bv.js(`document.querySelector('#sheet-root .scrim')?.click()`); await sleep(500);
+
+  console.log('\n4b) Tareas: lista de la compra');
+  await clicPorTexto(bv, '/compra/i', '#app .seg button'); await sleep(700);
+  comprueba(await bv.js(`!!document.querySelector('#view .shop-form input')`), 'la pestaña Compra tiene el campo para apuntar');
+  const antes = await bv.js(`document.querySelectorAll('#view .task:not(.done)').length`);
+  comprueba(antes > 0, `se ven las cosas por comprar (${antes})`);
+  // Con el teclado de verdad: escribir y pulsar Intro (no tiene que recargar la página ni perder el campo).
+  await bv.js(`document.querySelector('#view .shop-form input').focus()`);
+  await bv.send('Input.insertText', { text: 'Pan de prueba' });
+  await bv.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
+  await bv.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  await sleep(700);
+  comprueba(await bv.js(`[...document.querySelectorAll('#view .task:not(.done) b')].some(b => b.textContent === 'Pan de prueba')`), 'con Intro se apunta y se ve en la lista');
+  comprueba(await bv.js(`document.activeElement && document.activeElement.matches('#view .shop-form input') && !document.activeElement.value`), 'el campo queda vacío y listo para la siguiente');
+  await bv.js(`[...document.querySelectorAll('#view .task:not(.done)')].find(r => r.textContent.includes('Pan de prueba')).querySelector('.check').click()`);
+  await sleep(600);
+  comprueba(await bv.js(`[...document.querySelectorAll('#view .task.done b')].some(b => b.textContent === 'Pan de prueba')`), 'al tocarla pasa a «Comprado»');
+  comprueba(await bv.js(`!!document.querySelector('#view [data-act="shop-clear"]')`), 'hay «Borrar lo comprado»');
+  await clicPorTexto(bv, '/lista/i', '#app .seg button'); await sleep(500);
 
   console.log('\n5) Puntos: vales, acciones e historial');
   await bv.js(`document.querySelector('.tab[data-tab="home"]').click()`); await sleep(600);
+  comprueba(await bv.js(`document.querySelectorAll('.hero-two .h2-p').length`) === 2, 'en Inicio se ven los puntos de los dos, uno al lado del otro');
+  comprueba(await bv.js(`!!document.querySelector('[data-act="shop-go"]')`), 'en Inicio sale «N cosas por comprar»');
   await clicPorTexto(bv, '/pedir favores/i'); await sleep(800);
   comprueba((await titulo(bv)) .includes('Puntos'), 'se abre Puntos y vales');
   await clicPorTexto(bv, '/acciones/i', '#app button'); await sleep(600);
@@ -166,6 +188,7 @@ async function recorrido(bv, url) {
   comprueba(await bv.js(`!!document.querySelector('#sheet-root.open')`), 'el ＋ abre el menú');
   const opciones = await bv.js(`document.querySelectorAll('#sheet-root.open .add-tile, #sheet-root.open .add-row').length`);
   comprueba(opciones >= 6, `el menú tiene sus opciones (${opciones})`);
+  comprueba(await bv.js(`!!document.querySelector('#sheet-root [data-k="shop"]')`), 'en «Más» está «Algo que hace falta»');
   await clicPorTexto(bv, '/nueva tarea/i', '#sheet-root button'); await sleep(600);
   comprueba(await bv.js(`!!document.querySelector('#tk-title') && !!document.querySelector('#tk-due')`), 'el formulario de tarea sale completo');
   await bv.js(`document.querySelector('#sheet-root .scrim')?.click()`); await sleep(500);

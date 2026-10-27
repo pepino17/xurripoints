@@ -340,6 +340,15 @@ export function dayTasks(list, members = []) {
   const rank = t => (t.assignee && members.includes(t.assignee) ? members.indexOf(t.assignee) : 9);
   return [...(list || [])].sort((a, b) => rank(a) - rank(b) || String(a.title || '').localeCompare(String(b.title || '')));
 }
+/** Enlace para crear un evento de TODO EL DÍA en el Google Calendar de quien lo toca (v0.13).
+    Sin cuentas ni permisos: Google abre el evento rellenado y cada uno lo guarda en el suyo (no se sincroniza).
+    Con una fecha que no existe (o que no es 'YYYY-MM-DD') devuelve null. */
+export function gcalUrl({ title = '', date, details = '' } = {}) {
+  const s = String(date ?? '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || ymd(parseYmd(s)) !== s) return null;   // 2026-02-30 no existe
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: String(title), dates: `${s.replace(/-/g, '')}/${addDays(s, 1).replace(/-/g, '')}`, details: String(details) });
+  return `https://calendar.google.com/calendar/render?${q}`;
+}
 
 /* ---------------- Modo «casa» (v0.10) ----------------
    No todas las parejas conviven y no todo el mundo comparte piso con su pareja. Con esto, la app cambia

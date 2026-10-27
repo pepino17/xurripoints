@@ -1183,6 +1183,29 @@ t('azar y estado: el índice del día cambia cada día y un movimiento sin statu
   assert.deepEqual(L.balances([{ type: 'claim', from: null, to: 'a', amount: 99 }], M), { a: 0, b: 0 }, 'sin status no hay puntos fantasma');
 });
 
+t('Google Calendar: evento de todo el día, fin de mes/año y fechas raras', () => {
+  const u = new URL(L.gcalUrl({ title: 'Fregar & barrer', date: '2026-10-21', details: 'Desde Xurripoints' }));
+  assert.equal(u.origin + u.pathname, 'https://calendar.google.com/calendar/render');
+  assert.equal(u.searchParams.get('action'), 'TEMPLATE');
+  assert.equal(u.searchParams.get('text'), 'Fregar & barrer');
+  assert.equal(u.searchParams.get('dates'), '20261021/20261022');
+  assert.equal(u.searchParams.get('details'), 'Desde Xurripoints');
+  const dates = d => new URL(L.gcalUrl({ date: d })).searchParams.get('dates');
+  assert.equal(dates('2026-10-31'), '20261031/20261101', 'fin de mes');
+  assert.equal(dates('2026-12-31'), '20261231/20270101', 'fin de año');
+  assert.equal(dates('2028-02-28'), '20280228/20280229', 'bisiesto');
+  assert.equal(dates('2027-02-28'), '20270228/20270301', 'febrero sin bisiesto');
+  assert.equal(new URL(L.gcalUrl({ date: '2026-10-21' })).searchParams.get('text'), '', 'sin título: Google lo deja en blanco');
+  for (const bad of [null, undefined, '', '2026-13-01', '2026-02-30', '21/10/2026', '2026-10-21T10:00', 42, 'javascript:alert(1)'])
+    assert.equal(L.gcalUrl({ title: 'x', date: bad }), null, `fecha mala: ${bad}`);
+  assert.equal(L.gcalUrl(), null);
+  // Lo que escribe la gente no puede colar parámetros en el enlace
+  const raro = new URL(L.gcalUrl({ title: 'a&dates=1/2#x', date: '2026-10-21' }));
+  assert.equal(raro.searchParams.get('text'), 'a&dates=1/2#x');
+  assert.equal(raro.searchParams.getAll('dates').length, 1);
+  assert.equal(raro.hash, '');
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

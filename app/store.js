@@ -10,7 +10,7 @@
      getMyCoupleCode()              → código de pareja guardado en users/{uid} (o null)
      createCouple(profile, seed)    → crea la pareja y devuelve el código
      joinCouple(code, profile)      → se une a una pareja existente (máx. 2 miembros)
-     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks, jars, saves}); devuelve "dejar de escuchar"
+     watch(code, onData, onError)   → onData({couple, points, expenses, tasks, recurring, ideas, thanks, jars, saves, proposals, log, shopping}); devuelve "dejar de escuchar"
      updateCouple(patch)            → admite rutas con puntos: {'profiles.X.name': 'Ana'}
      add(col, data) → {id, done}  ·  set(col, id, data) (id fijo, idempotente)  ·  update(col, id, patch)  ·  remove(col, id)
      leaveCouple()                  → salgo de la pareja (si soy el último, se borra todo)
@@ -26,7 +26,8 @@ export function hasFirebaseConfig() {
 }
 
 // proposals = cambios de reglas comunes que el otro acepta · log = avisos de cambios (borrar, editar…)
-const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log'];
+// shopping = lista de la compra (v0.13). Al estar aquí, se escucha, se exporta en la copia y se borra con la pareja.
+const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log', 'shopping'];
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
 /* Lo útil de la demo se guarda aparte al salir de ella, para llevarlo a la pareja real (logic.demoToSeed). */
@@ -370,6 +371,11 @@ class DemoBackend {
           text: `Vale «${it.title}»: ${it.pts} → 20 puntos`, by: B, createdAt: now - 2 * H, status: 'pending', resolvedAt: null, resolvedBy: null }] : [];
       })(),
       log: [],
+      shopping: [
+        { id: uid8(), title: 'Leche', by: B, createdAt: now - 6 * H, doneAt: null, doneBy: null },
+        { id: uid8(), title: 'Pilas para el mando', by: A, createdAt: now - 3 * H, doneAt: null, doneBy: null },
+        { id: uid8(), title: 'Papel de cocina', by: A, createdAt: now - 2 * D, doneAt: now - D, doneBy: B },
+      ],
     };
     this.save();
     this.onUser && this.onUser({ uid: A, email: 'modo demo' });

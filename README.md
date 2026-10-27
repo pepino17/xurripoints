@@ -21,7 +21,7 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
   elegir la peli, una siesta sin ruido…). Todo suma a una **meta juntos**. Los mimos no se cobran: para eso está **Gracias** 💛.
 - **Juntos:** ideas de pelis, planes y comida con votos y *match*; **ruleta, dados y cara o cruz** para decidir; y
   **juegos para dos** (tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable?).
-- **Tareas:** repartidas, libres o por turnos, en **lista o calendario** (ves lo que toca cada día), con una barra para hablar de si el reparto os parece justo.
+- **Tareas:** repartidas, libres o por turnos, en **lista o calendario** (ves lo que toca cada día y lo pasas a tu **Google Calendar**), con una barra para hablar de si el reparto os parece justo. Y una **lista de la compra** compartida.
 - **Dinero:** elegid **vuestro reparto** una vez (a medias, según ingresos, sugar mami/papi o a medida) y cambiadlo en cada gasto si hace falta, como en Splitwise;
   gastos fijos que se apuntan solos cada mes, cuánto hay que cuadrar y **huchas para ahorrar juntos**.
 - **Lo común se acuerda:** repartos y precios se cambian con una **propuesta** que el otro acepta; si alguien borra o

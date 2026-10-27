@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-10-14** (v0.9.0).
+> Última actualización: **2026-10-27** (v0.13.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -31,6 +31,11 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 - (2026-10-15) **Modo «casa» (v0.10)**: al empezar se pregunta **con quién compartes** (vivimos juntos / a distancia /
   compañeros de piso / familia) y la app cambia las **palabras** («tu pareja» → «tu compi de piso») y algún detalle
   (en piso, fuera «sugar mami/papi»). **El motor sigue siendo de 2 personas**; más gente sería otro proyecto.
+- (2026-10-21) Joan: **enlazar dos móviles** (ya existe: falta conectar Firebase), **lista de la compra compartida**,
+  **Google Calendar** y **los puntos de cada uno más visibles en Inicio**. Google Calendar = **enlace que abre el
+  evento rellenado** en el calendario de cada uno (gratis, sin cuentas ni permisos de Google; **no se sincroniza**).
+  Los puntos de cada uno vuelven a Inicio **debajo de la meta juntos**, iguales y sin ganador (cuarta revisión de la
+  regla 4 en `docs/PSICOLOGIA.md`). La compra, **sin puntos**.
 
 ## Estado
 - v0.1–v0.6 (2026-09-28): puntos, vales, tareas, gastos, gastos fijos, ahorro, Juntos (ideas, decidir, jugar),
@@ -51,6 +56,12 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.13.0 (2026-10-27)**: lo que pidió Joan. Detalle en `CHANGELOG.md`.
+  - **Lista de la compra**: Tareas → Lista · Calendario · **Compra** (+ ＋ → Más → «Algo que hace falta» y «🛒 N cosas por
+    comprar» en Inicio). Colección `shopping` con reglas nuevas → **hay que volver a pegar las reglas en Firebase**.
+  - **«A mi Google Calendar»** en la hoja de una tarea con fecha y en la hoja de cada día del calendario (`L.gcalUrl`).
+  - **Los puntos de cada uno en Inicio** (lo que tiene cada uno para pedir favores), con guardas.
+  - Pruebas: 99 de lógica · reglas y datos con la compra (CI) · humo de interfaz con 39 comprobaciones.
 - **v0.12.0 (2026-10-15)**: segunda ronda de agentes (6 auditorías en paralelo). Detalle en `CHANGELOG.md`.
   - **6 bugs de verdad arreglados**: bucle infinito con un `repeat` corrupto · fechas del pasado en los recordatorios
     (una diaria vieja) · **una fecha corrupta congelaba la pantalla** · **la app se quedaba en «cargando» si falla
@@ -121,12 +132,14 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
 
 ## Pantallas (v0.9)
 - Barra: **Inicio · Tareas · ＋ · Dinero · Juntos**. **Pareja** desde los avatares de arriba. **Puntos y vales** desde Inicio.
-- **Inicio**: meta juntos + "tienes X para pedir favores" · Primeros pasos · **Para ti** (propuestas, gracias, cambios,
-  peticiones, tareas de hoy) · para cuadrar · pregunta del día.
-- **Tareas**: **📋 Lista · 🗓️ Calendario** (v0.9). Lista = reparto + filtros + Hoy/Próximamente/Sin fecha.
+- **Inicio**: meta juntos + **lo que tiene cada uno para pedir favores** (v0.13, los dos iguales) · Primeros pasos · **Para ti** (propuestas, gracias, cambios,
+  peticiones, tareas de hoy) · para cuadrar · «🛒 N cosas por comprar» (si hay) · pregunta del día.
+- **Tareas**: **📋 Lista · 🗓️ Calendario · 🛒 Compra** (v0.9 / v0.13). Lista = reparto + filtros + Hoy/Próximamente/Sin fecha.
   Calendario = mes de lunes a domingo, un punto por tarea con el color de su persona, hoja del día y «nueva tarea para ese día».
+  Compra = campo para apuntar, tocar = comprado (con quién lo trajo), lo comprado plegado con «Borrar lo comprado».
+  **«📅 A mi Google Calendar»** en la hoja de una tarea con fecha y, plegado, en la hoja del día (una por tarea + «otra cosa»).
 - **＋**: grandes = ya lo he hecho, gracias, gasto, nueva tarea (sin puntos: gracias, gasto, tarea, idea); "Más" = pedir
-  un favor, lo ha hecho [pareja], idea, ahorrar.
+  un favor, lo ha hecho [pareja], idea, **algo que hace falta** (compra, v0.13), ahorrar.
 - **Pareja**: tarjeta ✨ Plus · Vosotros (**Tu perfil**, **Tu color**, tarro de gracias, código) · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
   App (recordatorio, colores, recomendar, privacidad, versión) · Cuenta (descargar una copia, salir, borrar).
 - **Puntos y vales → Historial**: «**Lo que aportáis**» (lo sumado por cada uno y lo que tiene para pedir favores).
@@ -158,6 +171,8 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
 - `couples/{C}/thanks/{id}` → `{ from, to, text, emoji, createdAt, seenAt, reaction }`.
 - `couples/{C}/jars/{id}` → `{ title, emoji, target }` · `couples/{C}/saves/{id}` → `{ jar, by, amount(± céntimos), note, date, createdAt }`.
 - `couples/{C}/tasks/{id}` → `{ title, emoji, pts, assignee(uid|null), rotate, repeat, due, dueDay?, doneAt, doneBy, log:[{by, at}] (≤30), createdBy, createdAt }`
+- **`couples/{C}/shopping/{id}`** (v0.13, lista de la compra) → `{ title (1-80), by (uid, quien lo apunta), createdAt, doneAt (null | ms), doneBy (null | uid) }`.
+  Las reglas solo dejan crearlo a tu nombre y sin comprar, y después cambiar `doneAt`/`doneBy` (a tu nombre, o los dos a null). Borrar: cualquiera de los dos.
 - **`couples/{C}/proposals/{id}`** (v0.7) → `{ kind:'split'|'taskPct'|'catalog'|'points-on', value, text, by, createdAt,
   status:'pending'|'accepted'|'rejected'|'cancelled', resolvedAt, resolvedBy }`. Lo aplica el móvil de **quien acepta**
   (`applyProposal`). Catálogo: `value = {op:'upsert'|'delete', kind:'earn'|'spend', item}` (`L.applyCatalogOp`).

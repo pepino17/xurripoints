@@ -242,6 +242,24 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenAt', 'reaction']);
         allow delete: if isMember(code) && (resource.data.from == me() || isSoleMember(code));
       }
+      // Lista de la compra (v0.13). Cualquiera apunta algo (a su nombre) y cualquiera lo marca como comprado
+      // (a su nombre) o lo devuelve a la lista. Nada más se puede cambiar. Sin puntos: es cooperar, no llevar la cuenta.
+      match /shopping/{id} {
+        function okDone(d) {
+          return (d.get('doneAt', null) == null && d.get('doneBy', null) == null)
+            || (d.get('doneAt', null) is int && d.get('doneBy', null) == me());
+        }
+        allow read, delete: if isMember(code);
+        allow create: if isMember(code) && okId(id)
+          && request.resource.data.by == me()
+          && isStr(request.resource.data.title, 80) && request.resource.data.title.size() > 0
+          && request.resource.data.createdAt is int
+          && request.resource.data.get('doneAt', null) == null
+          && request.resource.data.get('doneBy', null) == null;
+        allow update: if isMember(code)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doneAt', 'doneBy'])
+          && okDone(request.resource.data);
+      }
       // Propuestas: lo que afecta a los dos (repartos, precios, volver a los puntos). Uno propone, el otro decide.
       match /proposals/{id} {
         allow read: if isMember(code);

@@ -88,6 +88,22 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   (los 4 de color siguen en Plus).
 - Joan avisó de que tenía **más ideas** y no las recordaba: preguntarle cuando salgan.
 
+## De Joan (2026-10-21)
+> "Que ya se puedan enlazar dos cuentas… que no sea una beta… conectar con el Google Calendar… una lista de la compra
+> compartida… y que los puntos se vean un poco más en la pantalla de inicio. Los que tiene cada uno."
+- **Enlazar dos cuentas / que no sea una beta** (pendiente, lo más importante): el emparejamiento con código **ya
+  existe**; falta crear el proyecto Firebase, pegar la config en `app/firebase-config.js` y **las reglas de la v0.13**
+  (`docs/FIREBASE.md`). Sin eso la app arranca en «versión de prueba».
+- ~~**Lista de la compra compartida**~~ → hecho en **v0.13.0** (Tareas → Compra, ＋ → «Algo que hace falta»).
+  Más adelante, si se pide: cantidades, categorías del súper, «lo de siempre» con un toque, avisar al otro al apuntar.
+- ~~**Google Calendar** (cada uno apunta cosas desde la app)~~ → hecho en **v0.13.0** como **enlace**: abre el evento
+  rellenado y cada uno lo guarda en su calendario (gratis, sin permisos). **Sincronización de verdad** (idea futura):
+  iniciar sesión con Google + OAuth con permiso de Calendar (y verificación de Google), para crear/actualizar eventos
+  solos, un calendario compartido «Casa» o leer los del otro. Necesita servidor o tokens en el móvil, política de
+  privacidad nueva y la revisión de Google de los permisos sensibles. Las tareas que se repiten podrían ir con `RRULE`.
+- ~~**Los puntos de cada uno más visibles en Inicio**~~ → hecho en **v0.13.0**, con guardas (`docs/PSICOLOGIA.md`,
+  cuarta revisión).
+
 ## Deuda técnica (rondas de agentes 2026-10-15)
 > Lo que los auditores señalaron y **no** se ha hecho. Ninguno bloquea nada hoy.
 - **CSS muerto: ~8,5 KB (79 reglas)** que no usa ninguna clase viva: familias `purse-*`, `debt-*`,

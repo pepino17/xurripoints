@@ -164,6 +164,26 @@ await t('gracias: las escribo yo; mi pareja solo marca "visto"', async () => {
   await assertSucceeds(updateDoc(doc(db('bob'), `couples/${C}/thanks/g1`), { seenAt: 2, reaction: '❤️' }));
   await assertFails(updateDoc(doc(db('bob'), `couples/${C}/thanks/g1`), { text: 'otra cosa' }));
 });
+await t('lista de la compra: apunto a mi nombre; cualquiera la marca comprada (a su nombre) o la borra', async () => {
+  const it = { title: 'Leche', by: 'alice', createdAt: 1, doneAt: null, doneBy: null };
+  const sh = id => `couples/${C}/shopping/${id}`;
+  await assertSucceeds(setDoc(doc(db('alice'), sh('c1')), it));
+  await assertFails(setDoc(doc(db('alice'), sh('c2')), { ...it, by: 'bob' }));                 // a nombre de otro
+  await assertFails(setDoc(doc(db('alice'), sh('c3')), { ...it, title: '' }));                 // vacío
+  await assertFails(setDoc(doc(db('alice'), sh('c4')), { ...it, title: 'x'.repeat(81) }));     // enorme
+  await assertFails(setDoc(doc(db('alice'), sh('c5')), { ...it, title: 42 }));                 // no es texto
+  await assertFails(setDoc(doc(db('alice'), sh('c6')), { ...it, doneAt: 5, doneBy: 'alice' })); // no nace comprado
+  await assertFails(setDoc(doc(db('carol'), sh('c7')), { ...it, by: 'carol' }));               // de fuera de la pareja
+  await assertFails(setDoc(doc(db('alice'), sh('"><b>')), it));                                // id raro
+  await assertSucceeds(updateDoc(doc(db('bob'), sh('c1')), { doneAt: 2, doneBy: 'bob' }));       // lo compra bob
+  await assertFails(updateDoc(doc(db('alice'), sh('c1')), { doneAt: 3, doneBy: 'bob' }));        // a nombre del otro
+  await assertFails(updateDoc(doc(db('alice'), sh('c1')), { doneAt: 'ayer', doneBy: 'alice' })); // fecha que no es número
+  await assertFails(updateDoc(doc(db('alice'), sh('c1')), { title: 'Otra cosa' }));              // no se reescribe
+  await assertSucceeds(updateDoc(doc(db('alice'), sh('c1')), { doneAt: null, doneBy: null }));   // vuelve a la lista
+  await assertSucceeds(setDoc(doc(db('alice'), sh('c8')), it));
+  await assertSucceeds(deleteDoc(doc(db('bob'), sh('c8'))));                                   // «Borrar lo comprado»
+  await assertFails(getDoc(doc(db('carol'), sh('c1'))));
+});
 
 /* ---------------- Propuestas y avisos de cambios ---------------- */
 const prop = { kind: 'split', value: { mode: 'equal', sugar: null, customPctA: 50 }, text: 'Vuestro reparto de gastos: a medias', by: 'alice', createdAt: 1, status: 'pending', resolvedAt: null, resolvedBy: null };
@@ -234,7 +254,7 @@ await t('quien sale ya no ve nada y nadie se une a una pareja cerrada', async ()
 });
 await t('quien se queda sola puede borrarlo todo', async () => {
   const a = db('alice');
-  for (const path of ['points/p1', 'points/p5', 'expenses/e1', 'tasks/t1', 'thanks/g1', 'proposals/r1', 'log/l1', 'jars/j1', 'saves/s1', 'ideas/i1', 'recurring/tpl1'])
+  for (const path of ['points/p1', 'points/p5', 'expenses/e1', 'tasks/t1', 'thanks/g1', 'proposals/r1', 'log/l1', 'jars/j1', 'saves/s1', 'ideas/i1', 'recurring/tpl1', 'shopping/c1'])
     await assertSucceeds(deleteDoc(doc(a, `couples/${C}/${path}`)));
   await assertSucceeds(deleteDoc(doc(a, 'couples', C)));
 });

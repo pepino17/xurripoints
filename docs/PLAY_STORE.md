@@ -39,7 +39,10 @@
 Xurripoints es la app para organizar vuestra casa SIN llevar la cuenta 💞
 
 🧽 TAREAS JUSTAS, CON CALENDARIO
-Fijas, libres o por turnos, con una vista de LISTA y otra de CALENDARIO para ver lo que toca cada día. Un botón las reparte de forma justa, y podéis apuntar también la carga invisible: citas, gestiones, cumpleaños.
+Fijas, libres o por turnos, con una vista de LISTA y otra de CALENDARIO para ver lo que toca cada día (y pasarlo a vuestro Google Calendar con un toque). Un botón las reparte de forma justa, y podéis apuntar también la carga invisible: citas, gestiones, cumpleaños.
+
+🛒 LISTA DE LA COMPRA COMPARTIDA
+Lo que hace falta en casa, en los dos móviles. Quien pasa por el súper lo marca y ya no se compra dos veces.
 
 💸 GASTOS COMPARTIDOS
 A medias, según ingresos, "sugar mami/papi" o a medida. Gastos fijos que se apuntan solos cada mes y "para cuadrar" sin prisas ni reproches.
@@ -54,7 +57,7 @@ Pequeñas gracias que se guardan en vuestro tarro. Sin puntos: el cariño no tie
 Votad pelis, planes y comida y ved en qué coincidís. Decidid con moneda, dados o ruleta. Y juegos para dos en el mismo móvil.
 
 🪙 PUNTOS Y FAVORES
-Las tareas dan xurripoints para pediros favores (nunca permisos). En el historial veis lo que aporta cada uno y lo que tiene para pedir. ¿No os van? Se pausan con un toque.
+Las tareas dan xurripoints para pediros favores (nunca permisos). En Inicio veis lo que tiene cada uno para pedir favores, y en el historial lo que aporta cada uno. ¿No os van? Se pausan con un toque.
 
 🏠 CADA CASA ES DISTINTA
 Al empezar os pregunta con quién compartís: en pareja, a distancia, COMPAÑEROS DE PISO o familia. La app cambia las palabras y algún detalle para que hable de lo vuestro.
@@ -106,9 +109,11 @@ apuestas. **Interacción entre usuarios: Sí** (solo entre los dos miembros de l
 | Info personal → Nombre | Recogido (mote) · Funcionalidad · Obligatorio |
 | Info financiera → Otra info financiera | Recogido (gastos e ingresos) · Funcionalidad · Ingresos opcionales |
 | Info financiera → Historial de compras | Recogido cuando haya Plus · Funcionalidad |
-| Actividad en apps → Otro contenido generado por el usuario | Recogido (tareas, gracias, ideas) · Funcionalidad |
+| Actividad en apps → Otro contenido generado por el usuario | Recogido (tareas, gracias, ideas, lista de la compra) · Funcionalidad |
 
-Nada de ubicación, contactos, fotos, audio, identificadores de publicidad ni analítica.
+Nada de ubicación, contactos, fotos, audio, identificadores de publicidad ni analítica. **Google Calendar** (v0.13):
+la app no se conecta a él ni lee nada; «A mi Google Calendar» solo abre un enlace con el nombre y la fecha de la tarea,
+y la persona decide si lo guarda en su cuenta. No cuenta como dato compartido por la app.
 
 **Info local (no se sube)**: preferencias (fondo, recordatorio, ayudas vistas) y la copia en caché para que la app
 funcione sin conexión. Se borra al borrar la cuenta.

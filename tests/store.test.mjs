@@ -52,7 +52,7 @@ await t('escuchar: llegan la pareja y todas las colecciones (también propuestas
   const data = await new Promise((resolve, reject) => {
     const stop = A.watch(code, d => { if (d.couple && d.couple.members.length === 2) { stop(); resolve(d); } }, reject);
   });
-  for (const col of ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log']) assert.ok(Array.isArray(data[col]), col);
+  for (const col of ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log', 'shopping']) assert.ok(Array.isArray(data[col]), col);
   assert.deepEqual(data.couple.members, [A.uid, B.uid]);
 });
 await t('escrituras como las de la app: puntos, gasto, gasto fijo, propuesta, aviso', async () => {
@@ -65,6 +65,13 @@ await t('escrituras como las de la app: puntos, gasto, gasto fijo, propuesta, av
   await A.updateCouple({ 'settings.split': { mode: 'equal', sugar: null, customPctA: 50 } }); // lo aplica quien acepta
   await A.update('proposals', p.id, { status: 'accepted', resolvedAt: Date.now(), resolvedBy: A.uid });
   await A.add('log', { kind: 'exp-del', text: 'borró el gasto «Luz» · 58,90 €', data: null, by: A.uid, createdAt: Date.now(), seenAt: null, restoredAt: null }).done;
+});
+let shopId;
+await t('lista de la compra: uno apunta, el otro la marca como comprada', async () => {
+  const s = A.add('shopping', { title: 'Leche', by: A.uid, createdAt: Date.now(), doneAt: null, doneBy: null });
+  await s.done;
+  shopId = s.id;
+  await B.update('shopping', s.id, { doneAt: Date.now(), doneBy: B.uid });
 });
 await t('salir de la pareja (Bob): la pareja se cierra y sus ingresos se borran', async () => {
   await B.leaveCouple();
@@ -89,6 +96,7 @@ await t('borrar la cuenta de Alice (la última): se borra la pareja entera y su 
   await A.deleteAccount('secreto1');
   assert.equal(await exists(`couples/${code}`), false);
   assert.equal(await exists(`couples/${code}/expenses/rec_tpl1_2026-09`), false);
+  if (shopId) assert.equal(await exists(`couples/${code}/shopping/${shopId}`), false, 'la lista de la compra también se borra');
   assert.equal(await exists(`users/${uid}`), false);
   await assert.rejects(A.signIn('alice@test.com', 'secreto1'));
 });

@@ -81,7 +81,7 @@ poner, pero **con las guardas que hacen que no sea un marcador**:
 
 | Guarda | Por qué |
 |---|---|
-| Está en **Historial** (Puntos y vales), nunca en Inicio. Hay que ir a buscarlo. | En Inicio, lo primero que se ve sería la comparación, y eso orienta toda la app a "quién debe qué". |
+| Está en **Historial** (Puntos y vales), nunca en Inicio. Hay que ir a buscarlo. *(Revisado en la v0.13: el saldo para pedir favores sí sale en Inicio; ver la cuarta revisión.)* | En Inicio, lo primero que se ve sería la comparación, y eso orienta toda la app a "quién debe qué". |
 | El titular es **«Lo que aportáis» y el total de los dos** ("115 puntos entre los dos"), no dos barras enfrentadas. | El "nosotros" (*we-talk*) predice mejor funcionamiento de pareja que el "yo contra ti" (Karan et al., 2019). |
 | Los dos ven **la misma tarjeta y el mismo orden** (A y B), sin "va ganando", sin flechas y sin colores de alarma. | Lo que se compara se convierte en competición; el dato es informativo, no un veredicto. |
 | Se explica **para qué sirve**: "para saber quién puede pedir un favor, no para comparar". | Da al número una función práctica (pedir un vale necesita saldo), que es la única razón legítima para mirarlo. |
@@ -89,6 +89,24 @@ poner, pero **con las guardas que hacen que no sea un marcador**:
 
 Si alguien lo usa para reprochar ("yo he aportado más"), la salida sigue ahí: **pausar los puntos** (Pareja →
 Puntos y vales) deja todo lo demás funcionando.
+
+## Cuarta revisión (2026-10-21, aplicada en v0.13): los puntos de cada uno, también en Inicio
+
+Joan pidió **"que los puntos se vean un poco más en la pantalla de inicio. Los que tiene cada uno."** La tercera
+revisión los había dejado solo en Historial. Ahora salen en Inicio, **debajo de la meta juntos**, con estas guardas:
+
+| Guarda | Por qué |
+|---|---|
+| La **meta juntos sigue arriba y más grande**; los saldos van debajo, en pequeño. | Lo primero que se ve sigue siendo el "nosotros" (Karan et al., 2019). |
+| Se enseña lo que cada uno tiene **para pedir favores** (`L.available`), no "lo que ha aportado". | Es un dato práctico (para pedir un vale hace falta saldo). Y como los vales pasan los puntos al otro, el saldo no dice "quién ha hecho más". «Lo que aportáis» sigue solo en Historial. |
+| **Los dos iguales**: mismo tamaño, mismo orden (A y B) en los dos móviles, cada uno con **su color** (el que eligió). | Nada de "tú contra tu pareja": ni el tuyo primero, ni más grande, ni en verde/rojo. |
+| **Sin ganador**: ni diferencia, ni flechas, ni "va ganando", ni ranking, ni colores de alarma. | Lo que se compara se convierte en competición (regla 4). |
+| Con los **puntos en pausa** no sale; con una sola persona sale solo la suya. | La salida de seguridad sigue funcionando igual. |
+
+Si se usa para comparar o reprochar, la salida es la misma: **pausar los puntos**.
+
+**Lista de la compra (v0.13)**: sin puntos y sin recuento de quién compra más. Solo pone quién lo apuntó y quién lo
+trajo (para no comprarlo dos veces). Es cooperar: cualquiera apunta, cualquiera lo trae.
 
 ## Reglas de diseño (obligatorias para futuras versiones)
 

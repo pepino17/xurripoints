@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.12.1';
+const VERSION = '0.13.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -271,8 +271,8 @@ function pageHead(title, { back = false, action = '', help = '' } = {}) {
    La primera vez que entras en una pantalla, una tarjeta explica para qué sirve. Se cierra con
    "Entendido" y se vuelve a abrir con el botón ? del título. */
 const HINTS = {
-  home: ['🏠', 'Aquí manda la <b>meta juntos</b> y lo que espera tu respuesta. Toca <b>tienes X para pedir favores</b> para ver vuestros puntos y vales.'],
-  tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. Y en <b>Calendario</b> ves lo que toca cada día.'],
+  home: ['🏠', 'Aquí manda la <b>meta juntos</b> y lo que espera tu respuesta. Debajo, lo que tiene <b>cada uno para pedir favores</b>: tócalo para ver los vales.'],
+  tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. En <b>Calendario</b> ves lo que toca cada día y lo puedes pasar a <b>tu Google Calendar</b> (cada uno al suyo: no se sincroniza solo). Y en <b>Compra</b>, lo que hace falta en casa.'],
   money: ['💸', 'Apuntad lo que pagáis: cada gasto <b>se reparte solo</b> y aquí veis cuánto hay que cuadrar. En <b>Ahorro</b>, huchas para ahorrar juntos.'],
   plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta. <b>Jugar</b>: juegos para dos en un móvil.'],
   points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si {P} dice «ahora no», los puntos vuelven. En <b>Historial</b> tenéis <b>lo que aportáis</b> cada uno.'],
@@ -503,7 +503,8 @@ function errMsg(e) {
 function typingInScreen() {
   const a = document.activeElement;
   if (!a || !a.closest || !/^(INPUT|TEXTAREA)$/.test(a.tagName)) return false;
-  if (S.phase === 'app') return !!a.closest('#view');
+  // Campo de la compra VACÍO (acabas de añadir algo): se repinta igual para ver lo apuntado (render() te devuelve al campo).
+  if (S.phase === 'app') return !!a.closest('#view') && !(a.closest('.shop-form') && !a.value);
   // Esperar pareja, rellenar el perfil y entrar: mientras escribes, no se repinta (antes se borraba lo escrito).
   return ['wait', 'pair', 'auth'].includes(S.phase) && !!a.closest('#app');
 }
@@ -522,6 +523,7 @@ function render() {
   const app = $('#app');
   const entrando = S.enter;          // primera pintada de la pantalla (para las animaciones de entrada)
   const y = window.scrollY;
+  const enCompra = !!(document.activeElement && document.activeElement.matches && document.activeElement.matches('#view .shop-form input'));
   document.body.dataset.phase = S.phase;
   let html;
   if (S.phase === 'boot' || S.phase === 'loading') html = viewLoading();
@@ -541,6 +543,8 @@ function render() {
     const ahoraScroll = $$('.chips.scroll, .scroll', app);
     scrollX.forEach((x, i) => { if (ahoraScroll[i] && x) ahoraScroll[i].scrollLeft = x; });
     if (entrando) window.scrollTo(0, 0); else window.scrollTo(0, y);
+    // Apuntando la compra: vuelves al campo para seguir con la siguiente cosa (el teclado no se cierra).
+    if (enCompra) { const i = $('#view .shop-form input'); if (i) i.focus({ preventScroll: true }); }
   }
   applyTheme();
   applyColors();
@@ -875,6 +879,7 @@ function viewHome() {
   </section>
 
   <button class="line-row" data-act="tab" data-tab="money"><span>${money}</span>${ic('chevron-right')}</button>
+  ${shopLine()}
   ${reviewLine()}
   ${questionCard()}`;
 }
@@ -883,14 +888,23 @@ function reviewLine() {
   if (![5, 6, 0].includes(new Date().getDay()) || Date.now() - Number(lsGet('xp_review_at') || 0) < 4 * 86400e3) return '';
   return `<button class="line-row review-line" data-act="review-open"><span>🗓️ ¿Revisión de la semana? <small>10 min juntos</small></span>${plusTag()}${ic('chevron-right')}</button>`;
 }
+/** Lo que hay en la lista de la compra por comprar: una línea en Inicio (solo si hay algo). */
+function shopLine() {
+  const n = (S.data.shopping || []).filter(x => !x.doneAt).length;
+  return n ? `<button class="line-row" data-act="shop-go"><span>🛒 ${n === 1 ? '1 cosa' : `${n} cosas`} por comprar</span>${ic('chevron-right')}</button>` : '';
+}
+/** Lo que tiene cada uno para pedir favores (saldo menos lo apartado en vales). Lo usan Inicio y Historial. */
+const availByMember = () => Object.fromEntries(MEMBERS().map(u => [u, num(L.available(S.data.points, MEMBERS(), u))]));
 /** Arriba en Inicio: la META JUNTOS es la protagonista (cooperar, no competir: regla 4).
-    Tus puntos salen pequeños y solo los tuyos; nada de marcador "tú contra tu pareja". */
+    Debajo, pequeño y en clave de equipo, lo que tiene CADA UNO para pedir favores (v0.13, lo pidió Joan):
+    mismo tamaño, mismo orden (A y B) en los dos móviles, cada uno con su color, sin «va ganando» ni diferencias.
+    Ver la cuarta revisión de la regla 4 en docs/PSICOLOGIA.md. */
 function heroTogether() {
   const P = S.data.points, me = ME();
   const g = C().goal, target = g ? Math.max(1, num(g.target)) : 1;
   const prog = g ? L.goalProgress(P, g) : 0, pct = Math.min(100, Math.round(prog / target * 100));
   const wk = L.weekTogether(P);
-  const mineAvail = L.available(P, MEMBERS(), me);
+  const avail = availByMember();
   return `<section class="hero">
     ${g ? `<button class="hero-goal big ${prog >= target ? 'done' : ''}" data-act="goal-edit">
         <span class="hg-e">${esc(g.emoji)}</span>
@@ -898,8 +912,10 @@ function heroTogether() {
           <b>${esc(g.title)}</b><span class="goal-bar"><span style="width:${pct}%"></span></span>
           <small>${prog} de ${target} puntos entre los dos${wk ? ` · +${wk} esta semana` : ''}</small></span></button>`
       : `<button class="hero-goal big" data-act="goal-edit"><span class="hg-e">🎯</span><span class="hg-body"><b>Poneos una meta juntos</b><small>Los puntos de los dos suman</small></span></button>`}
-    <button class="hero-me" data-act="tab" data-tab="points">
-      <span>Tienes ${coin(mineAvail)} para pedir favores</span><em>Vales ${ic('chevron-right')}</em></button>
+    <button class="hero-me hero-two" data-act="tab" data-tab="points">
+      <span class="h2-top"><span>Para pedir favores</span><em>Vales ${ic('chevron-right')}</em></span>
+      <span class="h2-list">${MEMBERS().map(u => `<span class="h2-p ${side(u)}">${av(u)}
+        <span class="h2-body">${coin(avail[u])}<small>${esc(prof(u).name)}${u === me ? ' (tú)' : ''}</small></span></span>`).join('')}</span></button>
   </section>`;
 }
 
@@ -944,7 +960,7 @@ function viewPoints() {
 function pointsSummary() {
   const P = S.data.points, members = MEMBERS();
   const earned = L.earnedBy(P, members);
-  const avail = Object.fromEntries(members.map(u => [u, L.available(P, members, u)]));
+  const avail = availByMember();
   const total = num(earned[members[0]]) + num(earned[members[1]]);
   const pend = P.filter(t => t.status === 'pending' && t.type === 'redeem').length;
   return `<section class="card ptsum">
@@ -1035,11 +1051,46 @@ function viewTasks() {
       ${S.showDone ? `<div class="stack tight">${done.map(taskRow).join('')}</div>` : ''}
     </section>` : ''}`;
   return `${pageHead('Tareas', { help: 'tasks', action: `<button class="btn sm soft" data-act="task-new">${ic('plus')} Nueva</button>` })}${hintCard('tasks')}
-    <div class="seg" role="tablist">
-      <button class="${S.taskView === 'cal' ? '' : 'on'}" role="tab" aria-selected="${S.taskView !== 'cal'}" data-act="task-view" data-v="list">📋 Lista</button>
-      <button class="${S.taskView === 'cal' ? 'on' : ''}" role="tab" aria-selected="${S.taskView === 'cal'}" data-act="task-view" data-v="cal">🗓️ Calendario</button>
-    </div>
-    ${S.taskView === 'cal' ? calendarBody() : listHtml}`;
+    <div class="seg tri" role="tablist">${[['list', '📋 Lista'], ['cal', '🗓️ Calendario'], ['shop', '🛒 Compra']].map(([k, l]) =>
+      `<button class="${S.taskView === k ? 'on' : ''}" role="tab" aria-selected="${S.taskView === k}" data-act="task-view" data-v="${k}">${l}</button>`).join('')}</div>
+    ${S.taskView === 'cal' ? calendarBody() : S.taskView === 'shop' ? shopBody() : listHtml}`;
+}
+
+/* ---------------- Lista de la compra (v0.13) ----------------
+   Lo que hace falta en casa, de los dos. Sin puntos y sin contar quién compra más (regla 4): solo se dice quién
+   lo apuntó y quién lo trajo, para no comprarlo dos veces. Tocar = comprado; tocar otra vez = vuelve a la lista. */
+const shopForm = () => `<form class="join shop-form" autocomplete="off">
+    <input class="inp" name="t" maxlength="80" placeholder="Leche, pilas…" aria-label="Algo que hace falta" enterkeyhint="done">
+    <button class="btn mint" data-act="shop-add">${ic('plus')} Añadir</button></form>`;
+function shopRow(x) {
+  const mine = u => u === ME();
+  const sub = x.doneAt ? `${mine(x.doneBy) ? 'Lo compraste tú' : `Lo compró ${esc(prof(x.doneBy).name)}`} · ${ago(num(x.doneAt))}`
+    : (mine(x.by) ? 'Lo apuntaste tú' : `Lo apuntó ${esc(prof(x.by).name)}`);
+  return `<div class="task free ${x.doneAt ? 'done' : ''}">
+    <button class="check" data-act="shop-toggle" data-id="${esc(x.id)}" aria-label="${x.doneAt ? 'Volver a la lista' : 'Comprado'}">${ic('check')}</button>
+    <button class="task-main" data-act="shop-toggle" data-id="${esc(x.id)}"><span class="t-body"><b>${esc(x.title)}</b><small>${sub}</small></span></button>
+  </div>`;
+}
+function shopBody() {
+  const all = S.data.shopping || [];
+  const todo = all.filter(x => !x.doneAt).sort((a, b) => num(a.createdAt) - num(b.createdAt));
+  const done = all.filter(x => x.doneAt).sort((a, b) => num(b.doneAt) - num(a.doneAt));
+  return `${shopForm()}
+    <section class="block">${todo.length ? `<div class="stack tight">${todo.map(shopRow).join('')}</div>`
+      : `<p class="empty">No falta nada ✨<br><small>Lo que apuntéis aquí lo veis los dos al momento.</small></p>`}</section>
+    ${done.length ? `<details class="more block" data-k="shop-done"><summary>Comprado <small>${done.length}</small></summary>
+      <div class="stack tight">${done.map(shopRow).join('')}</div>
+      <button class="btn soft-berry sm block" data-act="shop-clear">${ic('trash-2')} Borrar lo comprado</button></details>` : ''}`;
+}
+/** Apunta lo escrito en un formulario de la compra (el de la pestaña o el de la hoja del ＋) y deja el campo listo. */
+function shopAdd(form) {
+  const inp = form && form.elements.t;
+  if (!inp) return;
+  const title = inp.value.trim().slice(0, 80);
+  if (!title) { toast('Escribe qué hace falta ✍️'); inp.focus(); return; }
+  S.be.add('shopping', { title, by: ME(), createdAt: Date.now(), doneAt: null, doneBy: null }).done.catch(err => toast(errMsg(err)));
+  inp.value = '';
+  toast(`Apuntado: ${title} 🛒`);
 }
 
 /* ---------------- Calendario de tareas ----------------
@@ -1086,6 +1137,13 @@ function calDaySheet(day) {
       : `<p class="empty">Ese día no hay nada apuntado.</p>`}
     <div class="stack" style="margin-top:12px">
       <button class="btn primary big" data-act="task-new-day" data-v="${day}">${ic('plus')} Nueva tarea para este día</button>
+      <details class="more" data-k="gcal"><summary>📅 A mi Google Calendar <small>cada uno al suyo</small></summary>
+        <div class="stack tight">
+          ${list.map(t => `<button class="btn sm wide" data-act="gcal" data-id="${t.id}" data-day="${day}">${esc(t.emoji || '🧹')} ${esc(t.title)}</button>`).join('')}
+          <button class="btn sm wide soft" data-act="gcal" data-day="${day}">${ic('plus')} Apuntar otra cosa ese día</button>
+        </div>
+        <p class="muted small">Se abre tu Google Calendar con el evento listo para guardar. Cada uno lo añade al suyo: no se sincroniza solo.</p>
+      </details>
       <button class="btn soft" data-act="sheet-close">Cerrar</button>
     </div>
     <p class="muted small">Aquí solo se ve y se habla: la app no reparte ni cuenta quién hace más.</p>`;
@@ -1509,7 +1567,10 @@ function openSheet(html, { onMount, ctx } = {}) {
 function swapSheet(html, onMount) {
   const body = $('#sheet-root .sheet-body');
   if (!body) return openSheet(html, { onMount });
+  // Los desplegables siguen abiertos al repintar la hoja (la del día del calendario se repinta con cada cambio).
+  const abiertos = new Set($$('details[open]', body).map(detailsKey));
   body.innerHTML = html;
+  if (abiertos.size) $$('details', body).forEach(d => { if (abiertos.has(detailsKey(d))) d.open = true; });
   icons();
   onMount && onMount($('#sheet-root .sheet'));
 }
@@ -2308,6 +2369,7 @@ function taskForm(t, preset = {}) {
           <div class="emoji-row">${TASK_EMOJIS.map(e => `<button type="button" class="emo sm" data-act="set-emoji" data-target="tk-emoji" data-v="${e}">${e}</button>`).join('')}</div>
         </div></details>
       <button class="btn primary big" data-act="task-save" data-id="${isNew ? '' : t.id}">Guardar</button>
+      ${!isNew && t.due ? `<button class="btn soft" data-act="gcal" data-id="${t.id}" data-day="${esc(t.due)}">📅 A mi Google Calendar</button>` : ''}
       ${isNew ? '' : `<button class="btn soft-berry" data-act="task-delete" data-id="${t.id}">${ic('trash-2')} Borrar tarea</button>`}
     </div>`;
 }
@@ -2517,7 +2579,28 @@ const ACT = {
   'ptab': d => { S.ptab = d.v; render(); },
   'ptab-go': d => { S.tab = 'points'; S.ptab = d.v; S.enter = true; render(); },
   'task-filter': d => { S.taskFilter = d.v; render(); },
-  'task-view': d => { S.taskView = d.v === 'cal' ? 'cal' : 'list'; render(); },
+  'task-view': d => { S.taskView = ['cal', 'shop'].includes(d.v) ? d.v : 'list'; render(); },
+  /* lista de la compra (v0.13) */
+  'shop-go': () => { closeSheet(true); S.tab = 'tasks'; S.taskView = 'shop'; S.enter = true; render(); },
+  'shop-add': (d, el) => shopAdd(el.closest('form')),
+  'shop-toggle': d => {
+    const x = (S.data.shopping || []).find(s => s.id === d.id); if (!x) return;
+    S.be.update('shopping', x.id, x.doneAt ? { doneAt: null, doneBy: null } : { doneAt: Date.now(), doneBy: ME() }).catch(err => toast(errMsg(err)));
+    if (!x.doneAt) toast(`¡Comprado! ${x.title} 🛒`);
+  },
+  'shop-clear': async () => {
+    const done = (S.data.shopping || []).filter(x => x.doneAt);
+    if (!done.length) return;
+    if (!await askConfirm({ title: '¿Borrar lo comprado?', text: 'Se quita de la lista lo que ya está comprado. Lo que falta se queda.', ok: 'Borrar', danger: true })) return;
+    done.forEach(x => S.be.remove('shopping', x.id).catch(err => toast(errMsg(err))));
+    toast('Lista al día ✨');
+  },
+  /* Google Calendar (v0.13): abre el evento rellenado en el calendario de quien lo toca (no se sincroniza). */
+  'gcal': d => {
+    const t = d.id ? findTask(d.id) : null;
+    const url = L.gcalUrl({ title: t ? `${t.emoji || ''} ${t.title}`.trim() : '', date: d.day, details: t ? 'Tarea de casa · desde Xurripoints' : '' });
+    if (url) openExternal(url); else toast('Esa fecha no me cuadra 🤔');
+  },
   'cal-nav': d => { S.calMonth = L.addMonth(calMonthOf(), Number(d.v) || 0); render(); },
   'cal-today': () => { S.calMonth = L.ymd().slice(0, 7); render(); },
   'cal-day': d => openSheet(calDaySheet(d.v), { ctx: { calDay: d.v } }),
@@ -2746,6 +2829,10 @@ const ACT = {
     else if (k === 'task') openSheet(taskForm());
     else if (k === 'idea') openSheet(ideaForm());
     else if (k === 'save') savePick();
+    else if (k === 'shop') openSheet(`<h3 class="sheet-title">Algo que hace falta 🛒</h3>
+      <p class="muted">Va a la lista de la compra de los dos. Puedes apuntar varias cosas seguidas.</p>${shopForm()}
+      <button class="btn soft wide block" data-act="shop-go">${ic('list-checks')} Ver la lista</button>`,
+      { onMount: sh => setTimeout(() => { const i = $('.shop-form input', sh); if (i) i.focus(); }, 250) });
   },
   'split-default': () => openSheet(splitDefaultSheet(), {
     ctx: { onChange: updateDefaultPreview },
@@ -3332,6 +3419,7 @@ function addMenu() {
   ];
   const more = [
     ...(pts ? [['redeem', '🎟️', 'Pedir un favor', 'Con tus puntos'], ['reward', '🙌', `Lo ha hecho ${pname()}`, 'Apúntaselo tú'], ['idea', '💡', 'Una idea', 'Peli, plan o comida']] : []),
+    ['shop', '🛒', 'Algo que hace falta', 'A la lista de la compra'],
     ['save', '🐷', 'Ahorrar', 'Poner dinero en una hucha'],
   ];
   return `<h3 class="sheet-title">¿Qué quieres apuntar?</h3>
