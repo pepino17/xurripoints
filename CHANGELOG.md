@@ -7,8 +7,11 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 
 ## [0.13.0] — 2026-10-27 · Lista de la compra, Google Calendar y los puntos de cada uno en Inicio
 
-Lo que pidió Joan el 2026-10-21 (menos enlazar las cuentas, que ya existe y solo falta conectar Firebase):
+Lo que pidió Joan el 2026-10-21:
 
+- 🔗 **Ya se pueden enlazar dos móviles de verdad**: **Firebase conectado** (proyecto `xurripoints-80808`, base de
+  datos en **Madrid**, cuentas con email + contraseña) y las reglas subidas. Se acaba la «versión de prueba»: cada uno
+  crea su cuenta en su móvil, uno crea la pareja y el otro se une con el código. La demo sigue para quien solo quiera mirar.
 - 🛒 **Lista de la compra compartida**: Tareas → **📋 Lista · 🗓️ Calendario · 🛒 Compra**. Un campo para apuntar
   («Leche, pilas…»), tocar = comprado (y se ve quién lo trajo, para no comprarlo dos veces), tocar otra vez = vuelve a
   la lista. Lo comprado va plegado con «Borrar lo comprado». También desde el **＋ → Más → «Algo que hace falta»**,
@@ -16,7 +19,7 @@ Lo que pidió Joan el 2026-10-21 (menos enlazar las cuentas, que ya existe y sol
   - Datos: `couples/{C}/shopping/{id}` = `{ title, by, createdAt, doneAt, doneBy }`. Entra en la escucha, en la
     copia descargable y en el borrado de la pareja. La demo trae 3 de ejemplo.
   - **Reglas nuevas** (`shopping`): solo miembros, a tu nombre al crear, texto de 1 a 80, no nace comprado, y al
-    marcarlo solo cambian `doneAt`/`doneBy` (a tu nombre). **Hay que volver a pegar las reglas en Firebase.**
+    marcarlo solo cambian `doneAt`/`doneBy` (a tu nombre). Ya subidas con `firebase deploy --only firestore:rules`.
 - 📅 **«A mi Google Calendar»** (gratis): en la hoja de una tarea con fecha y en la hoja de cada día del calendario
   (una por tarea + «Apuntar otra cosa ese día»). Abre Google Calendar con el evento de todo el día ya rellenado y
   cada uno lo guarda en **su** calendario. **No hay sincronización automática** (sin cuentas ni permisos de Google);

@@ -31,7 +31,10 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 - (2026-10-15) **Modo «casa» (v0.10)**: al empezar se pregunta **con quién compartes** (vivimos juntos / a distancia /
   compañeros de piso / familia) y la app cambia las **palabras** («tu pareja» → «tu compi de piso») y algún detalle
   (en piso, fuera «sugar mami/papi»). **El motor sigue siendo de 2 personas**; más gente sería otro proyecto.
-- (2026-10-21) Joan: **enlazar dos móviles** (ya existe: falta conectar Firebase), **lista de la compra compartida**,
+- (2026-10-27) **Firebase conectado**: proyecto `xurripoints-80808` (plan gratis Spark), Firestore en
+  **europe-southwest1 (Madrid)**, cuentas con email + contraseña. Las reglas se suben con
+  `firebase deploy --only firestore:rules` (`.firebaserc` ya apunta al proyecto; la sesión de `firebase login` es de Joan).
+- (2026-10-21) Joan: **enlazar dos móviles** (hecho al conectar Firebase), **lista de la compra compartida**,
   **Google Calendar** y **los puntos de cada uno más visibles en Inicio**. Google Calendar = **enlace que abre el
   evento rellenado** en el calendario de cada uno (gratis, sin cuentas ni permisos de Google; **no se sincroniza**).
   Los puntos de cada uno vuelven a Inicio **debajo de la meta juntos**, iguales y sin ganador (cuarta revisión de la
@@ -57,8 +60,9 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
 - **v0.13.0 (2026-10-27)**: lo que pidió Joan. Detalle en `CHANGELOG.md`.
+  - **Firebase conectado**: primera versión que enlaza dos móviles de verdad (adiós «versión de prueba»).
   - **Lista de la compra**: Tareas → Lista · Calendario · **Compra** (+ ＋ → Más → «Algo que hace falta» y «🛒 N cosas por
-    comprar» en Inicio). Colección `shopping` con reglas nuevas → **hay que volver a pegar las reglas en Firebase**.
+    comprar» en Inicio). Colección `shopping` con reglas nuevas (ya subidas).
   - **«A mi Google Calendar»** en la hoja de una tarea con fecha y en la hoja de cada día del calendario (`L.gcalUrl`).
   - **Los puntos de cada uno en Inicio** (lo que tiene cada uno para pedir favores), con guardas.
   - Pruebas: 99 de lógica · reglas y datos con la compra (CI) · humo de interfaz con 39 comprobaciones.
@@ -100,11 +104,9 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** para que los testers puedan descargar.
 - **Web:** https://pepino17.github.io/xurripoints/ (GitHub Pages desde `docs/`, sin Jekyll: `.nojekyll`).
-- **Pendiente de Joan:** crear el proyecto Firebase (`docs/FIREBASE.md`, región **Madrid**), pegar **las reglas nuevas**
-  (v0.9: catálogo, ingresos, nombre/emoji y color) y pasar la config → se pega en `app/firebase-config.js`, commit + push y sale el APK con sincronización.
+- **Pendiente de Joan:** probar con **los dos móviles** de verdad (crear cuentas, emparejar, salir de la pareja y
+  borrar cuenta: hasta la v0.13 solo se habían probado con la demo y el emulador de reglas).
   Para vender: **email de contacto** (hoy la web manda a GitHub Issues) y **Play Console** (`docs/PLAY_STORE.md`).
-  Hasta entonces, salir de la pareja / borrar cuenta / propuestas en la nube solo están probados con la demo y con
-  el emulador de reglas (no con un Firebase real).
 - Repo: `pepino17/xurripoints` (público). Cada release publica `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk` (nombre fijo).
 
 ## Arquitectura
@@ -200,7 +202,8 @@ solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
 - versionCode = mayor·10000 + menor·100 + parche, sacado del CHANGELOG. El build **falla** si esa versión ya está publicada.
 
 ## Siguientes pasos sugeridos
-1. Conectar Firebase (Joan, región Madrid), pegar las reglas nuevas y probar con los dos móviles (salir de la pareja y borrar cuenta incluidos).
+1. Probar con los dos móviles (salir de la pareja y borrar cuenta incluidos). Firebase ya está conectado (v0.13).
+   Con Firebase real: subir el código de pareja a 8 letras y activar **App Check** (ver deuda en `docs/IDEAS.md`).
 2. Email de contacto en la web + Play Console + prueba cerrada (12 testers × 14 días): `docs/PLAY_STORE.md`.
 3. Cobro real de Plus (RevenueCat + Cloud Function que escribe `couples/{C}.plus`): `docs/MONETIZACION.md`.
 4. Avisos push cuando la pareja propone o pide algo (FCM + Cloud Function, plan Blaze) → función estrella de Plus.

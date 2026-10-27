@@ -72,9 +72,8 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 ## De Joan (audio 2026-10-09 + WhatsApp 2026-10-08; apuntado 2026-10-14)
 > "Tinc pendent posar calendari i que es pugui connectar realment entre parelles."
 - ~~**Calendario**~~ → hecho en **v0.9.0** (Tareas → Lista · Calendario; ver `CHANGELOG.md`).
-- **Conectar de verdad entre parejas** (pendiente, prioritario): `app/firebase-config.js` sigue en `PEGA_AQUI` → la app
-  solo funciona en **modo demo**. Falta que Joan cree el proyecto Firebase (región Madrid) y pegue la config
-  (`docs/FIREBASE.md`) **y las reglas nuevas de la v0.9**. Es lo único que hoy impide usar la app en dos móviles.
+- ~~**Conectar de verdad entre parejas**~~ → hecho en **v0.13.0** (2026-10-27): Firebase conectado
+  (`xurripoints-80808`, Madrid) y reglas subidas. Falta probarlo con los dos móviles.
 - ~~**Ver los puntos de cada uno**~~ → hecho en **v0.9.0**, en Historial y con guardas (ver `docs/PSICOLOGIA.md`,
   "tercera revisión").
 - **Preguntas iniciales: ¿con quién compartes?** ~~No todas las parejas conviven…~~ → **hecho en v0.10.0**:
