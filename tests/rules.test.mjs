@@ -34,6 +34,12 @@ await env.clearFirestore();
 await t('crear una pareja propia', async () => {
   await assertSucceeds(setDoc(doc(db('alice'), 'couples', C), { ...seedCouple, code: C, members: ['alice'], profiles: { alice: P('alice') }, createdAt: 1, updatedAt: 1 }));
 });
+await t('los códigos nuevos son de 8 (v0.13.1): crear y unirse igual que con los de 6', async () => {
+  const C8 = 'ABCD2345';
+  await assertSucceeds(setDoc(doc(db('alice'), 'couples', C8), { ...seedCouple, code: C8, members: ['alice'], profiles: { alice: P('alice') }, createdAt: 1, updatedAt: 1 }));
+  await assertSucceeds(getDoc(doc(db('bob'), 'couples', C8)));
+  await assertSucceeds(updateDoc(doc(db('bob'), 'couples', C8), { members: ['alice', 'bob'], 'profiles.bob': P('bob'), updatedAt: 2 }));
+});
 await t('no se puede crear una pareja a nombre de otro', async () => {
   await assertFails(setDoc(doc(db('bob'), 'couples', 'ZZZ999'), { ...seedCouple, code: 'ZZZ999', members: ['alice'], profiles: {} }));
 });

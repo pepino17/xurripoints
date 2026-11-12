@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-10-27** (v0.13.0).
+> Última actualización: **2026-11-12** (v0.13.1).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -11,7 +11,7 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 
 ## Decisiones tomadas con Joan
 - (2026-09-28) **Dos móviles sincronizados con Firebase**. Cuenta con email + contraseña; se emparejan con un
-  **código de 6 caracteres**. Mientras no haya config de Firebase, la app arranca en **modo demo** ("versión de prueba").
+  **código de 6 caracteres** (de **8** desde la v0.13.1; los de 6 siguen valiendo). Mientras no haya config de Firebase, la app arranca en **modo demo** ("versión de prueba").
 - (2026-09-28) Reclamar una tarea cuenta sola en 24 h si la pareja no contesta (confianza por defecto); pedir un
   vale necesita respuesta. Al aceptar un vale, los puntos **pasan a la pareja**.
 - (2026-09-28) Estilo **tierno pastel** (crema, rosa, lila, mantequilla). Las 8 reglas de `docs/PSICOLOGIA.md` son obligatorias.
@@ -59,6 +59,8 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.13.1 (2026-11-12)**: **código de pareja de 8** para las parejas nuevas (`L.genCode`). Las de 6 siguen igual
+  (unirse, leer, escribir; sin migración): «Unirme» acepta 6 u 8 (`L.okCode`). Reglas sin cambios.
 - **v0.13.0 (2026-10-27)**: lo que pidió Joan. Detalle en `CHANGELOG.md`.
   - **Firebase conectado**: primera versión que enlaza dos móviles de verdad (adiós «versión de prueba»).
   - **Lista de la compra**: Tareas → Lista · Calendario · **Compra** (+ ＋ → Más → «Algo que hace falta» y «🛒 N cosas por
@@ -203,7 +205,7 @@ solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
 
 ## Siguientes pasos sugeridos
 1. Probar con los dos móviles (salir de la pareja y borrar cuenta incluidos). Firebase ya está conectado (v0.13).
-   Con Firebase real: subir el código de pareja a 8 letras y activar **App Check** (ver deuda en `docs/IDEAS.md`).
+   Con Firebase real: activar **App Check** (ver deuda en `docs/IDEAS.md`).
 2. Email de contacto en la web + Play Console + prueba cerrada (12 testers × 14 días): `docs/PLAY_STORE.md`.
 3. Cobro real de Plus (RevenueCat + Cloud Function que escribe `couples/{C}.plus`): `docs/MONETIZACION.md`.
 4. Avisos push cuando la pareja propone o pide algo (FCM + Cloud Function, plan Blaze) → función estrella de Plus.

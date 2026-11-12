@@ -508,7 +508,8 @@ button.set-row { cursor: pointer; }
 .or { display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: .85rem; }
 .or::before, .or::after { content: ''; flex: 1; height: 2px; background: var(--line); border-radius: 2px; }
 .join { display: flex; gap: 8px; }
-.code-inp { text-transform: uppercase; letter-spacing: .3em; font-weight: 700; text-align: center; font-size: 1.2rem; }
+/* 8 caracteres (v0.13.1) en un móvil de 360 sin que se corte el código, ni con letras anchas (W, M) */
+.code-inp { text-transform: uppercase; letter-spacing: .2em; font-weight: 700; text-align: center; font-size: 1rem; }
 .code-tiles { display: flex; justify-content: center; gap: 7px; margin: 18px 0 20px; }
 .code-tiles span {
   width: 44px; height: 56px; border-radius: 14px; background: #fff; display: grid; place-items: center;

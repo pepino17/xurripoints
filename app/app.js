@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.13.0';
+const VERSION = '0.13.1';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -677,7 +677,7 @@ function viewPair() {
       <button class="btn primary big" data-act="pair-create">${ic('heart-handshake')} ${esc(W().crear)}</button>
       <div class="or"><span>o tengo un código</span></div>
       <div class="join">
-        <input class="inp code-inp" id="join-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" autocomplete="off">
+        <input class="inp code-inp" id="join-code" maxlength="8" placeholder="XXXXXXXX" autocapitalize="characters" autocomplete="off">
         <button class="btn mint" data-act="pair-join">Unirme</button>
       </div>
       <button class="btn link" data-act="logout">Cerrar sesión</button>
@@ -698,7 +698,7 @@ function viewWait() {
     </div>
     <p class="muted small">Esperando a ${esc(W().la)}… <span class="dots"><i></i><i></i><i></i></span></p>
     <details class="more wait-join" data-k="wait-join"><summary>¿Ya la creó ${esc(W().la)}? <small>únete con su código</small></summary>
-      <div class="join"><input class="inp code-inp" id="join-code" maxlength="6" placeholder="XXXXXX" autocapitalize="characters" autocomplete="off">
+      <div class="join"><input class="inp code-inp" id="join-code" maxlength="8" placeholder="XXXXXXXX" autocapitalize="characters" autocomplete="off">
         <button class="btn mint" data-act="wait-join">Unirme</button></div>
     </details>
     <button class="btn link" data-act="logout">Cerrar sesión</button>
@@ -2609,7 +2609,7 @@ const ACT = {
   'retry': () => { if (S.user) onUser(S.user); },
   'wait-join': async (d, el) => {
     const code = $('#join-code').value.trim().toUpperCase();
-    if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
+    if (!L.okCode(code)) { toast('El código tiene 8 letras/números (o 6, si es de antes).'); return; }
     if (code === S.code) { toast(`Ese es tu propio código 😉 Pásaselo a ${W().la}.`); return; }
     const p = (S.data && S.data.couple && S.data.couple.profiles && S.data.couple.profiles[ME()]) || { name: 'Alguien', emoji: '🙂', sugar: 'mami', income: 0 };
     el.disabled = true;
@@ -2928,7 +2928,7 @@ const ACT = {
   },
   'pair-join': async (d, el) => {
     const code = $('#join-code').value.trim().toUpperCase();
-    if (code.length !== 6) { toast('El código tiene 6 letras/números.'); return; }
+    if (!L.okCode(code)) { toast('El código tiene 8 letras/números (o 6, si es de antes).'); return; }
     if (!needName()) return;
     const p = readProfile();
     el.disabled = true;

@@ -118,8 +118,8 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - **Plus**: la prueba gratis se puede reiniciar borrando la pareja y el reloj del móvil la alarga; y todo lo de Plus
   se decide en el cliente (el repo es público). Se cierra **cuando haya servidor**: App Check + Cloud Function +
   la marca de prueba en `users/{uid}`. Ver `docs/MONETIZACION.md`.
-- **Código de pareja de 6 letras (≈30 bits)**: subirlo a 8 cuando se conecte Firebase (entonces se puede probar el
-  emparejamiento de verdad) y activar **App Check**.
+- ~~**Código de pareja de 6 letras (≈30 bits)**: subirlo a 8~~ → hecho en **v0.13.1** (2026-11-12): los nuevos son de 8
+  (40 bits); los de 6 siguen valiendo, sin migración. Queda activar **App Check**.
 - **`app.js` en 3.200 líneas**: partir en `ui.js`, `sheets.js`, `state.js` y `views/`. Es la deuda más grande que
   queda; ahora hay 98 + 29 pruebas que lo cubrirían.
 - **Backend demo sin `createCouple`/`joinCouple`/`signUp`/`signIn`/`resetPassword`/`deleteAccount`**: hoy son
@@ -138,7 +138,7 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - **La demo no falla nunca**: los caminos de error (permiso denegado por las reglas) solo se ven en real. Conviviría
   con un modo "demo estricta" que aplique las mismas validaciones que las reglas.
 - **`allow get` con el código**: quien acierta el código de una pareja que espera lee el documento entero, con los
-  ingresos del que ya está. Se acepta (código de 6 caracteres con alfabeto de 32 = 1.000 millones de combinaciones
-  y `list: false`, así que no hay enumeración), pero se puede cerrar guardando los ingresos fuera del documento de la pareja.
+  ingresos del que ya está. Se acepta (código de 8 caracteres con alfabeto de 32 = más de 1 billón de combinaciones
+  desde la v0.13.1, 1.000 millones en los de 6 de antes, y `list: false`, así que no hay enumeración), pero se puede cerrar guardando los ingresos fuera del documento de la pareja.
 - **Avisos push** (sigue pendiente): FCM + Cloud Function; necesitan Firebase de verdad y plan Blaze.
 - **Widget de Android** con la meta y las tareas de hoy.

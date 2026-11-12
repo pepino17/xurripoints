@@ -73,7 +73,7 @@ Un plan para los dos: resumen del mes, gastos a Excel, revisión semanal, packs 
 
 🔒 Sin anuncios y sin vender vuestros datos. Nunca. Al borrar la cuenta se borra también lo que quedaba en el móvil.
 
-Cómo empezar: crea tu cuenta, crea vuestra casa y envía el código de 6 letras a la otra persona. ¿Solo quieres curiosear? Prueba el modo demo.
+Cómo empezar: crea tu cuenta, crea vuestra casa y envía el código de 8 letras a la otra persona. ¿Solo quieres curiosear? Prueba el modo demo.
 ```
 
 - **Categoría**: Estilo de vida · **Etiquetas**: pareja, tareas del hogar, gastos compartidos, compañeros de piso, organización.

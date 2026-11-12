@@ -7,13 +7,16 @@
 
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para no confundir
 
-export function genCode(len = 6) {
+// 8 desde la v0.13.1 (32^8 ≈ 1 billón). Las parejas de antes tienen 6 y siguen valiendo: ver okCode.
+export function genCode(len = 8) {
   let s = '';
   const buf = new Uint32Array(len);
   (globalThis.crypto || { getRandomValues: a => a.map(() => Math.floor(Math.random() * 2 ** 32)) }).getRandomValues(buf);
   for (let i = 0; i < len; i++) s += CODE_ALPHABET[buf[i] % CODE_ALPHABET.length];
   return s;
 }
+/** ¿Sirve para unirse? Los nuevos son de 8; los de 6 (parejas creadas hasta la v0.13.0) también. Ya en mayúsculas. */
+export function okCode(c) { return /^[A-Z0-9]{6}([A-Z0-9]{2})?$/.test(c); }
 
 export function uid8() { return Math.random().toString(36).slice(2, 10); }
 

@@ -67,7 +67,7 @@ Estos valores **no son secretos** (identifican el proyecto). La seguridad la pon
 ## Después
 1. Instala el APK nuevo en los **dos** móviles.
 2. Cada uno: **Crear cuenta** (email + contraseña).
-3. Uno pulsa **Crear nuestra pareja** → le sale un **código de 6 letras** → se lo envía al otro.
+3. Uno pulsa **Crear nuestra pareja** → le sale un **código de 8 letras** → se lo envía al otro (los de 6 de antes de la v0.13.1 siguen valiendo).
 4. El otro pone el código en **Tengo un código → Unirme**. ¡Listo! 💞
 5. Si antes probasteis la **demo**, al salir de ella la app pregunta si os lleváis las tareas, ideas, vales y
    huchas; se pasan al **crear** la pareja (interruptor "Traer lo de la demo").

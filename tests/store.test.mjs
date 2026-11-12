@@ -38,7 +38,7 @@ await t('crear cuentas', async () => {
 });
 await t('crear pareja y guardar el código en users/{uid}', async () => {
   code = await A.createCouple(prof('Alice'), seed);
-  assert.match(code, /^[A-HJ-NP-Z2-9]{6}$/);
+  assert.match(code, /^[A-HJ-NP-Z2-9]{8}$/);   // 8 desde la v0.13.1
   assert.equal(await A.getMyCoupleCode(), code);
 });
 await t('unirse con el código', async () => {
@@ -105,6 +105,13 @@ await t('borrar la cuenta de Bob (ya sin pareja)', async () => {
   await B.deleteAccount('secreto2');
   assert.equal(await exists(`users/${uid}`), false);
   await assert.rejects(B.signIn('bob@test.com', 'secreto2'));
+});
+await t('una pareja de antes (código de 6) sigue sirviendo para unirse', async () => {
+  await admin.withSecurityRulesDisabled(async ctx => {
+    await fbStore.setDoc(fbStore.doc(ctx.firestore(), 'couples', 'ABC234'), { ...seed, code: 'ABC234', members: ['viejo'], profiles: { viejo: prof('Viejo') }, createdAt: 1, updatedAt: 1 });
+  });
+  await X.joinCouple('abc234', prof('Carol'));
+  assert.equal(await X.getMyCoupleCode(), 'ABC234');
 });
 
 await Promise.all([A, B, X].map(x => fbApp.deleteApp(x.app).catch(() => { })));

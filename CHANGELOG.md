@@ -5,6 +5,15 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.13.1] — 2026-11-12 · Código de pareja de 8
+
+- 🔑 **Los códigos nuevos para emparejarse son de 8 letras/números** (antes 6): de 1.000 millones de combinaciones a
+  más de 1 billón, ahora que Firebase es de verdad. **Las parejas que ya existen siguen igual**: su código de 6 vale
+  para unirse, leer y escribir (sin migración). El campo «Unirme» acepta 6 u 8 (`L.okCode`) y
+  su letra es un poco más pequeña para que las 8 se vean enteras en un móvil de 360 px.
+- Reglas sin cambios (el código no tenía longitud fija). Pruebas: lógica (8, solo el alfabeto, y 6 sigue valiendo) ·
+  reglas (crear y unirse con 8) · datos (unirse a una pareja de antes con 6). Web, ficha de Play y `docs/FIREBASE.md` al día.
+
 ## [0.13.0] — 2026-10-27 · Lista de la compra, Google Calendar y los puntos de cada uno en Inicio
 
 Lo que pidió Joan el 2026-10-21:

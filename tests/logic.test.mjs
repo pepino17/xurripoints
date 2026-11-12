@@ -248,8 +248,15 @@ t('reparto automático: con cargas iguales empareja y no toca las tareas', () =>
   assert.equal(JSON.stringify(T), copia, 'no modifica la lista original');
 });
 
-t('códigos de pareja: 6 caracteres sin letras confusas', () => {
-  for (let i = 0; i < 200; i++) assert.match(L.genCode(), /^[A-HJ-NP-Z2-9]{6}$/);
+t('códigos de pareja: 8 caracteres sin letras confusas (y los de 6 de antes siguen valiendo)', () => {
+  for (let i = 0; i < 200; i++) {
+    const c = L.genCode();
+    assert.match(c, /^[A-HJ-NP-Z2-9]{8}$/);
+    assert.ok([...c].every(ch => L.CODE_ALPHABET.includes(ch)), c);
+    assert.ok(L.okCode(c), c);
+  }
+  assert.ok(L.okCode('ABC234'), 'un código de 6 (pareja de antes) sirve para unirse');
+  for (const mal of ['', 'ABC23', 'ABC2345', 'ABCD23456', 'ABC/34', 'abc234', 'ABC 2345']) assert.equal(L.okCode(mal), false, mal);
 });
 
 t('gastos fijos: qué meses faltan por apuntar', () => {
