@@ -54,7 +54,7 @@ Huchas para el viaje, el sofá nuevo o los imprevistos. Lo importante es el tota
 Pequeñas gracias que se guardan en vuestro tarro. Sin puntos: el cariño no tiene precio.
 
 🍿 PLANES Y JUEGOS
-Votad pelis, planes y comida y ved en qué coincidís. Decidid con moneda, dados o ruleta. Y juegos para dos en el mismo móvil.
+Votad pelis, planes y comida y ved en qué coincidís. Decidid con moneda, dados o ruleta (también con vuestras ideas). Y juegos para dos en el mismo móvil: Memory en equipo, «¿Cuánto me conoces?», tres en raya, conecta 4 y más.
 
 🪙 PUNTOS Y FAVORES
 Las tareas dan xurripoints para pediros favores (nunca permisos). En Inicio veis lo que tiene cada uno para pedir favores, y en el historial lo que aporta cada uno. ¿No os van? Se pausan con un toque.

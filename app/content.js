@@ -97,5 +97,29 @@ export const QUESTION_PACKS = [
   ]],
 ];
 
+/** Memory (v0.15): cosas de casa y de estar juntos. Cada partida usa 8 al azar. */
+export const MEMORY_EMOJIS = ['🏠', '🛋️', '🍝', '🧺', '🪴', '🐾', '☕', '🍿', '🎲', '🧸', '🛁', '🍰', '🎧', '🌙', '💞', '🍕'];
+
+/** «¿Cuánto me conoces?» (v0.15, gratis): quien contesta habla de sí; el otro apuesta antes en voz alta.
+   Gustos, manías y recuerdos. Nada de dinero, discusiones, ex ni heridas típicas, y que valga también
+   para compis de piso y familia (nada romántico). */
+export const KNOW_ME = [
+  '¿Cuál es mi comida favorita?', '¿Qué pido siempre en un bar o cafetería?', '¿Cuál es mi postre preferido?',
+  '¿Qué comida no soporto?', '¿Cómo me gusta el café o lo que tomo por la mañana?', '¿Cuál es mi fruta favorita?',
+  '¿Qué serie o peli podría ver mil veces?', '¿Qué canción me sé de memoria?', '¿Qué grupo o artista me pone de buen humor?',
+  '¿Cuál es mi estación del año favorita?', '¿Playa o montaña?', '¿Qué color elegiría para pintar mi habitación?',
+  '¿Qué animal me gustaría tener (o tengo) de mascota?', '¿Qué hago lo primero al llegar a casa?', '¿Cuál es mi manía más rara?',
+  '¿Qué hago cuando no puedo dormir?', '¿Duermo con calcetines o sin?', '¿Qué lado del sofá es «el mío»?',
+  '¿Qué me pone de buen humor sin fallar?', '¿Qué hago para desconectar?', '¿Qué tarea de casa me molesta menos?',
+  '¿Qué palabra o expresión digo todo el rato?', '¿Qué me da más miedo: las arañas, las alturas o la oscuridad?',
+  '¿Qué superpoder elegiría?', '¿A qué país me iría de viaje mañana mismo?', '¿Cuál es mi plan ideal para un domingo?',
+  '¿Qué juego de mesa o videojuego me encanta?', '¿Qué deporte me gusta ver o practicar?', '¿Qué libro, cómic o saga me marcó?',
+  '¿Cuál era mi dibujo animado favorito de pequeño o pequeña?', '¿Qué quería ser de mayor cuando era peque?',
+  '¿Cuál es mi recuerdo favorito de las vacaciones de pequeño o pequeña?', '¿Qué olor me encanta?',
+  '¿Qué asignatura se me daba mejor en el cole?', '¿Qué plato me sale mejor en la cocina?', '¿Qué emoji uso más?',
+  '¿Madrugo o trasnocho?', '¿Qué me gustaría aprender este año?', '¿Qué pequeño capricho me alegra el día?',
+  '¿Qué lugar de la casa es mi favorito?', '¿Qué haría con una tarde libre para mí?',
+];
+
 /** Caras de los dados: posiciones (0-8, rejilla 3×3) con punto. */
 export const DIE_PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };

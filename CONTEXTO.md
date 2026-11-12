@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-11-12** (v0.14.0).
+> Última actualización: **2026-11-12** (v0.15.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -59,6 +59,10 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.15.0 (2026-11-12)**: ronda «juegos y dinámicas». **Memory** cooperativo (`L.memoryDeck`/`L.memoryTap`) y
+  **«¿Cuánto me conoces?»** (gratis, `KNOW_ME` en `content.js`) en Juntos → Jugar, con marcador de equipo y solo de la
+  partida · **ruleta con vuestras ideas** (Decidir → Ruleta, listas con ≥ 2 ideas sin hacer) · **logros de equipo**
+  (`L.teamAchievements`, 12, en Pareja → Vosotros, aviso suave la primera vez). Sin cambios en Firestore ni reglas.
 - **v0.14.0 (2026-11-12)**: ronda «interfaz». **Tema Oscuro gratis** (sigue al móvil si no se elige; `L.effectiveTheme`)
   y **tamaño de letra** normal / grande / muy grande (`xp_font`, escala el `html`). Contraste ≥ 4,5:1 medido; barra del
   sistema con iconos claros en oscuro. Sin cambios en Firestore ni reglas.
@@ -147,7 +151,10 @@ tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflow
   **«📅 A mi Google Calendar»** en la hoja de una tarea con fecha y, plegado, en la hoja del día (una por tarea + «otra cosa»).
 - **＋**: grandes = ya lo he hecho, gracias, gasto, nueva tarea (sin puntos: gracias, gasto, tarea, idea); "Más" = pedir
   un favor, lo ha hecho [pareja], idea, **algo que hace falta** (compra, v0.13), ahorrar.
-- **Pareja**: tarjeta ✨ Plus · Vosotros (**Tu perfil**, **Tu color**, tarro de gracias, código) · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
+- **Juntos → Jugar** (v0.15): tres en raya, conecta 4, piedra-papel-tijera, esto o aquello, ¿quién es más probable…?,
+  **Memory** (juntos contra los intentos), **¿Cuánto me conoces?** (Acertado / Casi / Esta no) y, con Plus, preguntas y
+  revisión semanal. **Decidir → Ruleta**: presets + «Con vuestras ideas guardadas» (pelis / planes / comida).
+- **Pareja**: tarjeta ✨ Plus · Vosotros (**Tu perfil**, **Tu color**, tarro de gracias, **logros de equipo** (v0.15), código) · Lo que acordáis (propuestas, repartos, catálogo, meta, puntos sí/no, historial) · Ayuda ·
   App (recordatorio, colores, tamaño de letra, recomendar, privacidad, versión) · Cuenta (descargar una copia, salir, borrar).
 - **Puntos y vales → Historial**: «**Lo que aportáis**» (lo sumado por cada uno y lo que tiene para pedir favores).
 - **Plus** (v0.8) se enseña con `needPlus('clave')`: Dinero → Este mes (resumen + Excel) · Juntos → Jugar (preguntas, revisión)
@@ -195,7 +202,9 @@ solo `[A-Za-z0-9_-]` (las reglas y `store.js` lo exigen).
 ## localStorage (por móvil)
 `xp_mode` (demo) · `xp_code_<uid>` · `xp_welcome_v2` · `xp_steps_off` · `xp_saw_vales` · `xp_hint_<pantalla>` ·
 `xp_theme` (colores: sin clave = sigue al móvil, `'fresa'` = el de siempre elegido; Neutro y Oscuro gratis, el resto Plus) ·
-`xp_font` (v0.14: `grande` | `muy`; sin clave = normal) · `xp_review_at` (última revisión semanal) ·
+`xp_font` (v0.14: `grande` | `muy`; sin clave = normal) ·
+`xp_logros_<código>` (v0.15: JSON con los ids de los logros de equipo ya vistos en este móvil; sin clave = la primera vez
+se guardan en silencio; sirve para avisar solo de los nuevos y para que un logro no se «pierda» si baja un contador) · `xp_review_at` (última revisión semanal) ·
 `xp_notify` (hora) · `xp_upd_at`/`xp_upd_v` · `xurripoints_demo_v1` (demo) · `xurripoints_demo_stash` (lo que se lleva de la demo).
 
 ## Firma del APK (actualizar sin desinstalar)

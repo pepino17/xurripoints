@@ -5,11 +5,11 @@
    ================================================================ */
 import { createBackend, hasFirebaseConfig, peekDemoStash, dropDemoStash } from './store.js';
 import * as L from './logic.js';
-import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS } from './content.js';
+import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUESTION_PACKS, MEMORY_EMOJIS, KNOW_ME } from './content.js';
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.14.0';
+const VERSION = '0.15.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -279,7 +279,7 @@ const HINTS = {
   home: ['🏠', 'Aquí manda la <b>meta juntos</b> y lo que espera tu respuesta. Debajo, lo que tiene <b>cada uno para pedir favores</b>: tócalo para ver los vales.'],
   tasks: ['🧽', 'Toca el <b>círculo</b> cuando hagas una tarea. <b>Libres</b>: las hace quien pueda. <b>Por turnos</b>: se van alternando solas. En <b>Calendario</b> ves lo que toca cada día y lo puedes pasar a <b>tu Google Calendar</b> (cada uno al suyo: no se sincroniza solo). Y en <b>Compra</b>, lo que hace falta en casa.'],
   money: ['💸', 'Apuntad lo que pagáis: cada gasto <b>se reparte solo</b> y aquí veis cuánto hay que cuadrar. En <b>Ahorro</b>, huchas para ahorrar juntos.'],
-  plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta. <b>Jugar</b>: juegos para dos en un móvil.'],
+  plans: ['🍿', '<b>Ideas</b>: votad pelis, planes y comida (si coincidís, ¡match!). <b>Decidir</b>: moneda, dados y ruleta (que se puede llenar con <b>vuestras ideas</b>). <b>Jugar</b>: juegos para dos en un móvil, como el <b>Memory</b> (juntos contra los intentos) o <b>¿Cuánto me conoces?</b> (uno contesta, el otro apuesta antes).'],
   points: ['🪙', 'Las tareas dan puntos y aquí los cambiáis por <b>favores</b>. Si {P} dice «ahora no», los puntos vuelven. En <b>Historial</b> tenéis <b>lo que aportáis</b> cada uno.'],
   couple: ['🤝', 'Lo que <b>acordáis</b> (repartos, precios, volver a los puntos) se cambia con una <b>propuesta</b>: cuando {P} dice que sí, cambia.'],
 };
@@ -413,6 +413,33 @@ function notifyNewRequests() {
     if (fresh) toast(`📝 ${pname()} ${fresh.text}`);
   }
   S.seenLogs = new Set(logs.map(l => l.id));
+  checkLogros();
+}
+
+/* ---------------- Logros de equipo (v0.15) ----------------
+   Siempre de los dos (L.teamAchievements). Lo ya visto se recuerda en este móvil (`xp_logros_<código>`):
+   así un logro no se «pierde» si luego se borra lo comprado o una tarea. */
+function logros() {
+  const key = 'xp_logros_' + (S.code || C().code || '');
+  let seen = null;
+  try { seen = JSON.parse(lsGet(key)); } catch (e) { /* nada */ }
+  if (!Array.isArray(seen)) seen = null;
+  return { key, seen, r: L.teamAchievements(S.data, MEMBERS(), { points: !noPoints(), seen: seen || [] }) };
+}
+/** Aviso suave la primera vez que se consigue uno. La primera vez que se mira (sin clave), se guarda en silencio. */
+function checkLogros() {
+  const { key, seen, r } = logros();
+  const fresh = seen ? r.done.filter(a => !seen.includes(a.id)) : [];
+  if (fresh.length) toast(`🏆 Logro de equipo: ${fresh[0].title}${fresh.length > 1 ? ` (y ${fresh.length - 1} más)` : ''}`);
+  if (!seen || fresh.length) lsSet(key, JSON.stringify([...(seen || []), ...(seen ? fresh : r.done).map(a => a.id)]));
+}
+function logrosSheet() {
+  const { r } = logros();
+  const item = (a, sub = '') => `<div class="hist"><span class="h-emoji">${a.emoji}</span><span class="h-body"><b>${esc(a.title)}</b>${sub ? `<small>${sub}</small>` : ''}</span></div>`;
+  return `<h3 class="sheet-title">Logros de equipo 🏆</h3>
+    <p class="muted">Lo que habéis hecho entre los dos. No caducan, no se pierden y no hay prisa.</p>
+    ${r.done.length ? `<div class="card list">${r.done.map(a => item(a)).join('')}</div>` : `<p class="empty">Todavía ninguno. El primero llega solo, haciendo cosas juntos 🌱</p>`}
+    ${r.next ? `<h4 class="h sm">Lo siguiente</h4><div class="card list">${item(r.next, `${num(r.next.have)} de ${num(r.next.need)}`)}</div>` : `<p class="muted center">¡Los tenéis todos! 💞</p>`}`;
 }
 
 /* ---------------- Reglas comunes: propuestas y avisos de cambios ----------------
@@ -1257,6 +1284,7 @@ function viewCouple() {
       ${row('home-sheet', '🏠', '¿Con quién compartes?', `${esc(L.homeLabel(home()))} · cambia las palabras de la app`)}
       <div class="set-row"><span class="sr-ic">${esc(q.emoji)}</span><span class="sr-body"><b>${esc(q.name)}</b><small>Sugar ${q.sugar === 'papi' ? 'papi 🕶️' : 'mami 💅'} · ${incomeTxt(q)}</small></span></div>
       ${row('quick', '🫙', 'Tarro de gracias', `${(S.data.thanks || []).length} gracias guardadas`, 'data-type="thanks"')}
+      ${(lg => row('logros', '🏆', 'Logros de equipo', `${lg.done.length} de ${lg.total} · lo que habéis hecho entre los dos`))(logros().r)}
       <div class="set-row"><span class="sr-ic">🔑</span><span class="sr-body"><b>Código para invitar</b><small class="mono">${esc(S.code || C().code || '')}</small></span></div>
     </section>
 
@@ -1944,8 +1972,11 @@ function openRoulette() {
 
 /* ---------------- JUNTOS · Decidir (moneda, dados, ruleta) ---------------- */
 const WHEEL_COLORS = ['#FFD3E0', '#E0D8FF', '#FFE7A0', '#C9EFDD', '#FFD9C2', '#F3D2F0'];
+/** Ideas sin hacer de una lista, listas para la ruleta (una coma partiría la idea en dos opciones). */
+const openIdeas = list => (S.data.ideas || []).filter(x => x.list === list && !x.doneAt).map(x => String(x.title || '').replace(/\s*[\n,]+\s*/g, ' · ').trim()).filter(Boolean);
 function wheelPreset(k) {
-  const open = list => (S.data.ideas || []).filter(x => x.list === list && !x.doneAt).map(x => x.title).slice(0, 12);
+  const open = list => openIdeas(list).slice(0, 12);
+  if (k.startsWith('list:')) return L.shuffle(openIdeas(k.slice(5))).slice(0, 12); // con más de 12, 12 al azar
   if (k === 'who') return [prof(ME()).name, pname()];
   if (k === 'cena') return open('comida').length >= 2 ? open('comida') : ['Pizza', 'Sushi', 'Tacos', 'Pasta'];
   if (k === 'peli') return open('pelis').length >= 2 ? open('pelis') : ['Comedia', 'Acción', 'Romántica', 'Documental'];
@@ -1990,6 +2021,8 @@ function toolHtml(k) {
     <div class="tool-head"><span class="tool-e">🎡</span><b>Ruleta</b></div>
     <div class="chips scroll">${[['who', '🙋 ¿Quién?'], ['cena', '🍽️ ¿Qué cenamos?'], ['peli', '🎬 ¿Qué vemos?'], ['plan', '📍 ¿Qué hacemos?'], ['yesno', '👍 Sí o no']]
       .map(([k, l]) => `<button class="chip" data-act="wheel-preset" data-v="${k}" ${S.spinning ? 'disabled' : ''}>${l}</button>`).join('')}</div>
+    ${(lists => lists.length ? `<p class="muted small">Con vuestras ideas guardadas:</p><div class="chips scroll">${lists.map(([k, e, l]) =>
+      `<button class="chip" data-act="wheel-preset" data-v="list:${k}" ${S.spinning ? 'disabled' : ''}>${e} ${l}</button>`).join('')}</div>` : '')(IDEA_LISTS.filter(([k]) => openIdeas(k).length >= 2))}
     <textarea class="inp" id="wh-opts" rows="3" placeholder="Escribe opciones: una por línea o separadas por comas" ${S.spinning ? 'readonly' : ''}>${esc(S.wheelText)}</textarea>
     <div class="wheel-wrap"><span class="wheel-pointer" aria-hidden="true"></span>${wheelHtml(opts)}
       <button class="wheel-hub" data-act="spin" ${opts.length < 2 || S.spinning ? 'disabled' : ''}>¡Girar!</button></div>
@@ -2063,6 +2096,8 @@ const GAMES = [
   ['rps', '✊✋✌️', 'Piedra, papel o tijera', 'Elige en secreto y pásale el móvil.'],
   ['tot', '🤔', 'Esto o aquello', '¿Coincidís? Cada uno elige en secreto.'],
   ['who', '🫵', '¿Quién es más probable…?', 'A la de tres, señalad a quién. Risas aseguradas.'],
+  ['memo', '🧠', 'Memory', 'Los dos juntos: encontrad las parejas.'],
+  ['know', '🔮', '¿Cuánto me conoces?', 'Uno contesta, el otro apuesta antes.'],
   ['qa', '💬', 'Preguntas para conoceros', 'Packs de preguntas para hablar sin móvil.', 'plus'],
   ['review', '🗓️', 'Revisión semanal', '10 minutos juntos para cuidar la semana.', 'plus'],
 ];
@@ -2087,6 +2122,9 @@ function newGame(g, prev) {
   if (g === 'rps') return { g, phase: 'p1', first: starter, starter, picks: {} };
   if (g === 'tot') return { g, deck: L.shuffle(totDeck()).slice(0, 7), i: 0, phase: 'p1', first: starter, starter, picks: {}, hits: 0 };
   if (g === 'qa') return qaGame(prev && prev.pack);
+  // Memory y ¿Cuánto me conoces?: cooperativos, sin ganador; el marcador es del equipo y solo de la partida.
+  if (g === 'memo') return { g, deck: L.memoryDeck(MEMORY_EMOJIS, 8), open: [], found: [], tries: 0 };
+  if (g === 'know') return { g, deck: L.shuffle(KNOW_ME).slice(0, 10), i: 0, who: starter, starter, hits: 0, almost: 0, end: false };
   return { g, deck: L.shuffle(whoDeck()), i: 0 };
 }
 function openGame(g) {
@@ -2158,6 +2196,33 @@ function renderGame() {
       <p class="g-status">${same ? '¡Coincidís! 💞' : 'Esta vez no 🙃'}</p>
       <button class="btn primary big wide" data-act="g-next">${G.i + 1 < G.deck.length ? 'Siguiente' : 'Ver resultado'}</button>`;
   }
+  if (G.g === 'memo') {
+    const done = G.found.length === G.deck.length;
+    const cards = G.deck.map((e, i) => {
+      const up = G.found.includes(i) || G.open.includes(i);
+      return `<button class="cell memo-card ${up ? 'up' : ''}" data-act="g-memo" data-i="${i}" ${up || done ? 'disabled' : ''} aria-label="${up ? esc(e) : `Carta ${i + 1}, boca abajo`}">${up ? esc(e) : ''}</button>`;
+    }).join('');
+    return `<h3 class="sheet-title">${title}</h3>
+      <p class="g-status">${done ? `¡Lo habéis sacado en ${G.tries} intentos! 💞` : `Parejas: ${G.found.length / 2} de ${G.deck.length / 2} · intentos: ${G.tries}`}</p>
+      <div class="memo">${cards}</div>
+      ${done ? `<p class="muted center">Juntos, como siempre. ¿Otra para bajar intentos?</p><button class="btn primary big wide" data-act="g-again">Otra partida</button>`
+        : `<p class="muted center">Destapad dos cartas: si son iguales, se quedan. Por turnos o a la vez, como queráis: jugáis en equipo 🤝</p>`}`;
+  }
+  if (G.g === 'know') {
+    const other = G.who === a ? b : a, n = G.deck.length;
+    if (G.end) {
+      return `<h3 class="sheet-title">${title}</h3><div class="big-emoji">${G.hits >= 7 ? '💞' : G.hits >= 4 ? '😊' : '🌱'}</div>
+        <p class="g-status">Os conocéis en ${G.hits} de ${n}</p>
+        <p class="muted center">${G.almost ? `Y ${G.almost} casi 🤏. ` : ''}${G.hits >= 7 ? '¡Os conocéis un montón!' : G.hits >= 4 ? 'Bastante… y aún queda por descubrir.' : 'Cuánto por descubrir todavía: eso es lo bonito.'}</p>
+        <p class="muted center">Es solo de esta partida: no se guarda.</p>
+        <button class="btn primary big wide" data-act="g-again">Otra ronda</button>`;
+    }
+    return `<h3 class="sheet-title">${title}</h3><p class="muted">Ronda ${G.i + 1} de ${n} · acertadas entre los dos: <b>${G.hits}</b></p>
+      <div class="who-card"><small>Contesta ${nm(G.who)}</small><b>${esc(G.deck[G.i])}</b></div>
+      <p class="muted center">Primero ${nm(other)} dice su apuesta en voz alta. Luego ${nm(G.who)} contesta 💬</p>
+      <div class="picks">${[['hit', '🎯', 'Acertado'], ['almost', '🤏', 'Casi'], ['miss', '🙃', 'Esta no']].map(([k, e, l]) =>
+        `<button class="pick-big" data-act="g-know" data-v="${k}"><span>${e}</span>${l}</button>`).join('')}</div>`;
+  }
   if (G.g === 'qa') {
     const p = QUESTION_PACKS.find(x => x[0] === G.pack) || QUESTION_PACKS[0];
     return `<h3 class="sheet-title">${title}</h3>
@@ -2188,6 +2253,22 @@ function playC4(c) {
   G.b = r.board; G.last = r.index;
   G.res = L.c4Winner(G.b);
   if (G.res) finishRound('c4', G.res); else G.turn = G.turn === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0];
+  vibrate(10); paintGame();
+}
+function playMemo(i) {
+  const G = S.game; if (!G || G.g !== 'memo') return;
+  const N = L.memoryTap(G, i); if (N === G) return;
+  S.game = N; vibrate(10);
+  if (N.found.length === N.deck.length) celebrate(['💞', '✨', '🏠']);
+  // Si no eran pareja, se tapan solas en un momento (si mientras tanto empezáis otra partida, no se toca).
+  else if (N.open.length === 2) setTimeout(() => { if (S.game === N) { S.game = { ...N, open: [] }; paintGame(); } }, 900);
+  paintGame();
+}
+function knowMark(v) {
+  const G = S.game; if (!G || G.g !== 'know' || G.end) return;
+  if (v === 'hit') { G.hits++; celebrate(['💞', '✨']); } else if (v === 'almost') G.almost++;
+  G.i++; G.who = G.who === MEMBERS()[0] ? MEMBERS()[1] : MEMBERS()[0]; // se van turnando para contestar
+  if (G.i >= G.deck.length) G.end = true;
   vibrate(10); paintGame();
 }
 function gamePick(v) {
@@ -3079,6 +3160,9 @@ const ACT = {
   /* jugar */
   'game-open': d => openGame(d.g),
   'g-ttt': d => playTtt(Number(d.i)),
+  'g-memo': d => playMemo(Number(d.i)),
+  'g-know': d => knowMark(d.v),
+  'logros': () => openSheet(logrosSheet()),
   'g-c4': d => playC4(Number(d.c)),
   'g-pick': d => gamePick(d.v),
   'g-ready': () => { S.game.phase = 'p2'; paintGame(); },

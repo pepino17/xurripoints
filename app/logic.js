@@ -535,6 +535,52 @@ export function weekStats({ tasks = [], thanks = [], ideas = [], expenses = [], 
   };
 }
 
+/* ---------------- Logros de equipo (v0.15) ----------------
+   Siempre de LOS DOS (regla 4): nada individual, nada que comparar, sin rachas que se pierdan (regla 1).
+   Salen de lo que ya está cargado; no se guarda nada en Firestore. Algunos contadores bajan si se borra algo
+   (tareas borradas, «Borrar lo comprado»): por eso la app suma lo ya visto en el móvil (`xp_logros_<código>`).
+   [id, emoji, título, métrica, cuántos, de puntos] — los de puntos no salen con los puntos en pausa. */
+export const TEAM_ACHIEVEMENTS = [
+  ['thanks1', '💛', 'El primer gracias en el tarro', 'thanks', 1],
+  ['tasks25', '🧽', '25 tareas hechas entre los dos', 'tasks', 25],
+  ['plan1', '📸', 'El primer plan hecho juntos', 'plans', 1],
+  ['match1', '💞', 'El primer match en Ideas', 'matches', 1],
+  ['jar1', '🐷', 'La primera hucha en marcha', 'jarsStarted', 1],
+  ['shop10', '🛒', '10 cosas de la compra traídas a casa', 'shopping', 10],
+  ['goal1', '🎯', 'La primera meta juntos conseguida', 'goals', 1, true],
+  ['plan10', '🍿', '10 planes hechos juntos', 'plans', 10],
+  ['tasks100', '🏡', '100 tareas hechas entre los dos', 'tasks', 100],
+  ['jarFull', '🎉', 'Una hucha llena', 'jarsFull', 1],
+  ['thanks50', '🫙', '50 gracias en el tarro', 'thanks', 50],
+  ['goal3', '🏆', '3 metas juntos conseguidas', 'goals', 3, true],
+];
+/** Contadores de equipo a partir de los datos cargados. */
+export function teamCounts({ tasks = [], thanks = [], ideas = [], shopping = [], jars = [], saves = [], points = [], couple = {} } = {}, members = [], now = Date.now()) {
+  // Tareas: las marcadas en Tareas + las apuntadas con puntos que no venían de una tarea (como weekStats).
+  const fromLog = tasks.reduce((s, t) => s + (Array.isArray(t.log) ? t.log.length : 0), 0);
+  const fromPoints = points.filter(t => (t.type === 'claim' || t.type === 'reward') && !t.taskId && effStatus(t, now) === 'approved').length;
+  return {
+    thanks: thanks.length,
+    tasks: fromLog + fromPoints,
+    plans: ideas.filter(x => x.doneAt).length,
+    matches: ideas.filter(x => ideaState(x, members).match).length,
+    shopping: shopping.filter(x => x.doneAt).length,
+    jarsStarted: jars.filter(j => jarSaved(saves, j.id) > 0).length,
+    jarsFull: jars.filter(j => Number(j.target) > 0 && jarSaved(saves, j.id) >= Number(j.target)).length,
+    goals: Array.isArray(couple.goalsDone) ? couple.goalsDone.length : 0,
+  };
+}
+/** Logros conseguidos y el siguiente (el que tenéis más cerca). `seen` = ids ya vistos en este móvil (cuentan
+    como conseguidos aunque el contador haya bajado). Con `points:false` no salen los logros de puntos. */
+export function teamAchievements(data, members, { points = true, seen = [] } = {}) {
+  const c = teamCounts(data, members);
+  const list = TEAM_ACHIEVEMENTS.filter(a => points || !a[5])
+    .map(([id, emoji, title, metric, need]) => ({ id, emoji, title, need, have: Math.min(c[metric] || 0, need), done: (c[metric] || 0) >= need || seen.includes(id) }));
+  const todo = list.filter(a => !a.done);
+  const next = todo.length ? todo.reduce((b, a) => (a.have / a.need > b.have / b.need ? a : b)) : null;
+  return { done: list.filter(a => a.done), next, total: list.length };
+}
+
 /* ---------------- Juegos para dos ---------------- */
 export const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 /** Tres en raya: {who, line} si alguien gana, {who:'draw'} si empate, null si sigue. */
@@ -578,4 +624,20 @@ export function shuffle(list, rnd) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+/* Memory cooperativo (v0.15): los dos juntos contra los intentos. Sin turnos, sin ganador. */
+/** Baraja de `pairs` parejas sacadas de `emojis` (cada una dos veces), en orden al azar. */
+export function memoryDeck(emojis, pairs = 8, rnd) {
+  const pick = shuffle(emojis, rnd).slice(0, pairs);
+  return shuffle([...pick, ...pick], rnd);
+}
+/** Destapar la carta i. G = { deck, open:[índices], found:[índices], tries }. Devuelve el estado nuevo.
+    Con dos destapadas que no son pareja se quedan a la vista: no se destapa otra hasta taparlas (open: []). */
+export function memoryTap(G, i) {
+  if (!(i >= 0 && i < G.deck.length) || G.found.includes(i) || G.open.includes(i) || G.open.length >= 2) return G;
+  const open = [...G.open, i];
+  if (open.length < 2) return { ...G, open };
+  const tries = G.tries + 1;
+  if (G.deck[open[0]] === G.deck[open[1]]) return { ...G, open: [], found: [...G.found, ...open], tries };
+  return { ...G, open, tries };
 }

@@ -5,6 +5,25 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.15.0] — 2026-11-12 · Juegos y dinámicas
+
+- 🧠 **Memory** (Juntos → Jugar): 8 parejas de cosas de casa, **cooperativo**: los dos juntos contra los intentos
+  («¡Lo habéis sacado en N intentos!»), sin turnos con ganador ni marcador por persona. No se guarda nada.
+  Cartas táctiles de más de 44 px en un móvil de 360, también con letra «muy grande» (`L.memoryDeck` / `L.memoryTap`).
+- 🔮 **«¿Cuánto me conoces?»** (gratis): uno contesta de sí en voz alta, el otro había dicho antes su apuesta; se marca a
+  mano «Acertado / Casi / Esta no». Marcador **de equipo** y solo de la partida («Os conocéis en 7 de 10»). 41 preguntas
+  amables en `content.js` (`KNOW_ME`): gustos, manías y recuerdos; nada de dinero, discusiones, ex ni nada romántico
+  (sirven también para compis de piso y familia).
+- 🎡 **Ruleta con vuestras ideas**: en Decidir → Ruleta, «Con vuestras ideas guardadas» carga de un toque las pelis,
+  planes o comida sin hacer (12 al azar si hay más). Una lista con menos de 2 ideas no se ofrece. Arreglado de paso: una
+  idea con comas («baile, cerámica…») ya no se parte en varias opciones de la ruleta.
+- 🏆 **Logros de equipo** (Pareja → Vosotros → Logros de equipo): 12 logros, **todos de los dos** («10 planes hechos
+  juntos», «50 gracias en el tarro»…), con «lo siguiente» y un aviso suave la primera vez que se consigue uno. Sin rachas,
+  sin nada individual y sin comparar. Salen de lo ya cargado (`L.teamAchievements`); lo visto se recuerda en el móvil
+  (`xp_logros_<código>`) para que no se «pierda» un logro si se borra lo comprado. Con los puntos en pausa no salen los de metas.
+- Sin cambios en Firestore ni en las reglas. Pruebas: 102 de lógica (Memory y logros) · humo de interfaz con los dos
+  juegos nuevos, la ruleta con lista y los logros.
+
 ## [0.14.0] — 2026-11-12 · Tema oscuro y letra más grande
 
 - 🌙 **Tema «Oscuro», gratis** (Pareja → App → Colores de la app, junto a Fresa y Neutro). **Si nunca has elegido

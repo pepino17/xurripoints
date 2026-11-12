@@ -207,6 +207,65 @@ async function recorrido(bv, url) {
   comprueba(await bv.js(`!!document.querySelector('#tk-title') && !!document.querySelector('#tk-due')`), 'el formulario de tarea sale completo');
   await bv.js(`document.querySelector('#sheet-root .scrim')?.click()`); await sleep(500);
 
+  console.log('\n6b) Juegos nuevos, ruleta con vuestras ideas y logros (v0.15)');
+  const cerrarHoja = async () => { await bv.js(`document.querySelector('#sheet-root .scrim')?.click()`); await sleep(500); };
+  await bv.js(`document.querySelector('.tab[data-tab="plans"]').click()`); await sleep(700);
+  await clicPorTexto(bv, '/jugar/i', '#app .seg button'); await sleep(500);
+  // Memory a 360 de ancho (y con la letra «muy grande» que viene de arriba)
+  await bv.send('Emulation.setDeviceMetricsOverride', { width: 360, height: 800, deviceScaleFactor: 1, mobile: true }); await sleep(300);
+  await bv.js(`document.querySelector('[data-act="game-open"][data-g="memo"]').click()`); await sleep(700);
+  comprueba(await bv.js(`document.querySelectorAll('#sheet-root .memo-card').length`) === 16, 'el Memory abre con 16 cartas');
+  const minCarta = await bv.js(`Math.min(...[...document.querySelectorAll('#sheet-root .memo-card')].map(c => Math.min(c.getBoundingClientRect().width, c.getBoundingClientRect().height)))`);
+  comprueba(minCarta >= 44, `las cartas miden ≥ 44 px a 360 con letra muy grande (${Math.round(minCarta)} px)`);
+  comprueba(await bv.js(`document.documentElement.scrollWidth <= innerWidth`), 'el Memory no hace scroll de lado');
+  // Una partida entera, recordando lo que se ve (como haría una persona con buena memoria)
+  const fin = await bv.js(`(async () => {
+    const sl = ms => new Promise(r => setTimeout(r, ms));
+    const cards = () => [...document.querySelectorAll('#sheet-root .memo-card')];
+    const seen = {};
+    const tap = async i => { cards()[i].click(); await sl(60); return cards()[i].getAttribute('aria-label'); };
+    for (let guard = 0; guard < 80; guard++) {
+      const down = cards().map((c, i) => c.disabled ? -1 : i).filter(i => i >= 0);
+      if (!down.length) break;
+      const pair = Object.values(seen).map(l => l.filter(i => down.includes(i))).find(l => l.length === 2);
+      if (pair) { await tap(pair[0]); await tap(pair[1]); continue; }
+      const nuevo = down.filter(i => !Object.values(seen).flat().includes(i));
+      const i = nuevo[0], e = await tap(i); (seen[e] = seen[e] || []).push(i);
+      const j = (seen[e].find(x => x !== i && down.includes(x))) ?? nuevo[1];
+      const e2 = await tap(j); if (!(seen[e2] || []).includes(j)) (seen[e2] = seen[e2] || []).push(j);
+      if (e2 !== e) await sl(1100);
+    }
+    return (document.querySelector('#sheet-root .g-status') || {}).textContent || '';
+  })()`);
+  comprueba(/lo habéis sacado en \d+ intentos/i.test(fin), `una partida de Memory entera: «${fin.trim()}»`);
+  await cerrarHoja();
+  await bv.send('Emulation.setDeviceMetricsOverride', { width: 412, height: 900, deviceScaleFactor: 1, mobile: true }); await sleep(300);
+  // ¿Cuánto me conoces?: 10 rondas marcadas a mano
+  await bv.js(`document.querySelector('[data-act="game-open"][data-g="know"]').click()`); await sleep(700);
+  comprueba(await bv.js(`document.querySelectorAll('#sheet-root [data-act="g-know"]').length`) === 3, '«¿Cuánto me conoces?» abre con Acertado / Casi / Esta no');
+  for (let r = 0; r < 10; r++) { await bv.js(`document.querySelector('#sheet-root [data-act="g-know"][data-v="${['hit', 'almost', 'miss'][r % 3]}"]').click()`); await sleep(120); }
+  const conoceis = await bv.js(`(document.querySelector('#sheet-root .g-status') || {}).textContent || ''`);
+  comprueba(/os conocéis en 4 de 10/i.test(conoceis), `al acabar, el marcador es del equipo: «${conoceis.trim()}»`);
+  await cerrarHoja();
+  // Ruleta cargada con una lista de ideas
+  await clicPorTexto(bv, '/decidir/i', '#app .seg button'); await sleep(500);
+  await bv.js(`document.querySelector('[data-act="tool-open"][data-v="wheel"]').click()`); await sleep(700);
+  const listas = await bv.js(`document.querySelectorAll('#sheet-root [data-act="wheel-preset"][data-v^="list:"]').length`);
+  comprueba(listas > 0, `la ruleta ofrece vuestras listas (${listas})`);
+  await bv.js(`document.querySelector('#sheet-root [data-act="wheel-preset"][data-v^="list:"]').click()`); await sleep(400);
+  const opciones2 = await bv.js(`document.querySelectorAll('#sheet-root .wl-label').length`);
+  comprueba(opciones2 >= 2, `la ruleta se carga con las ideas guardadas (${opciones2} opciones)`);
+  await bv.js(`document.querySelector('#sheet-root [data-act="spin"]').click()`); await sleep(3800);
+  comprueba((await bv.js(`document.querySelector('#wh-res').textContent`)).includes('🎉'), 'la ruleta con la lista gira y elige');
+  await cerrarHoja();
+  // Logros de equipo
+  await bv.js(`document.querySelector('.duo').click()`); await sleep(800);
+  comprueba(await clicPorTexto(bv, '/logros de equipo/i', '.set-row') === 'ok', 'en Vosotros está «Logros de equipo»');
+  await sleep(500);
+  comprueba(/logros de equipo/i.test(await bv.js(`(document.querySelector('#sheet-root.open .sheet-title') || {}).textContent || ''`)), 'la hoja de logros se abre');
+  comprueba(await bv.js(`document.querySelectorAll('#sheet-root .hist').length`) >= 1, 'enseña lo conseguido o lo siguiente');
+  await cerrarHoja();
+
   console.log('\n7) Iconos y errores');
   const svgs = await bv.js(`document.querySelectorAll('svg.lucide').length`);
   comprueba(svgs > 5, `los iconos se pintan en línea (${svgs})`);

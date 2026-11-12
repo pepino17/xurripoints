@@ -792,6 +792,10 @@ body:not([data-phase="app"]) #toast-root { bottom: calc(24px + var(--safe-b)); }
 .cell.b { background: var(--b-soft); }
 .cell.win { box-shadow: 0 0 0 3px var(--butter-deep), 0 3px 0 var(--line-2); animation: glow 1.2s ease-in-out infinite; }
 .cell:disabled { cursor: default; }
+/* Memory (v0.15): 4 × 4; boca abajo, lila suave (en oscuro, el lila oscuro de applyColors). */
+.memo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 340px; margin: 0 auto 14px; }
+.memo-card { min-width: 44px; min-height: 44px; font-size: 2rem; background: var(--b-soft); padding: 0; }
+.memo-card.up { background: var(--card); animation: pop .25s cubic-bezier(.3, 1.6, .5, 1) both; }
 .c4 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px; border-radius: 20px; background: linear-gradient(160deg, #B9A9F7, #9C8CF0); max-width: 360px; margin: 0 auto 16px; }
 .c4-cell { aspect-ratio: 1; border: 0; background: none; padding: 3px; cursor: pointer; }
 .disc { display: block; width: 100%; height: 100%; border-radius: 50%; background: #F4F0FF; box-shadow: inset 0 3px 4px rgba(60, 40, 120, .3); }

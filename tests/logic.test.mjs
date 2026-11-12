@@ -1222,6 +1222,71 @@ t('tema: si nunca se eligió sigue al móvil; si se eligió, manda la elección'
   assert.equal(L.effectiveTheme('oscuro', false), 'oscuro');
 });
 
+t('memory: baraja de parejas y destapar (cooperativo, cuenta intentos)', () => {
+  const E = ['🏠', '🍝', '🪴', '🐾', '☕', '🍿', '🎲', '🧸', '🛁', '🍰'];
+  const deck = L.memoryDeck(E, 8);
+  assert.equal(deck.length, 16);
+  const counts = {};
+  deck.forEach(e => { counts[e] = (counts[e] || 0) + 1; });
+  assert.equal(Object.keys(counts).length, 8, '8 emojis distintos');
+  assert.ok(Object.values(counts).every(v => v === 2), 'cada uno dos veces');
+  assert.ok(Object.keys(counts).every(e => E.includes(e)));
+  // Partida con una baraja conocida
+  let G = { deck: ['x', 'y', 'x', 'y'], open: [], found: [], tries: 0 };
+  G = L.memoryTap(G, 0);
+  assert.deepEqual(G.open, [0]);
+  assert.equal(L.memoryTap(G, 0), G, 'tocar la misma carta no hace nada');
+  G = L.memoryTap(G, 1);
+  assert.deepEqual([G.open, G.tries], [[0, 1], 1], 'fallo: se quedan a la vista y suma un intento');
+  assert.equal(L.memoryTap(G, 2), G, 'con dos a la vista no se destapa otra');
+  G = { ...G, open: [] };
+  G = L.memoryTap(L.memoryTap(G, 0), 2);
+  assert.deepEqual([G.open, G.found, G.tries], [[], [0, 2], 2], 'pareja: se quedan descubiertas');
+  assert.equal(L.memoryTap(G, 2), G, 'una ya encontrada no se vuelve a destapar');
+  assert.equal(L.memoryTap(G, 9), G, 'fuera de la baraja, nada');
+  G = L.memoryTap(L.memoryTap(G, 1), 3);
+  assert.equal(G.found.length, G.deck.length, 'partida acabada');
+  assert.equal(G.tries, 3);
+});
+
+t('logros de equipo: de los dos, con el siguiente, sin los de puntos en pausa y sin perder lo visto', () => {
+  const vacio = L.teamAchievements({}, M);
+  assert.equal(vacio.done.length, 0);
+  assert.equal(vacio.total, L.TEAM_ACHIEVEMENTS.length);
+  assert.ok(vacio.next, 'siempre hay un siguiente al empezar');
+  const D = {
+    thanks: [{}, {}],
+    tasks: [{ log: [{}, {}, {}] }, { log: Array(20).fill({}) }, { log: null }],
+    points: [
+      { type: 'claim', from: null, to: 'a', amount: 5, status: 'approved' },           // apuntada sin tarea: cuenta
+      { type: 'claim', from: null, to: 'b', amount: 5, status: 'approved', taskId: 't' }, // de una tarea: ya está en su log
+      { type: 'claim', from: null, to: 'b', amount: 5, status: 'rejected' },
+      { type: 'redeem', from: 'a', to: 'b', amount: 5, status: 'approved' },
+    ],
+    ideas: [{ doneAt: 1 }, { votes: { a: 1, b: 1 } }, { votes: { a: 1 } }],
+    shopping: Array(10).fill({ doneAt: 1 }),
+    jars: [{ id: 'j', target: 100 }, { id: 'k', target: 0 }],
+    saves: [{ jar: 'j', amount: 100 }],
+    couple: { goalsDone: [{ title: 'x' }] },
+  };
+  const c = L.teamCounts(D, M);
+  assert.deepEqual(c, { thanks: 2, tasks: 24, plans: 1, matches: 1, shopping: 10, jarsStarted: 1, jarsFull: 1, goals: 1 });
+  const r = L.teamAchievements(D, M);
+  const ids = r.done.map(a => a.id);
+  assert.deepEqual(ids.sort(), ['goal1', 'jar1', 'jarFull', 'match1', 'plan1', 'shop10', 'thanks1'].sort());
+  assert.equal(r.next.id, 'tasks25', 'el siguiente es el que tenéis más cerca (24 de 25)');
+  assert.equal(r.next.have, 24);
+  // Puntos en pausa: fuera los logros de metas
+  const sin = L.teamAchievements(D, M, { points: false });
+  assert.ok(sin.done.every(a => !a.id.startsWith('goal')) && sin.total === L.TEAM_ACHIEVEMENTS.filter(a => !a[5]).length);
+  // Lo ya visto en el móvil sigue conseguido aunque se borre lo comprado
+  const borrado = { ...D, shopping: [] };
+  assert.ok(!L.teamAchievements(borrado, M).done.some(a => a.id === 'shop10'));
+  assert.ok(L.teamAchievements(borrado, M, { seen: ['shop10'] }).done.some(a => a.id === 'shop10'));
+  // Nada individual: ningún logro habla de una persona
+  assert.ok(L.TEAM_ACHIEVEMENTS.every(([, , title]) => !/\b(tú|tu |has |más que)\b/i.test(title)));
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

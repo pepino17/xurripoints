@@ -108,6 +108,14 @@ Si se usa para comparar o reprochar, la salida es la misma: **pausar los puntos*
 **Lista de la compra (v0.13)**: sin puntos y sin recuento de quién compra más. Solo pone quién lo apuntó y quién lo
 trajo (para no comprarlo dos veces). Es cooperar: cualquiera apunta, cualquiera lo trae.
 
+## Juegos y logros (v0.15, 2026-11-12): en equipo
+
+| Qué | Cómo | Por qué |
+|---|---|---|
+| **Memory** | Cooperativo: los dos juntos contra los intentos («lo habéis sacado en N»). Sin turnos con ganador ni marcador por persona; no se guarda. | Ganar juntos un reto suma interacciones positivas sin que nadie pierda (Gottman, 1994; regla 4). |
+| **«¿Cuánto me conoces?»** | Marcador **de equipo** («os conocéis en 7 de 10») y solo de la partida. Preguntas de gustos, manías y recuerdos; nada de dinero, discusiones ni ex. | Interesarse por el mundo del otro (el «mapa del amor») acerca; un examen con nota individual, no. |
+| **Logros de equipo** | Siempre «entre los dos», nunca individuales; sin rachas ni fechas; no se pierden (lo visto se recuerda); con los puntos en pausa no salen los de metas. | Celebrar lo hecho juntos refuerza el «nosotros» (Karan et al., 2019) sin culpa por romper una racha (regla 1) ni comparar (regla 4). |
+
 ## Reglas de diseño (obligatorias para futuras versiones)
 
 1. **Nada de castigos**: ni multas, ni restar puntos, ni rachas que se pierden con culpa.

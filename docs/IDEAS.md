@@ -31,8 +31,9 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 
 ## Juntos (juegos y decidir)
 - Juegos **a distancia** (cada uno en su móvil, sincronizado): tres en raya, conecta 4, preguntas.
-- Más juegos: memory de parejas, trivial "¿cuánto me conoces?", dibujar y adivinar.
-- Ruleta con vuestras listas guardadas (sin tener que escribirlas).
+- Más juegos: ~~memory de parejas~~, ~~trivial "¿cuánto me conoces?"~~ → hechos en **v0.15.0** (Memory cooperativo y
+  «¿Cuánto me conoces?» con marcador de equipo). Queda: dibujar y adivinar.
+- ~~Ruleta con vuestras listas guardadas (sin tener que escribirlas)~~ → hecho en **v0.15.0** (Decidir → Ruleta).
 
 ## Ahorro
 - Aportación fija cada mes a una hucha (como los gastos fijos).
@@ -40,7 +41,8 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 
 ## Economía de puntos
 - Vales con cantidad limitada ("solo 2 al mes") o con fecha de caducidad.
-- Logros de equipo (nunca individuales): "10 planes hechos juntos", "primera meta conseguida"…
+- ~~Logros de equipo (nunca individuales): "10 planes hechos juntos", "primera meta conseguida"…~~ → hecho en
+  **v0.15.0** (Pareja → Vosotros → Logros de equipo, 12 logros de los dos).
 - ~~Modo sin puntos~~ → hecho en v0.7.0 (pausar al momento; reactivar = propuesta).
 
 ## Conexión (más allá de los puntos)
