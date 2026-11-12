@@ -40,6 +40,20 @@ await t('los códigos nuevos son de 8 (v0.13.1): crear y unirse igual que con lo
   await assertSucceeds(getDoc(doc(db('bob'), 'couples', C8)));
   await assertSucceeds(updateDoc(doc(db('bob'), 'couples', C8), { members: ['alice', 'bob'], 'profiles.bob': P('bob'), updatedAt: 2 }));
 });
+await t('crear: solo con un código de 6 u 8 letras/números en mayúscula (v0.15.1)', async () => {
+  for (const mal of ['abc234', 'ABC23', 'ABCD234', 'ABC-234', 'ABCD23456', 'X'.repeat(80)])
+    await assertFails(setDoc(doc(db('alice'), 'couples', mal), { ...seedCouple, code: mal, members: ['alice'], profiles: { alice: P('alice') }, createdAt: 1, updatedAt: 1 }));
+});
+await t('…pero solo al crear: una pareja que ya existe sigue igual aunque su código no cumpla', async () => {
+  const V = 'viejo-1';
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'couples', V), { ...seedCouple, code: V, members: ['alice'], profiles: { alice: P('alice') }, createdAt: 1, updatedAt: 1 });
+  });
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', V), { 'profiles.alice.name': 'Ali', updatedAt: 2 }));
+  await assertSucceeds(getDoc(doc(db('bob'), 'couples', V)));
+  await assertSucceeds(updateDoc(doc(db('bob'), 'couples', V), { members: ['alice', 'bob'], 'profiles.bob': P('bob'), updatedAt: 3 }));
+  await assertSucceeds(setDoc(doc(db('bob'), `couples/${V}/points/q1`), pt({ to: 'bob', createdBy: 'bob' })));
+});
 await t('no se puede crear una pareja a nombre de otro', async () => {
   await assertFails(setDoc(doc(db('bob'), 'couples', 'ZZZ999'), { ...seedCouple, code: 'ZZZ999', members: ['alice'], profiles: {} }));
 });
@@ -163,6 +177,23 @@ await t('gastos fijos, huchas, aportaciones e ideas', async () => {
   await assertSucceeds(setDoc(doc(db('bob'), `couples/${C}/saves/s1`), { jar: 'j1', by: 'bob', amount: -500, note: '', date: '2026-09-29', createdAt: 1 }));
   await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/ideas/i1`), { list: 'pelis', title: 'Ghibli', note: '', votes: {}, createdBy: 'alice', createdAt: 1, doneAt: null }));
   await assertSucceeds(updateDoc(doc(db('bob'), `couples/${C}/ideas/i1`), { 'votes.bob': 1 }));
+});
+await t('textos que se pintan en el otro móvil: con tope holgado (v0.15.1)', async () => {
+  // Lo más largo que escribe la app (notas de 140 y 60, respuesta de 100, meta de 40) entra de sobra.
+  const idea = note => ({ list: 'planes', title: 'Cerámica', note, votes: {}, createdBy: 'alice', createdAt: 1, doneAt: null });
+  await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/ideas/i8`), idea('ñ'.repeat(140))));
+  await assertFails(setDoc(doc(db('alice'), `couples/${C}/ideas/i9`), idea('n'.repeat(501))));
+  const save = note => ({ jar: 'j1', by: 'bob', amount: 500, note, date: '2026-11-12', createdAt: 1 });
+  await assertSucceeds(setDoc(doc(db('bob'), `couples/${C}/saves/s8`), save('ñ'.repeat(60))));
+  await assertFails(setDoc(doc(db('bob'), `couples/${C}/saves/s9`), save('n'.repeat(301))));
+  await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/points/p20`), pt({ note: 'ñ'.repeat(140) })));
+  await assertFails(setDoc(doc(db('alice'), `couples/${C}/points/p21`), pt({ note: 'n'.repeat(501) })));
+  await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/points/p22`), pt()));
+  await assertFails(updateDoc(doc(db('bob'), `couples/${C}/points/p22`), { status: 'rejected', resolvedAt: 2, resolvedBy: 'bob', reply: 'n'.repeat(501) }));
+  await assertSucceeds(updateDoc(doc(db('bob'), `couples/${C}/points/p22`), { status: 'rejected', resolvedAt: 2, resolvedBy: 'bob', reply: 'ñ'.repeat(100) }));
+  const goal = title => ({ goal: { title, emoji: '🏖️', target: 500, since: 1 }, updatedAt: 10 });
+  await assertSucceeds(updateDoc(doc(db('alice'), 'couples', C), goal('ñ'.repeat(40))));
+  await assertFails(updateDoc(doc(db('alice'), 'couples', C), goal('n'.repeat(201))));
 });
 await t('gracias: las escribo yo; mi pareja solo marca "visto"', async () => {
   await assertSucceeds(setDoc(doc(db('alice'), `couples/${C}/thanks/g1`), { from: 'alice', to: 'bob', text: 'Por la cena', emoji: '🍝', createdAt: 1, seenAt: null, reaction: null }));

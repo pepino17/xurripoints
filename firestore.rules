@@ -64,7 +64,8 @@ service cloud.firestore {
               // Reparto de gastos (v0.12): el modo y el porcentaje de la app, y «sugar» solo si es de la pareja.
               // Sin esto, un cliente modificado se ponía un 0 % y el otro pagaba todo sin aviso.
               && (!('split' in d.settings) || d.settings.split == null || okSplit(d))))
-          && (!('goal' in d) || d.goal == null || isInt(d.goal.target, 1, 100000))
+          // Meta: la app escribe títulos de 40 como mucho (v0.15.1: tope holgado de 200).
+          && (!('goal' in d) || d.goal == null || (isInt(d.goal.target, 1, 100000) && optStr(d.goal, 'title', 200)))
           && okCatalog(d)
           && okProfiles(d);
       }
@@ -97,7 +98,10 @@ service cloud.firestore {
         || (resource.data.members.size() < 2 && !('closedAt' in resource.data)));
       allow list: if false;
 
+      // Crear: solo con un código como los de la app (6 de antes u 8 desde la v0.13.1). Solo al crear:
+      // las parejas que ya existen se leen, se unen y se escriben igual (v0.15.1).
       allow create: if signedIn()
+        && code.matches('^([A-Z0-9]{6}|[A-Z0-9]{8})$')
         && request.resource.data.code == code
         && request.resource.data.members == [me()]
         && !('plus' in request.resource.data)
@@ -149,6 +153,7 @@ service cloud.firestore {
           && request.resource.data.amount > 0
           && request.resource.data.amount <= 10000
           && optStr(request.resource.data, 'title', 80)
+          && optStr(request.resource.data, 'note', 500)   // la app: 140 como mucho
           // La fecha la pone el móvil de quien escribe, pero no puede venir del pasado: si no, una
           // reclamación nacería "caducada" y contaría sola al momento (2 h de margen por el reloj del móvil).
           && request.resource.data.createdAt is int
@@ -174,6 +179,7 @@ service cloud.firestore {
         allow update: if isMember(code)
           && resource.data.status == 'pending'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'resolvedBy', 'reply'])
+          && optStr(request.resource.data, 'reply', 500)  // la app: 100 como mucho
           && (
             // la pareja decide
             (me() != resource.data.createdBy && request.resource.data.status in ['approved', 'rejected'])
@@ -217,6 +223,7 @@ service cloud.firestore {
         allow read, delete: if isMember(code);
         allow create, update: if isMember(code) && okId(id)
           && isStr(request.resource.data.title, 120)
+          && optStr(request.resource.data, 'note', 500)   // la app: 140 como mucho
           && request.resource.data.list in ['pelis', 'planes', 'comida'];
       }
       // Ahorro: huchas y sus aportaciones/retiradas (céntimos; retirada = negativo).
@@ -230,6 +237,7 @@ service cloud.firestore {
         allow read, delete: if isMember(code);
         allow create, update: if isMember(code) && okId(id)
           && request.resource.data.jar is string
+          && optStr(request.resource.data, 'note', 300)   // la app: 60 como mucho
           && isInt(request.resource.data.amount, -10000000000, 10000000000);
       }
       // Tarro de gracias (sin puntos). Lo escribe quien agradece; quien lo recibe solo marca "visto"/reacción.

@@ -29,6 +29,8 @@ export function hasFirebaseConfig() {
 // shopping = lista de la compra (v0.13). Al estar aquí, se escucha, se exporta en la copia y se borra con la pareja.
 const COLS = ['points', 'expenses', 'tasks', 'recurring', 'ideas', 'thanks', 'jars', 'saves', 'proposals', 'log', 'shopping'];
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
+/** Error con un texto pensado para la persona: errMsg() de app.js lo enseña tal cual (los de Firebase, no). */
+const aviso = msg => Object.assign(new Error(msg), { code: 'xp' });
 
 /* Lo útil de la demo se guarda aparte al salir de ella, para llevarlo a la pareja real (logic.demoToSeed). */
 const DEMO_STASH = 'xurripoints_demo_stash';
@@ -138,7 +140,7 @@ export class FirebaseBackend {
         if (e.message !== '__ocupado__') throw e;
       }
     }
-    throw new Error('No se pudo generar un código. Inténtalo otra vez.');
+    throw aviso('No se pudo generar un código. Inténtalo otra vez.');
   }
   async joinCouple(code, profile) {
     const { fb } = this;
@@ -147,16 +149,16 @@ export class FirebaseBackend {
     try {
       await fb.runTransaction(this.db, async tx => {
         const s = await tx.get(ref);
-        if (!s.exists()) throw new Error('No existe ninguna pareja con ese código.');
+        if (!s.exists()) throw aviso('No existe ninguna pareja con ese código.');
         const d = s.data();
         if (d.members.includes(this.uid)) return;
-        if (d.closedAt) throw new Error('Esa pareja ya no está activa.');
-        if (d.members.length >= 2) throw new Error('Esa pareja ya está completa.');
+        if (d.closedAt) throw aviso('Esa pareja ya no está activa.');
+        if (d.members.length >= 2) throw aviso('Esa pareja ya está completa.');
         tx.update(ref, { members: [...d.members, this.uid], [`profiles.${this.uid}`]: profile, updatedAt: Date.now() });
       });
     } catch (e) {
       // Las reglas no dejan ni leer una pareja completa o cerrada si no eres de ella: se explica claro.
-      if (e && e.code === 'permission-denied') throw new Error('Esa pareja ya está completa o ya no está activa.');
+      if (e && e.code === 'permission-denied') throw aviso('Esa pareja ya está completa o ya no está activa.');
       throw e;
     }
     await fb.setDoc(this.userRef(), { couple: code }, { merge: true });
@@ -450,6 +452,9 @@ class DemoBackend {
     return Promise.resolve();
   }
 }
+// Cuentas y códigos solo existen con la nube (esas pantallas no salen en la demo): si se llega, un aviso y no un TypeError.
+for (const k of ['signUp', 'signIn', 'resetPassword', 'createCouple', 'joinCouple', 'deleteAccount'])
+  DemoBackend.prototype[k] = () => Promise.reject(aviso('En la versión de prueba no hay cuentas. Sal de la demo para crear la vuestra.'));
 
 // Firebase solo se puede iniciar UNA vez por sesión (initializeApp/initializeAuth fallan si se repiten).
 // Si se entra y se sale de la demo, se reutiliza el mismo motor.

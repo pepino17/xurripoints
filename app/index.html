@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Seguridad (v0.15.1): solo scripts y estilos propios; red solo a Firebase y a GitHub (aviso de versión nueva).
+       style-src-attr 'unsafe-inline' porque la app pinta style="--i:…; width:…%" (no deja meter <style>).
+       El puente de Capacitor entra antes de esta línea (justo tras <head>) o como script del WebView: no le afecta.
+       Si algún día se activa App Check o reCAPTCHA en Firebase, hay que añadir sus dominios aquí. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'" />
   <meta name="theme-color" content="#FFF3EC" />
   <meta name="color-scheme" content="light" />
   <title>Xurripoints</title>

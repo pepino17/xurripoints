@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-11-12** (v0.15.0).
+> Última actualización: **2026-11-12** (v0.15.1).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -59,6 +59,14 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.15.1 (2026-11-12)**: ronda «seguridad sin servidor». **CSP** en `app/index.html` (scripts/estilos/fuentes
+  propios, red solo a Firestore, Identity, Secure Token y `api.github.com`; solo se permiten atributos `style="…"`) ·
+  **reglas**: crear pareja solo con código de 6 u 8 `[A-Z0-9]` (solo al crear) y topes holgados a textos que se pintan
+  (nota de idea 500, nota de aportación 300, nota de vale 500, respuesta 500, título de la meta 200) ·
+  «Recuperar/Deshacer» solo reescribe gastos, fijos, tareas, huchas y aportaciones (`L.restorable`) · los errores de
+  emparejar se ven en llano (`code: 'xp'` en `store.js` → `errMsg`) y la demo no da TypeError · tarjeta de preguntas arreglada.
+  **⚠️ Las reglas cambian: hay que desplegarlas** (`firebase deploy --only firestore:rules`) cuando el CI de reglas
+  (`rules.yml`) pase en verde. Si se activa App Check o reCAPTCHA, añadir sus dominios a la CSP.
 - **v0.15.0 (2026-11-12)**: ronda «juegos y dinámicas». **Memory** cooperativo (`L.memoryDeck`/`L.memoryTap`) y
   **«¿Cuánto me conoces?»** (gratis, `KNOW_ME` en `content.js`) en Juntos → Jugar, con marcador de equipo y solo de la
   partida · **ruleta con vuestras ideas** (Decidir → Ruleta, listas con ≥ 2 ideas sin hacer) · **logros de equipo**
@@ -121,7 +129,7 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
 ## Arquitectura
 ```
 app/                  ← la web que empaqueta Capacitor (sin bundler, ES modules)
-  index.html          carcasa + scripts
+  index.html          carcasa + scripts + Content-Security-Policy (v0.15.1: si la app pide un dominio nuevo, añadirlo ahí)
   app.js              interfaz: pantallas, hojas (bottom sheets), acciones data-act → ACT
   logic.js            lógica pura (saldos, repartos, tareas, propuestas, primeros pasos…). Probada en tests/logic.test.mjs
   store.js            datos: FirebaseBackend y DemoBackend con la MISMA interfaz (incl. leaveCouple/deleteAccount)

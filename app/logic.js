@@ -417,6 +417,15 @@ export function applyCatalogOp(list, op) {
   return next;
 }
 
+/** ¿Se puede «Recuperar/Deshacer» esto de un aviso de cambios? Solo lo que apunta la app (gastos, fijos, tareas,
+    huchas y sus aportaciones) y con un id normal. El aviso lo escribe la otra persona: sin esto, uno trucado
+    hacía que «Recuperar» escribiera a tu nombre un regalo de puntos, unas gracias o una propuesta (v0.15.1). */
+const RESTORABLE = ['expenses', 'recurring', 'tasks', 'jars', 'saves'];
+export function restorable(x) {
+  return !!x && RESTORABLE.includes(x.col) && /^[A-Za-z0-9_-]{1,80}$/.test(String(x.id))
+    && !!x.doc && typeof x.doc === 'object' && !Array.isArray(x.doc);
+}
+
 /* ---------------- Primeros pasos (tutorial en Inicio) ----------------
    Se marcan solos al hacerlos. `sawVales` y `notify` vienen del móvil (localStorage). */
 export function firstSteps({ tasks = [], expenses = [], thanks = [], couple = {}, proposals = [] } = {}, me, { points = true, notify = false, sawVales = false } = {}) {

@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.15.0';
+const VERSION = '0.15.1';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -510,6 +510,7 @@ function expenseChanges(prev, next) {
 
 function errMsg(e) {
   const code = (e && e.code) || '';
+  if (code === 'xp') return e.message;   // los avisos de store.js ya vienen en llano
   const M = {
     'auth/invalid-email': 'Ese email no parece válido.',
     'auth/missing-password': 'Escribe una contraseña.',
@@ -816,7 +817,7 @@ function proposalRow(p) {
     </span></div>`;
 }
 function logRow(l) {
-  const canUndo = l.data && !l.restoredAt;
+  const canUndo = L.restorable(l.data) && !l.restoredAt;
   return `<div class="todo log"><span class="td-e">📝</span>
     <span class="td-body"><small>Cambio · ${ago(l.createdAt)}</small><b>${esc(prof(l.by).name)} ${esc(l.text)}</b></span>
     <span class="td-act">
@@ -1361,7 +1362,7 @@ function changesSheet() {
     ${all.length ? `<div class="card list">${all.map(x => x._t === 'log'
       ? `<div class="hist"><span class="h-emoji">📝</span><span class="h-body"><b>${esc(prof(x.by).name)} ${esc(x.text)}</b>
           <small>${ago(x.createdAt)}${x.restoredAt ? ' · recuperado' : ''}</small></span>
-          ${x.data && !x.restoredAt && x.by !== ME() ? `<button class="btn sm ghost" data-act="log-restore" data-id="${x.id}">${/del$/.test(x.kind) ? 'Recuperar' : 'Deshacer'}</button>` : ''}</div>`
+          ${L.restorable(x.data) && !x.restoredAt && x.by !== ME() ? `<button class="btn sm ghost" data-act="log-restore" data-id="${x.id}">${/del$/.test(x.kind) ? 'Recuperar' : 'Deshacer'}</button>` : ''}</div>`
       : `<div class="hist"><span class="h-emoji">${(ST[x.status] || ['🤝'])[0]}</span><span class="h-body"><b>${esc(prof(x.by).name)} propuso: ${esc(x.text)}</b>
           <small>${ago(x.createdAt)} · ${(ST[x.status] || ['', x.status])[1]}</small></span></div>`).join('')}</div>`
       : `<p class="empty">Aún no ha cambiado nada ✨</p>`}`;
@@ -2801,10 +2802,10 @@ const ACT = {
   'log-seen': d => { S.be.update('log', d.id, { seenAt: Date.now() }).catch(err => toast(errMsg(err))); },
   'log-restore': async d => {
     const l = (S.data.log || []).find(x => x.id === d.id);
-    if (!l || !l.data || l.restoredAt) return;
+    if (!l || !L.restorable(l.data) || l.restoredAt) return;
     const undo = !/del$/.test(l.kind);
     if (!await askConfirm({ title: undo ? '¿Deshacer este cambio?' : '¿Recuperarlo?', text: `${prof(l.by).name} ${l.text}`, ok: undo ? 'Deshacer' : 'Recuperar' })) return;
-    [l.data, ...(l.data.extra || [])].forEach(x => S.be.set(x.col, x.id, x.doc).catch(err => toast(errMsg(err))));
+    [l.data].concat(l.data.extra || []).filter(L.restorable).forEach(x => S.be.set(x.col, x.id, x.doc).catch(err => toast(errMsg(err))));
     S.be.update('log', l.id, { seenAt: Date.now(), restoredAt: Date.now() }).catch(() => { });
     const what = l.data.label || 'un cambio';
     logChange('restore', undo ? `deshizo el cambio de ${prof(l.by).name} en ${what}` : `recuperó ${what} (lo había borrado ${prof(l.by).name})`);

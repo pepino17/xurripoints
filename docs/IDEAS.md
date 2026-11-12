@@ -125,10 +125,25 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   (40 bits); los de 6 siguen valiendo, sin migración. Queda activar **App Check**.
 - **`app.js` en 3.200 líneas**: partir en `ui.js`, `sheets.js`, `state.js` y `views/`. Es la deuda más grande que
   queda; ahora hay 98 + 29 pruebas que lo cubrirían.
-- **Backend demo sin `createCouple`/`joinCouple`/`signUp`/`signIn`/`resetPassword`/`deleteAccount`**: hoy son
-  inalcanzables (esas pantallas solo salen con la nube), pero conviene que den un mensaje claro en vez de un TypeError.
+- ~~**Backend demo sin `createCouple`/`joinCouple`/`signUp`/`signIn`/`resetPassword`/`deleteAccount`**~~ → hecho en
+  **v0.15.1**: dan «En la versión de prueba no hay cuentas…» (y `errMsg` ya enseña los avisos propios de `store.js`).
 - **Bundling opcional con esbuild** (ya está instalado): `app.js` + los 5 módulos → −30 KB gzip y −5 peticiones.
   Solo sirve para la web pública (dentro del APK los ficheros son locales), así que no compensa.
+
+## Deuda técnica (ronda «seguridad sin servidor», v0.15.1, 2026-11-12)
+> Hecho: CSP, formato del código al crear, topes a 5 textos, «Recuperar» solo de lo que apunta la app. Lo que **no**:
+- **Documentos que pueden crecer hasta 1 MiB**: las subcolecciones aceptan claves de más (no hay `keys().hasOnly`) y
+  quedan sin tope los emojis, los items del catálogo (las reglas no recorren listas), `log.data`, `proposals.value`,
+  `goalsDone` y `votes`. Solo lo puede hacer un miembro con un cliente modificado. Cerrarlo con `hasOnly` pide saber
+  todas las claves que ha escrito cada versión (si no, se bloquean documentos viejos al editarlos) → con calma o con servidor.
+- **El catálogo y los repartos se pueden cambiar sin propuesta** desde un cliente modificado (la propuesta es cosa de la
+  app; las reglas dejan a cualquier miembro escribir `catalog` y `settings`). Cerrarlo pide Cloud Function o mover el
+  catálogo a una subcolección (migración).
+- **Crear cuentas y parejas sin límite** (spam en el plan Spark): App Check + cuotas, con servidor.
+- **Quién firma**: `points.resolvedBy`, `expenses.createdBy`/`paidBy` no se comparan con quien escribe. Se podría sin
+  servidor, pero hay que revisar antes cada escritura de la app (y la demo no avisaría si se rompe).
+- **CSP en cabecera HTTP** (`frame-ancestors`, informes de violaciones): en `<meta>` no existe y dentro del APK no hay
+  servidor. Solo haría falta si la app se sirve como web (GitHub Pages no deja poner cabeceras).
 
 ## Deuda técnica (revisión externa 2026-10-14)
 > Lo que el revisor señaló y **no** entra en la v0.9.0. Ninguno bloquea; están ordenados por lo que más duele.- **`app/app.js` son 3.113 líneas (210 KB)**: partir en `ui.js`, `sheets.js`, `state.js` y `views/` (home, points, tasks,

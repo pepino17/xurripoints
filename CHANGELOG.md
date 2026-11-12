@@ -5,6 +5,30 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.15.1] — 2026-11-12 · Seguridad sin servidor
+
+Ronda de repaso de `firestore.rules`, `store.js`, `index.html` y cómo se pintan los datos, cerrando lo que se puede
+sin Cloud Functions ni App Check. Lo que necesita servidor queda en `docs/IDEAS.md`.
+
+- 🛡️ **Content-Security-Policy** en `app/index.html`: solo scripts, estilos y fuentes propios; imágenes propias y
+  `data:`; red solo a Firestore, Identity/Secure Token de Firebase y `api.github.com` (aviso de versión nueva del
+  APK); sin `<object>`, sin `<base>` y sin enviar formularios. Si alguien colara HTML en un texto, el navegador no
+  ejecutaría nada. Lo único permitido «en línea» son los atributos `style="…"` (`style-src-attr`), porque la app los
+  usa para barras, colores y animaciones; `<style>` y scripts en línea, no. El puente de Capacitor no se ve afectado.
+- 🛡️ **Crear una pareja solo con un código como los de la app** (6 u 8 letras/números en mayúscula). Solo al crear:
+  las parejas que ya existen siguen leyendo, uniéndose y escribiendo igual.
+- 🛡️ **Topes holgados en los textos que se pintan en el otro móvil** y no tenían límite: nota de una idea (500),
+  nota de una aportación a la hucha (300), nota de un vale (500), respuesta al decir que no (500) y título de la
+  meta (200). La app escribe como mucho 140, 60, 140, 100 y 40, así que ningún dato de hoy se queda fuera.
+- 🛡️ **«Recuperar / Deshacer» de un aviso solo reescribe lo que apunta la app** (gastos, gastos fijos, tareas,
+  huchas y aportaciones; `L.restorable`). Antes, un aviso trucado por un cliente modificado podía hacer que, al
+  tocar «Recuperar», tu móvil escribiera a tu nombre un regalo de puntos, unas gracias o una propuesta.
+- 🐞 **Los errores de emparejar se ven en llano**: «No existe ninguna pareja con ese código», «Esa pareja ya está
+  completa…» salían como «Algo ha fallado». Y la demo, si llegara a esas pantallas, avisa en vez de dar un TypeError.
+- 🎨 La tarjeta del juego de preguntas (Plus) ya no sale partida en dos columnas.
+- **Reglas cambiadas → hay que desplegarlas** (`firebase deploy --only firestore:rules`) cuando pase el CI.
+  Pruebas: lógica (+1, `L.restorable`) · reglas (+3: formato del código al crear, parejas viejas igual, topes).
+
 ## [0.15.0] — 2026-11-12 · Juegos y dinámicas
 
 - 🧠 **Memory** (Juntos → Jugar): 8 parejas de cosas de casa, **cooperativo**: los dos juntos contra los intentos

@@ -1169,6 +1169,7 @@ details.more .stack { margin-top: 0; }
 .review-line small { color: var(--ink-2); }
 
 /* Juegos: preguntas por packs */
+.who-card.qa { display: block; }   /* .qa (acciones rápidas) es una rejilla de 2 columnas que la descolocaba */
 .who-card.qa b { font-size: 1.3rem; }
 .q-links { display: flex; justify-content: space-between; gap: 8px; }
 

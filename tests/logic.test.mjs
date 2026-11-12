@@ -1287,6 +1287,16 @@ t('logros de equipo: de los dos, con el siguiente, sin los de puntos en pausa y 
   assert.ok(L.TEAM_ACHIEVEMENTS.every(([, , title]) => !/\b(tú|tu |has |más que)\b/i.test(title)));
 });
 
+t('avisos de cambios: «Recuperar» solo reescribe lo que apunta la app (v0.15.1)', () => {
+  const doc = { title: 'Luz', amount: 5890 };
+  for (const col of ['expenses', 'recurring', 'tasks', 'jars', 'saves']) assert.ok(L.restorable({ col, id: 'rec_ab-12_2026-11', doc }), col);
+  const malos = [null, undefined, {}, 'expenses', { col: 'points', id: 'p1', doc }, { col: 'thanks', id: 't1', doc },
+    { col: 'proposals', id: 'r1', doc }, { col: 'log', id: 'l1', doc }, { col: 'shopping', id: 's1', doc },
+    { col: 'expenses', id: 'a/b', doc }, { col: 'expenses', id: '', doc }, { col: 'expenses', id: 'x'.repeat(81), doc },
+    { col: 'expenses', id: 'e1', doc: null }, { col: 'expenses', id: 'e1', doc: 'x' }, { col: 'expenses', id: 'e1', doc: [] }];
+  for (const m of malos) assert.equal(L.restorable(m), false, JSON.stringify(m));
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
