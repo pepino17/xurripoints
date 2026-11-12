@@ -76,8 +76,8 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   (nota de idea 500, nota de aportación 300, nota de vale 500, respuesta 500, título de la meta 200) ·
   «Recuperar/Deshacer» solo reescribe gastos, fijos, tareas, huchas y aportaciones (`L.restorable`) · los errores de
   emparejar se ven en llano (`code: 'xp'` en `store.js` → `errMsg`) y la demo no da TypeError · tarjeta de preguntas arreglada.
-  **⚠️ Las reglas cambian: hay que desplegarlas** (`firebase deploy --only firestore:rules`) cuando el CI de reglas
-  (`rules.yml`) pase en verde. Si se activa App Check o reCAPTCHA, añadir sus dominios a la CSP.
+  **Reglas desplegadas el 2026-11-12** (las subió Joan con `firebase deploy --only firestore:rules`, tras el CI en verde;
+  si caduca la sesión: `npx firebase login --reauth`). Si se activa App Check o reCAPTCHA, añadir sus dominios a la CSP.
 - **v0.15.0 (2026-11-12)**: ronda «juegos y dinámicas». **Memory** cooperativo (`L.memoryDeck`/`L.memoryTap`) y
   **«¿Cuánto me conoces?»** (gratis, `KNOW_ME` en `content.js`) en Juntos → Jugar, con marcador de equipo y solo de la
   partida · **ruleta con vuestras ideas** (Decidir → Ruleta, listas con ≥ 2 ideas sin hacer) · **logros de equipo**
