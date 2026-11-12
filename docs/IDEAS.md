@@ -8,7 +8,9 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   `proposals` y `log` (requiere Firebase conectado y plan Blaze, de pago por uso; con una pareja ≈ 0 €).
 - ~~**Recordatorios locales** de tareas del día~~ → hecho en v0.6.0.
 - ~~**Gastos fijos** que se repiten~~ → hecho en v0.2.0.
-- **Versión web** en GitHub Pages para testers con iPhone (misma app, en Safari). (La web pública ya existe desde v0.8: `docs/`.)
+- ~~**Versión web** en GitHub Pages para testers con iPhone (misma app, en Safari)~~ → hecho en **v0.16.0** (2026-11-12):
+  `/app/` de la web, instalable con «Añadir a pantalla de inicio». Falta poner Pages en «GitHub Actions» (`CONTEXTO.md`).
+  Sin recordatorio diario en la web (no hay notificaciones locales; con Web Push en iOS 16.4+ haría falta servidor).
 - ~~Borrar mi cuenta / salir de la pareja~~ → hecho en v0.7.0 (quien se queda conserva lo común).
 - ~~Exportar una copia de vuestros datos (JSON/CSV)~~ → hecho en v0.8.0 (JSON gratis; gastos a Excel, Plus).
 
@@ -144,6 +146,10 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
   servidor, pero hay que revisar antes cada escritura de la app (y la demo no avisaría si se rompe).
 - **CSP en cabecera HTTP** (`frame-ancestors`, informes de violaciones): en `<meta>` no existe y dentro del APK no hay
   servidor. Solo haría falta si la app se sirve como web (GitHub Pages no deja poner cabeceras).
+  → Desde **v0.16.0** se sirve como web: `native.js` no se pinta dentro de un `<iframe>` (sustituye a `frame-ancestors`).
+- **Origen compartido en la web** (v0.16.0): `pepino17.github.io` es el mismo origen para TODAS las webs de Pages de la
+  cuenta, así que cualquiera de ellas podría leer el `localStorage`/IndexedDB de Xurripoints (sesión de Firebase incluida).
+  Hoy solo importa si otra web de la cuenta tuviera un fallo. Arreglo de verdad: un dominio propio para la web.
 
 ## Deuda técnica (revisión externa 2026-10-14)
 > Lo que el revisor señaló y **no** entra en la v0.9.0. Ninguno bloquea; están ordenados por lo que más duele.- **`app/app.js` son 3.113 líneas (210 KB)**: partir en `ui.js`, `sheets.js`, `state.js` y `views/` (home, points, tasks,

@@ -1,6 +1,6 @@
 /* ================================================================
    Xurripoints — capa nativa (Capacitor). SOLO actúa dentro de la app Android;
-   en el navegador no hace nada.
+   en el navegador (versión web) solo se niega a pintarse dentro de un marco ajeno.
    - Barra de estado del color de la app: iconos oscuros, o claros con el tema oscuro.
    - Botón ATRÁS físico: cierra la hoja abierta / vuelve a Inicio; solo desde Inicio sale.
    ================================================================ */
@@ -8,6 +8,9 @@
   'use strict';
   function isNative() { return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }
   function P(name) { return (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins[name]) || null; }
+  // Web: GitHub Pages no deja poner `frame-ancestors` (y en <meta> no vale). Dentro de un <iframe> de otra web,
+  // nada se ve ni se puede tocar: así no pueden engañar con clics encima de la app.
+  if (window.top !== window.self) document.documentElement.hidden = true;
   if (!isNative()) return;
   document.documentElement.classList.add('native');
 

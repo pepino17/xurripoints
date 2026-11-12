@@ -13,6 +13,11 @@
   <title>Xurripoints</title>
   <link rel="icon" href="icon.svg" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <!-- Versión web (iPhone): «Añadir a pantalla de inicio» la abre a pantalla completa. Dentro del APK no hacen nada. -->
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <!-- Cuando haya Firebase configurado, esto ahorra una ida y vuelta antes del primer dato. -->
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />

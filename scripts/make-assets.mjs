@@ -25,4 +25,9 @@ await sharp(Buffer.from(bg)).resize(1024, 1024).png().toFile('assets/icon-backgr
 await sharp(Buffer.from(fg), { density: 300 }).resize(1024, 1024).png().toFile('assets/icon-foreground.png');
 await sharp(Buffer.from(splash(false)), { density: 150 }).resize(2732, 2732).png().toFile('assets/splash.png');
 await sharp(Buffer.from(splash(true)), { density: 150 }).resize(2732, 2732).png().toFile('assets/splash-dark.png');
-console.log('assets/ listo');
+// Web (iPhone, «Añadir a pantalla de inicio» y manifest): cuadrado y opaco, porque iOS redondea él solo
+// y pinta de negro lo transparente. Es app/icon.svg sin las esquinas redondeadas.
+const flat = Buffer.from(String(icon).replace(' rx="112"', ''));
+for (const [px, name] of [[180, 'apple-touch-icon'], [192, 'icon-192'], [512, 'icon-512']])
+  await sharp(flat, { density: 300 }).resize(px, px).flatten({ background: '#FFE3D3' }).png().toFile(`app/${name}.png`);
+console.log('assets/ y los iconos web de app/ listos');

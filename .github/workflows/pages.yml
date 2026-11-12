@@ -1,0 +1,53 @@
+name: Web (GitHub Pages)
+
+# Publica la web: docs/ en la raíz y la app (app/) en /app/ → https://pepino17.github.io/xurripoints/app/
+# Así la MISMA app se abre en el iPhone (Safari) sin copiar app/ dentro de docs/ en git.
+# Requiere Settings → Pages → Source: «GitHub Actions». Mientras siga en «Deploy from a branch», Pages publica
+# docs/ de main como siempre y este workflow falla en «Publicar» (es lo esperado hasta cambiarlo).
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'app/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:            # una publicación cada vez; la que está en marcha no se corta
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # La web sabe sola que no es el APK (Capacitor.isNativePlatform): no hace falta tocar app/channel.js.
+      - name: Montar el sitio (docs/ + app/ en /app/)
+        run: |
+          mkdir _site
+          cp -r docs/. _site/
+          cp -r app _site/app
+          test -f _site/.nojekyll && test -f _site/index.html && test -f _site/app/index.html
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v6
+
+      - name: Subir el sitio
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          include-hidden-files: true   # conserva .nojekyll
+
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v5

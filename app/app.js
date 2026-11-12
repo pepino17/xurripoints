@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.15.1';
+const VERSION = '0.16.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -869,7 +869,8 @@ const STEP_INFO = {
 };
 function stepsCard() {
   if (lsGet('xp_steps_off')) return '';
-  const steps = L.firstSteps(S.data, ME(), { points: !noPoints(), notify: notifyHour() != null, sawVales: !!lsGet('xp_saw_vales') });
+  const steps = L.firstSteps(S.data, ME(), { points: !noPoints(), notify: notifyHour() != null, sawVales: !!lsGet('xp_saw_vales') })
+    .filter(s => s.id !== 'notify' || isNative());   // en la web no hay recordatorio (sin notificaciones locales)
   const done = steps.filter(s => s.done).length;
   if (done === steps.length) return '';
   const next = steps.find(s => !s.done);
@@ -1310,13 +1311,13 @@ function viewCouple() {
 
     <h2 class="h sm set-h">App</h2>
     <section class="card list">
-      ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
+      ${isNative() ? row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado') : ''}
       ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `Fresa, Neutro y Oscuro gratis${isPlus() ? '' : ' · los otros 4 con Plus'}`)}
       <div class="set-row font-row"><span class="sr-ic">🔠</span><span class="sr-body"><b>Tamaño de letra</b><small>${(FONTS.find(x => x[0] === curFont()) || FONTS[0])[1]} · solo en este móvil</small></span>
         <span class="seg font-seg">${FONTS.map(([k, n, fs]) => `<button class="${k === curFont() ? 'on' : ''}" data-act="font-set" data-v="${k}" aria-label="Letra ${n.toLowerCase()}" aria-pressed="${k === curFont()}"><span style="font-size:${fs}">Aa</span></button>`).join('')}</span></div>
       ${row('share-app', '📲', 'Recomendar a otros', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
       ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
-      ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
+      ${FROM_PLAY || !isNative() ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>${FROM_PLAY ? 'Se actualiza desde Google Play' : 'Estás en la versión web: siempre la última'}</small></span></div>`
         : row('check-update', '✨', `Versión ${VERSION}`, S.update && L.isNewer(S.update, VERSION) ? `Hay una nueva: ${esc(S.update)} · toca para descargarla` : 'Toca para buscar actualizaciones', '', ic('refresh-cw'))}
     </section>
 
@@ -1775,14 +1776,14 @@ function recurringSection() {
 
 /* ---------------- Actualizaciones (GitHub Releases) ---------------- */
 function updateBanner() {
-  if (FROM_PLAY || !S.update || !L.isNewer(S.update, VERSION)) return '';
+  if (FROM_PLAY || !isNative() || !S.update || !L.isNewer(S.update, VERSION)) return '';
   return `<button class="update-bar" data-act="open-url" data-url="${APK_URL}">${ic('sparkles')}
     <span><b>Hay una versión nueva (${esc(S.update)})</b><small>Toca para descargarla e instalarla encima</small></span>${ic('download')}</button>`;
 }
-/** Mira la última release publicada (como mucho cada 6 h, salvo que se fuerce). Solo dentro del APK. */
+/** Mira la última release publicada (como mucho cada 6 h, salvo que se fuerce). Solo dentro del APK de GitHub:
+    la web (iPhone) ya es siempre la última y no debe ofrecer un APK. */
 async function checkUpdate(force = false) {
-  if (FROM_PLAY) return null;
-  if (!isNative() && !force) return null;
+  if (FROM_PLAY || !isNative()) return null;
   if (!force && Date.now() - Number(lsGet('xp_upd_at') || 0) < 6 * 3600e3) { S.update = lsGet('xp_upd_v'); return S.update; }
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
@@ -3464,7 +3465,6 @@ function notifySheet() {
     <p class="muted">Un aviso al día con <b>lo que os toca</b> y lo que <b>espera tu respuesta</b>. Solo si hay algo: si no, no molesta.</p>
     <div class="field"><span>¿A qué hora?</span>
       <div class="chips" id="nt-hour">${[9, 14, 19, 20, 21, 22].map(x => `<button type="button" class="chip ${(h ?? 20) === x ? 'on' : ''}" data-act="pick" data-v="${x}">${x}:00</button>`).join('')}</div></div>
-    ${isNative() ? '' : `<p class="warn">Los avisos funcionan en la app de Android (aquí, en el navegador, no suenan).</p>`}
     <p class="muted small">Sin servidor: el móvil programa los avisos de los próximos días cada vez que abres la app.</p>
     <div class="stack"><button class="btn primary big" data-act="notify-save">${h != null ? 'Guardar' : 'Activar'}</button>
       ${h != null ? `<button class="btn" data-act="notify-off">Desactivar</button>` : ''}</div>`;

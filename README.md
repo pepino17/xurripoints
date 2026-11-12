@@ -14,6 +14,8 @@ Este botón **siempre descarga la última versión**. Enlace para compartir:<br>
 <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=https%3A%2F%2Fgithub.com%2Fpepino17%2Fxurripoints%2Freleases%2Flatest%2Fdownload%2FXurripoints.apk" width="160" alt="QR para descargar la app" /><br>
 <sub>Escanéalo con el móvil para descargarla.</sub>
 
+**¿iPhone?** Ábrela en Safari: **https://pepino17.github.io/xurripoints/app/** y toca Compartir → «Añadir a pantalla de inicio».
+
 </div>
 
 ## Qué hace
@@ -39,6 +41,11 @@ Web: **https://pepino17.github.io/xurripoints/** · [Privacidad](https://pepino1
 2. Abre el archivo `Xurripoints.apk`. Si pregunta, permite **"instalar apps de origen desconocido"** para el navegador.
 3. Las versiones nuevas se instalan **encima** (sin desinstalar). La app avisa cuando hay una.
 
+## Usar en iPhone (versión web)
+1. Abre **https://pepino17.github.io/xurripoints/app/** en Safari.
+2. Compartir → **«Añadir a pantalla de inicio»** y entra desde ese icono con tu cuenta (la misma app y la misma cuenta).
+3. Se actualiza sola. Lo único que no tiene es el recordatorio diario (en el navegador no hay avisos locales).
+
 Sin Firebase configurado arranca en **modo demo** (todo en el móvil, puedes hacer de los dos).
 Para sincronizar dos móviles: [`docs/FIREBASE.md`](docs/FIREBASE.md).
 
@@ -50,7 +57,7 @@ python -m http.server 5173 --directory app       # probar en el navegador
 npm run sync                                     # empaqueta Firebase + copia la web a android/
 ```
 Cada push a `main` compila el APK (release firmado) y el `.aab` para Google Play en GitHub Actions y los publica en Releases.
-La web pública sale de la carpeta [`docs/`](docs/) (GitHub Pages). Negocio y tienda: [`docs/MONETIZACION.md`](docs/MONETIZACION.md) · [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
+La web pública sale de [`docs/`](docs/) y la versión web de `app/` va en `/app/`, las dos con GitHub Pages (`.github/workflows/pages.yml`). Negocio y tienda: [`docs/MONETIZACION.md`](docs/MONETIZACION.md) · [`docs/PLAY_STORE.md`](docs/PLAY_STORE.md).
 Las reglas de Firestore y `app/store.js` se prueban con los emuladores de Firebase en Actions (`tests/rules.test.mjs`, `tests/store.test.mjs`).
 
 Diseñada con criterio de psicología de pareja para que **sume y no lleve la cuenta**: [`docs/PSICOLOGIA.md`](docs/PSICOLOGIA.md).

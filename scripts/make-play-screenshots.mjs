@@ -53,6 +53,7 @@ await new Promise(r => { ws.onopen = r; });
 const send = (m, p = {}) => new Promise(res => { const i = ++seq; esperando.set(i, res); ws.send(JSON.stringify({ id: i, method: m, params: p })); });
 const js = async e => (await send('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true })).result?.result?.value;
 const foto = async nombre => {
+  await js(`document.getElementById('toast-root').replaceChildren()`);   // sin avisos tapando la captura
   const r = await send('Page.captureScreenshot', { format: 'png' });   // solo lo que se ve (1080×1920 con escala 2)
   fs.writeFileSync(path.join(SALIDA, nombre), Buffer.from(r.result.data, 'base64'));
   console.log('  ✔', nombre);
@@ -61,6 +62,8 @@ const clic = (re, sel = 'button') => js(`(() => { const b = [...document.querySe
 const cerrar = async () => { for (let i = 0; i < 4; i++) { const r = await js(`(() => { const b = [...document.querySelectorAll('button')].find(x => /^(saltar|entendido|ahora no|vale)$/i.test(x.textContent.replace(/\\s+/g,' ').trim())); if (b) { b.click(); return 1; } const s = document.querySelector('#sheet-root .scrim, #dialog-root .scrim'); if (s) { s.click(); return 1; } return 0; })()`); if (!r) break; await sleep(350); } };
 
 await send('Runtime.enable'); await send('Page.enable');
+// Capturas de la app de Android: sin esto, Chrome es «la versión web» (sin recordatorio ni actualizaciones).
+await send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.Capacitor = { isNativePlatform: () => true, Plugins: {} };' });
 // 540×960 con escala 2 → PNG de 1080×1920 (lo que pide Google Play)
 await send('Emulation.setDeviceMetricsOverride', { width: 540, height: 960, deviceScaleFactor: 2, mobile: true });
 await send('Page.navigate', { url: `http://127.0.0.1:${puertoApp}` });

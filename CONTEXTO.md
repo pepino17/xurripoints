@@ -1,7 +1,7 @@
 # CONTEXTO — léeme primero (handoff completo)
 
 > Con este documento + `COMO_TRABAJAR.md` + `docs/` deberías poder continuar el proyecto sin la conversación.
-> Última actualización: **2026-11-12** (v0.15.1).
+> Última actualización: **2026-11-12** (v0.16.0).
 
 ## Qué es
 **Xurripoints**: app Android para parejas para **organizarse en equipo sin llevar la cuenta**: tareas, gastos
@@ -59,6 +59,17 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - **Google Play**: `.aab` firmado en cada release (canal `'play'`, sin avisos de APK), web con **privacidad, condiciones
     y borrar cuenta**, enlaces legales en la app, **descargar una copia** (JSON, gratis).
   - 26 pruebas de lógica + pruebas de reglas de Plus. Verificado en navegador (demo).
+- **v0.16.0 (2026-11-12)**: **versión web para iPhone**. La misma `app/` en https://pepino17.github.io/xurripoints/app/
+  (Safari → Compartir → «Añadir a pantalla de inicio»), montada por `.github/workflows/pages.yml` (docs/ en la raíz +
+  app/ en `/app/`; en git no se duplica nada). Web = `!Capacitor.isNativePlatform()` (sin canal nuevo; `channel.js`
+  sigue en `'github'`): sin recordatorio diario, sin avisos ni enlaces de APK, «Estás en la versión web» en Pareja → App.
+  Iconos PNG 180/192/512 en `app/` (de `scripts/make-assets.mjs`), metas de Apple, no se deja meter en un `<iframe>`
+  y la limpieza al salir/borrar solo toca las bases de Firebase/Xurripoints (el origen `pepino17.github.io` es compartido).
+  **⚠️ PASO PENDIENTE (Joan, en GitHub):** Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+  Hasta entonces Pages sigue publicando `docs/` de `main` como siempre («Deploy from a branch»), `/app/` da 404 y el
+  workflow «Web (GitHub Pages)» sale en rojo al publicar (es lo esperado). Después: Actions → «Web (GitHub Pages)» →
+  Run workflow (o cualquier push que toque `docs/` o `app/`). Mínimo iOS 15.4 (`structuredClone`, `dvh`).
+  En iPhone, la app de la pantalla de inicio guarda aparte de Safari: hay que entrar con la cuenta otra vez.
 - **v0.15.1 (2026-11-12)**: ronda «seguridad sin servidor». **CSP** en `app/index.html` (scripts/estilos/fuentes
   propios, red solo a Firestore, Identity, Secure Token y `api.github.com`; solo se permiten atributos `style="…"`) ·
   **reglas**: crear pareja solo con código de 6 u 8 `[A-Z0-9]` (solo al crear) y topes holgados a textos que se pintan
@@ -120,8 +131,10 @@ gasta en **vales = favores** (nunca permisos). Los puntos se pueden pausar.
   - 31 pruebas de lógica + 4 nuevas de reglas. Verificado en navegador (demo) sin errores de consola.
 - **Descarga (siempre la última):** https://github.com/pepino17/xurripoints/releases/latest/download/Xurripoints.apk
   (botón + QR en el README). Repo **público** para que los testers puedan descargar.
-- **Web:** https://pepino17.github.io/xurripoints/ (GitHub Pages desde `docs/`, sin Jekyll: `.nojekyll`).
-- **Pendiente de Joan:** probar con **los dos móviles** de verdad (crear cuentas, emparejar, salir de la pareja y
+- **Web:** https://pepino17.github.io/xurripoints/ (GitHub Pages desde `docs/`, sin Jekyll: `.nojekyll`). Desde v0.16 la
+  publica `pages.yml` con la app en `/app/` (**versión web para iPhone**), en cuanto Pages esté en «GitHub Actions».
+- **Pendiente de Joan:** **Settings → Pages → Source: GitHub Actions** (v0.16, para que salga la versión web) y probarla
+  en un iPhone de verdad. Probar con **los dos móviles** de verdad (crear cuentas, emparejar, salir de la pareja y
   borrar cuenta: hasta la v0.13 solo se habían probado con la demo y el emulador de reglas).
   Para vender: **email de contacto** (hoy la web manda a GitHub Issues) y **Play Console** (`docs/PLAY_STORE.md`).
 - Repo: `pepino17/xurripoints` (público). Cada release publica `Xurripoints-vX.Y.Z.apk` y `Xurripoints.apk` (nombre fijo).
@@ -136,7 +149,8 @@ app/                  ← la web que empaqueta Capacitor (sin bundler, ES module
   content.js          textos de los juegos (+ cartas y packs de preguntas de Plus)
   channel.js          'github' (APK) o 'play' (lo pone Actions para el .aab; en git siempre 'github', lo comprueba la prueba)
   firebase-config.js  config de la web app de Firebase (no es secreta)
-  native.js           Capacitor: barra de estado, botón atrás y notificaciones locales
+  native.js           Capacitor: barra de estado, botón atrás y notificaciones locales (en la web: no pintarse en un iframe)
+  manifest.webmanifest + apple-touch-icon.png, icon-192/512.png   versión web instalable (iPhone); el APK no los usa
   vendor/firebase.js  SDK de Firebase empaquetado con esbuild (npm run build ← src/firebase.js)
   vendor/lucide.min.js iconos (lucide 0.544)
   fonts/ fonts.css    Fraunces (títulos y números) + Lexend (texto), locales
@@ -147,6 +161,7 @@ firestore.rules       reglas de seguridad (pegar en la consola de Firebase)
 tests/logic.test.mjs  pruebas de la lógica + versión igual en los 3 sitios
 tests/rules.test.mjs  pruebas de las reglas (emulador; corre en .github/workflows/rules.yml)
 .github/workflows/android.yml  compila el APK (release firmado) y lo publica en Releases
+.github/workflows/pages.yml    publica la web: docs/ + app/ en /app/ (requiere Pages → Source: GitHub Actions)
 ```
 
 ## Pantallas (v0.9)

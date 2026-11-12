@@ -5,6 +5,30 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.16.0] — 2026-11-12 · Versión web para iPhone
+
+La MISMA app de `app/` se abre en Safari en https://pepino17.github.io/xurripoints/app/ y se puede añadir a la
+pantalla de inicio. En git no se duplica nada: un workflow nuevo monta el sitio al publicar.
+
+- 🍏 **Workflow `pages.yml`**: con cada push a `main` que toque `docs/**` o `app/**` (o a mano) monta `docs/` en la
+  raíz + `app/` en `/app/` y lo publica con las acciones oficiales de Pages. **Falta un paso de Joan**: Settings →
+  Pages → Source: **GitHub Actions** (hasta entonces `docs/` se publica como siempre y este workflow falla al publicar).
+- 📲 **Instalable en iPhone**: iconos PNG 180/192/512 (cuadrados y opacos, con `scripts/make-assets.mjs`), manifest
+  con ellos y metas de Apple (`apple-touch-icon`, pantalla completa, barra de estado). Dentro del APK no cambian nada.
+- 🌐 **Sin nativo, sin sustos** (se sabe con `Capacitor.isNativePlatform`, sin canal nuevo): en la web no se ofrece
+  el recordatorio diario (ni en Pareja → App ni en Primeros pasos), no se buscan APKs nuevos ni se enlazan, y en
+  Pareja → App la versión dice «Estás en la versión web: siempre la última». Descargar la copia y el Excel bajan el
+  archivo como en el navegador.
+- 🛡️ **Web más segura**: no se pinta dentro de un `<iframe>` de otra web (GitHub Pages no deja `frame-ancestors`) y,
+  al salir o borrar la cuenta en la web, solo se borran las bases de datos del navegador de Firebase/Xurripoints
+  (el origen `pepino17.github.io` lo comparten todas las webs de la cuenta).
+- 🎨 Safari de iPhone: `100dvh` (sin scroll de más en la entrada) y cabecera y barra opacas si el iPhone no sabe
+  `color-mix` (iOS < 16.2).
+- 🌍 Web pública: botón **«Abrir en el navegador (iPhone)»** con cómo añadirla a la pantalla de inicio; la privacidad
+  cuenta que GitHub sirve también la versión web.
+- `scripts/make-play-screenshots.mjs` hace las capturas como la app de Android (si no, salían las de la web).
+  Sin cambios en Firestore ni en las reglas.
+
 ## [0.15.1] — 2026-11-12 · Seguridad sin servidor
 
 Ronda de repaso de `firestore.rules`, `store.js`, `index.html` y cómo se pintan los datos, cerrando lo que se puede

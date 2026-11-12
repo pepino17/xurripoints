@@ -56,7 +56,10 @@ async function limpiarIndexedDb({ todo = false } = {}) {
     const nombres = indexedDB.databases
       ? (await indexedDB.databases()).map(d => d.name).filter(Boolean)
       : ['firebaseLocalStorageDb', 'firestore/[DEFAULT]/xurripoints/main'];
+    // En la web, el origen (pepino17.github.io) lo comparten todas las webs de GitHub Pages de la cuenta: solo lo nuestro.
+    const nativo = !!(globalThis.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
     await Promise.all(nombres
+      .filter(n => nativo || /^firebase|xurripoints/.test(n))
       .filter(n => todo || !/firebaseLocalStorageDb/.test(n))
       .map(n => new Promise(res => {
         const r = indexedDB.deleteDatabase(n);
