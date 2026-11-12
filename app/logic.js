@@ -282,6 +282,13 @@ export function colorOf(key, fallback = 0) {
   return PERSON_COLORS.find(c => c[0] === key) || PERSON_COLORS[fallback] || PERSON_COLORS[0];
 }
 
+/** Tema que se ve (v0.14). `saved` = lo guardado en `xp_theme`: null si nunca se ha elegido (sigue al móvil:
+    oscuro o el de siempre), 'fresa' si se eligió el de siempre a propósito, o la clave del tema. */
+export function effectiveTheme(saved, systemDark) {
+  if (saved == null || saved === '') return systemDark ? 'oscuro' : '';
+  return saved === 'fresa' ? '' : String(saved);
+}
+
 /* ---------------- Calendario ----------------
    Solo sirve para VER lo que toca cada día y hablarlo: no reparte, no ordena y no puntúa a nadie.
    Semana de lunes a domingo. La primera columna de la rejilla es siempre un lunes. */

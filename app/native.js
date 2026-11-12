@@ -1,7 +1,7 @@
 /* ================================================================
    Xurripoints — capa nativa (Capacitor). SOLO actúa dentro de la app Android;
    en el navegador no hace nada.
-   - Barra de estado del color de la app, con iconos oscuros.
+   - Barra de estado del color de la app: iconos oscuros, o claros con el tema oscuro.
    - Botón ATRÁS físico: cierra la hoja abierta / vuelve a Inicio; solo desde Inicio sale.
    ================================================================ */
 (function () {
@@ -15,15 +15,19 @@
     const SB = P('StatusBar'); if (!SB) return;
     try {
       await SB.setOverlaysWebView({ overlay: false });
-      await SB.setBackgroundColor({ color: '#FFF3EC' });
-      await SB.setStyle({ style: 'LIGHT' }); // iconos oscuros sobre fondo claro
+      // app.js puede haber pintado ya el tema (oscuro incluido) mientras esperábamos: se respeta lo que haya.
+      const meta = document.querySelector('meta[name="theme-color"]');
+      window.__xpBar(meta ? meta.content : '#FFF3EC', document.documentElement.dataset.theme === 'oscuro');
     } catch (e) { /* silencioso */ }
   }
 
-  /** Color de la barra de estado según los colores de la app (Plus). */
-  window.__xpBar = function (color) {
+  /** Color de la barra de estado según el tema. En el oscuro, iconos claros (si no, no se ven). */
+  window.__xpBar = function (color, dark) {
     const SB = P('StatusBar'); if (!SB) return;
-    try { SB.setBackgroundColor({ color: color }); } catch (e) { /* silencioso */ }
+    try {
+      SB.setBackgroundColor({ color: color });
+      SB.setStyle({ style: dark ? 'DARK' : 'LIGHT' }); // DARK = iconos claros · LIGHT = iconos oscuros
+    } catch (e) { /* silencioso */ }
   };
 
   function setupBackButton() {

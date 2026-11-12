@@ -63,7 +63,7 @@ Las tareas dan xurripoints para pediros favores (nunca permisos). En Inicio veis
 Al empezar os pregunta con quién compartís: en pareja, a distancia, COMPAÑEROS DE PISO o familia. La app cambia las palabras y algún detalle para que hable de lo vuestro.
 
 🎨 A VUESTRO AIRE
-Cada uno elige su color (y se ve en vuestras tareas y en el calendario). El fondo puede ser pastel o neutro.
+Cada uno elige su color (y se ve en vuestras tareas y en el calendario). El fondo puede ser pastel, neutro u oscuro, y la letra, más grande.
 
 🌿 PENSADA CON LA PSICOLOGÍA DE PAREJA
 Sin castigos ni marcadores de "quién hace más". Lo que os afecta a los dos se propone y el otro acepta. Nada cambia a escondidas. Y siempre hay salida: pausar, salir o borrar la cuenta.
@@ -115,7 +115,7 @@ Nada de ubicación, contactos, fotos, audio, identificadores de publicidad ni an
 la app no se conecta a él ni lee nada; «A mi Google Calendar» solo abre un enlace con el nombre y la fecha de la tarea,
 y la persona decide si lo guarda en su cuenta. No cuenta como dato compartido por la app.
 
-**Info local (no se sube)**: preferencias (fondo, recordatorio, ayudas vistas) y la copia en caché para que la app
+**Info local (no se sube)**: preferencias (fondo, tamaño de letra, recordatorio, ayudas vistas) y la copia en caché para que la app
 funcione sin conexión. Se borra al borrar la cuenta.
 
 ## Cuando se active el cobro

@@ -9,7 +9,7 @@ import { THIS_OR_THAT, WHO_MORE, DIE_PIPS, THIS_OR_THAT_PLUS, WHO_MORE_PLUS, QUE
 import { CHANNEL } from './channel.js';
 import { iconoSvg } from './icons.js';
 
-const VERSION = '0.13.1';
+const VERSION = '0.14.0';
 const REPO = 'pepino17/xurripoints';
 /** Enlace permanente: siempre descarga el último APK publicado en GitHub Releases. */
 const APK_URL = `https://github.com/${REPO}/releases/latest/download/Xurripoints.apk`;
@@ -171,9 +171,14 @@ const PLUS_SOON = [['🔔', 'Avisos al momento', 'Cuando te piden algo o te prop
 const PLUS_PRICES = [['Anual', '19,99 €', 'al año', 'sale a 1,67 €/mes'], ['Mensual', '2,99 €', 'al mes', ''], ['Para siempre', '39,99 €', 'un pago', '']];
 /** Temas: solo cambian el fondo y las tarjetas; el color de cada uno se elige en su perfil (v0.9).
     [id, emoji, nombre, color de la barra del sistema] */
-const THEMES = [['', '🍓', 'Fresa', '#FFF3EC'], ['neutro', '🩶', 'Neutro', '#F3F4F6'], ['menta', '🌿', 'Menta', '#ECF7F1'], ['cielo', '☁️', 'Cielo', '#EDF4FB'], ['lavanda', '💜', 'Lavanda', '#F4F0FC'], ['melocoton', '🍑', 'Melocotón', '#FFF0E6']];
-/** Temas gratis: el fondo neutro no es de Plus. Es la respuesta a "es muy pastel": quien no lo quiera, lo apaga. */
-const FREE_THEMES = ['neutro'];
+const THEMES = [['', '🍓', 'Fresa', '#FFF3EC'], ['neutro', '🩶', 'Neutro', '#F3F4F6'], ['oscuro', '🌙', 'Oscuro', '#1B1720'], ['menta', '🌿', 'Menta', '#ECF7F1'], ['cielo', '☁️', 'Cielo', '#EDF4FB'], ['lavanda', '💜', 'Lavanda', '#F4F0FC'], ['melocoton', '🍑', 'Melocotón', '#FFF0E6']];
+/** Temas gratis: el fondo neutro no es de Plus. Es la respuesta a "es muy pastel": quien no lo quiera, lo apaga.
+    El oscuro (v0.14) tampoco: es accesibilidad, no un capricho. */
+const FREE_THEMES = ['neutro', 'oscuro'];
+/** Tamaño de letra (v0.14, por móvil, `xp_font`): [clave, nombre, tamaño de la «Aa»]. Escala los rem del `html`. */
+const FONTS = [['', 'Normal', '.9rem'], ['grande', 'Grande', '1.1rem'], ['muy', 'Muy grande', '1.3rem']];
+const curFont = () => { const f = lsGet('xp_font') || ''; return FONTS.some(x => x[0] === f) ? f : ''; };
+const SYS_DARK = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 
 /* ---------------- Estado ---------------- */
 const S = {
@@ -1277,7 +1282,9 @@ function viewCouple() {
     <h2 class="h sm set-h">App</h2>
     <section class="card list">
       ${row('notify-sheet', '🔔', 'Recordatorio diario', notifyHour() != null ? `Activado · a las ${notifyHour()}:00` : 'Desactivado')}
-      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `Fresa y Neutro gratis${isPlus() ? '' : ' · los otros 4 con Plus'}`)}
+      ${row('theme-sheet', (THEMES.find(x => x[0] === curTheme()) || THEMES[0])[1], `Colores de la app ${plusTag()}`, `Fresa, Neutro y Oscuro gratis${isPlus() ? '' : ' · los otros 4 con Plus'}`)}
+      <div class="set-row font-row"><span class="sr-ic">🔠</span><span class="sr-body"><b>Tamaño de letra</b><small>${(FONTS.find(x => x[0] === curFont()) || FONTS[0])[1]} · solo en este móvil</small></span>
+        <span class="seg font-seg">${FONTS.map(([k, n, fs]) => `<button class="${k === curFont() ? 'on' : ''}" data-act="font-set" data-v="${k}" aria-label="Letra ${n.toLowerCase()}" aria-pressed="${k === curFont()}"><span style="font-size:${fs}">Aa</span></button>`).join('')}</span></div>
       ${row('share-app', '📲', 'Recomendar a otros', 'Envía el enlace de la app por WhatsApp', '', ic('share-2'))}
       ${row('legal-sheet', '🔒', 'Privacidad y condiciones', 'Qué datos se guardan y para qué')}
       ${FROM_PLAY ? `<div class="set-row"><span class="sr-ic">✨</span><span class="sr-body"><b>Versión ${VERSION}</b><small>Se actualiza desde Google Play</small></span></div>`
@@ -1483,18 +1490,22 @@ function reviewSheet() {
       <button class="btn primary big" data-act="${last ? 'review-done' : 'review-step'}" data-v="1">${last ? 'Terminar 💞' : 'Siguiente'}</button></div>`;
 }
 
-/* Colores (Plus, salvo el fondo «Neutro»): se guardan en este móvil. Si se acaba Plus, vuelve el de siempre. */
-const curTheme = () => { const t = lsGet('xp_theme') || ''; return THEMES.some(x => x[0] === t) ? t : ''; };
+/* Colores (Plus, salvo «Neutro» y «Oscuro»): se guardan en este móvil. Si se acaba Plus, vuelve el de siempre.
+   Si nunca se ha elegido, sigue al móvil (oscuro o claro). Elegir Fresa guarda 'fresa' para que mande. */
+const curTheme = () => { const t = L.effectiveTheme(lsGet('xp_theme'), !!(SYS_DARK && SYS_DARK.matches)); return THEMES.some(x => x[0] === t) ? t : ''; };
 const canUseTheme = t => t === '' || isPlus() || FREE_THEMES.includes(t);
 function applyTheme() {
-  const pedido = S.phase === 'app' && S.data && S.data.couple ? curTheme() : '';
-  const t = canUseTheme(pedido) ? pedido : '';
+  const pedido = curTheme();
+  // Los gratis valen en cualquier pantalla (también al entrar); los de Plus, solo con la pareja cargada.
+  const t = FREE_THEMES.includes(pedido) || (S.phase === 'app' && S.data && S.data.couple && canUseTheme(pedido)) ? pedido : '';
   const root = document.documentElement;
   if ((root.dataset.theme || '') !== t) { if (t) root.dataset.theme = t; else delete root.dataset.theme; }
   const color = (THEMES.find(x => x[0] === t) || THEMES[0])[3];
-  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = color;
-  if (window.__xpBar) window.__xpBar(color);
+  const meta = $('meta[name="theme-color"]'); if (meta && meta.content !== color) meta.content = color;
+  if (window.__xpBar) window.__xpBar(color, t === 'oscuro');
 }
+if (SYS_DARK && SYS_DARK.addEventListener) SYS_DARK.addEventListener('change', () => { applyTheme(); applyColors(); });
+document.documentElement.dataset.font = curFont();
 
 /* Colores de cada uno (v0.9): cada persona elige el suyo en Pareja → Tu perfil.
    Se aplican como variables CSS — A = members[0], B = members[1] — así el color aparece en los avatares,
@@ -1504,8 +1515,12 @@ function applyColors() {
   const root = document.documentElement;
   const members = S.phase === 'app' && S.data && S.data.couple ? MEMBERS() : [];
   const profiles = (S.data && S.data.couple && S.data.couple.profiles) || {};
+  const dark = root.dataset.theme === 'oscuro';
   [['a', 0], ['b', 1]].forEach(([k, i]) => {
-    const [base, deep, soft] = L.colorOf((profiles[members[i]] || {}).color, i).slice(2);
+    let [base, deep, soft] = L.colorOf((profiles[members[i]] || {}).color, i).slice(2);
+    // Oscuro: el «oscuro» no se lee sobre fondo oscuro y el «suave» es casi blanco. Se aclara uno y se oscurece el otro
+    // (≥ 4,5:1 con los 6 colores; medido en la v0.14). La tarjeta del oscuro es #262029.
+    if (dark) { deep = `color-mix(in srgb, ${base} 70%, #fff)`; soft = `color-mix(in srgb, ${base} 20%, #262029)`; }
     // Solo se tocan las variables si de verdad cambian: escribirlas en :root invalida el estilo de todo el documento.
     if (root.style.getPropertyValue(`--${k}`) !== base) root.style.setProperty(`--${k}`, base);
     if (root.style.getPropertyValue(`--${k}-deep`) !== deep) root.style.setProperty(`--${k}-deep`, deep);
@@ -1533,10 +1548,10 @@ function homeSheet(first = false) {
 function themeSheet() {
   const cur = curTheme();
   return `<h3 class="sheet-title">Colores de la app 🎨</h3>
-    <p class="muted">Cambian el fondo y las tarjetas en tu móvil. <b>Neutro</b> es gratis: para quien no le va el pastel.</p>
+    <p class="muted">Cambian el fondo y las tarjetas en tu móvil. <b>Neutro</b> y <b>Oscuro</b> son gratis. Si no eliges ninguno, sigue al modo oscuro de tu móvil.</p>
     <div class="theme-grid">${THEMES.map(([k, e, n, c]) => `<button class="theme-opt ${k === cur ? 'on' : ''}" data-act="theme-set" data-v="${k}" style="--tc:${c}">
       <span class="to-sw">${e}</span><b>${n}</b>${k && !FREE_THEMES.includes(k) && !isPlus() ? '<i class="to-plus">✨</i>' : ''}</button>`).join('')}</div>
-    ${isPlus() ? '' : `<p class="note">✨ Los temas de color son de <b>Plus</b>. <b>Fresa</b> es el de siempre y <b>Neutro es gratis</b>.</p>`}
+    ${isPlus() ? '' : `<p class="note">✨ Los temas de color son de <b>Plus</b>. <b>Fresa</b> es el de siempre; <b>Neutro y Oscuro son gratis</b>.</p>`}
     <p class="muted small">Tu color (el de tu avatar) se cambia en <b>${esc(W().sitio)} → Tu perfil</b>.</p>`;
 }
 /** Elegir el color de cada uno (se guarda solo la clave en `profiles.{uid}.color`). */
@@ -1656,7 +1671,7 @@ const WELCOME = [
   { v: `<div class="wv-goal"><span>🏖️</span><span class="goal-bar"><span style="width:62%"></span></span></div>`,
     t: 'Sois un equipo', x: 'Lo que afecta a los dos (repartos, precios) se cambia con una <b>propuesta</b> que el otro acepta. Y en Inicio, <b>primeros pasos</b> para empezar.' },
   { v: `<div class="wv-chips"><span>🗓️ Calendario</span><span>🎨 Tu color</span><span>🏠 Vuestro aire</span></div>`,
-    t: 'A vuestro aire', x: 'Las tareas se ven en <b>calendario</b>, cada uno elige <b>su color</b>, el fondo puede ser pastel o <b>neutro</b>… y la app os llama como <b>vosotros digáis</b> (pareja, compis de piso, familia).' },
+    t: 'A vuestro aire', x: 'Las tareas se ven en <b>calendario</b>, cada uno elige <b>su color</b>, el fondo puede ser pastel, <b>neutro</b> u <b>oscuro</b>… y la app os llama como <b>vosotros digáis</b> (pareja, compis de piso, familia).' },
 ];
 const DEMO_SLIDE = { v: `<div class="wv-plus demo">${ic('repeat-2')}</div>`, t: 'Estás en la versión de prueba', x: 'Todo se guarda en este móvil. Con la barra de arriba <b>cambias de persona</b> para probar a pedir y a responder.' };
 function maybeWelcome() { if (!lsGet('xp_welcome_v2') && !S.dialog) showWelcome(); }
@@ -2802,8 +2817,9 @@ const ACT = {
   'theme-sheet': () => openSheet(themeSheet()),
   'theme-set': d => {
     if (!canUseTheme(d.v || '')) { if (!needPlus('theme')) return; }
-    lsSet('xp_theme', d.v || null); applyTheme(); swapSheet(themeSheet());
+    lsSet('xp_theme', d.v || 'fresa'); applyTheme(); applyColors(); swapSheet(themeSheet());
   },
+  'font-set': d => { lsSet('xp_font', d.v || null); document.documentElement.dataset.font = curFont(); render(); },
   'legal-sheet': () => openSheet(legalSheet()),
 
   /* controles genéricos */

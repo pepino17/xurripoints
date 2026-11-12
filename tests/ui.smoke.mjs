@@ -138,6 +138,20 @@ async function recorrido(bv, url) {
     } else comprueba(false, `la fila ${re} existe`);
   }
 
+  console.log('\n3b) Tema oscuro y letra grande (el resto del recorrido se hace así)');
+  const fondo = () => bv.js(`getComputedStyle(document.body).backgroundColor`);
+  const claro = await fondo();
+  await clicPorTexto(bv, '/colores de la app/i', '.set-row'); await sleep(500);
+  await bv.js(`document.querySelector('#sheet-root [data-act="theme-set"][data-v="oscuro"]').click()`); await sleep(400);
+  comprueba(await bv.js(`document.documentElement.dataset.theme`) === 'oscuro' && (await fondo()) !== claro, `el tema oscuro cambia el fondo (${claro} → ${await fondo()})`);
+  comprueba(await bv.js(`document.querySelector('meta[name="theme-color"]').content`) === '#1B1720', 'la barra del sistema pasa a oscura');
+  await bv.js(`document.querySelector('#sheet-root .scrim')?.click()`); await sleep(400);
+  const letra = () => bv.js(`parseFloat(getComputedStyle(document.querySelector('.set-row b')).fontSize)`);
+  const normal = await letra();
+  await bv.js(`document.querySelector('[data-act="font-set"][data-v="muy"]').click()`); await sleep(400);
+  comprueba((await letra()) > normal * 1.2, `«muy grande» agranda la letra (${normal}px → ${await letra()}px)`);
+  comprueba(await bv.js(`document.documentElement.scrollWidth <= innerWidth`), 'con letra muy grande no hay scroll de lado');
+
   console.log('\n4) Tareas: lista y calendario');
   await bv.js(`document.querySelector('.tab[data-tab="tasks"]').click()`); await sleep(700);
   await clicPorTexto(bv, '/calendar/i'); await sleep(800);

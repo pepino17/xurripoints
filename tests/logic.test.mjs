@@ -1213,6 +1213,15 @@ t('Google Calendar: evento de todo el día, fin de mes/año y fechas raras', () 
   assert.equal(raro.hash, '');
 });
 
+t('tema: si nunca se eligió sigue al móvil; si se eligió, manda la elección', () => {
+  assert.equal(L.effectiveTheme(null, true), 'oscuro');
+  assert.equal(L.effectiveTheme(null, false), '');
+  assert.equal(L.effectiveTheme('', true), 'oscuro', 'vacío = no elegido');
+  assert.equal(L.effectiveTheme('fresa', true), '', 'Fresa elegida a propósito gana al modo oscuro del móvil');
+  assert.equal(L.effectiveTheme('neutro', true), 'neutro');
+  assert.equal(L.effectiveTheme('oscuro', false), 'oscuro');
+});
+
 t('la versión es la misma en CHANGELOG, package.json y app.js', async () => {
   const fs = await import('node:fs');
   const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

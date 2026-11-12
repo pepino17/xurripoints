@@ -5,6 +5,22 @@ La versión de la primera línea `[x.y.z]` es la que usa el APK (GitHub Actions)
 **La versión tiene que ser la misma aquí, en `package.json` y en `VERSION` de `app/app.js`** (la prueba
 `node tests/logic.test.mjs` falla si no, y entonces el APK no se publica).
 
+## [0.14.0] — 2026-11-12 · Tema oscuro y letra más grande
+
+- 🌙 **Tema «Oscuro», gratis** (Pareja → App → Colores de la app, junto a Fresa y Neutro). **Si nunca has elegido
+  tema, sigue al modo oscuro del móvil**; si eliges uno, manda el tuyo (elegir Fresa ahora se guarda como `'fresa'`).
+  Los temas gratis se ven también al entrar (antes de tener pareja). La barra del sistema y los iconos de arriba
+  cambian con él (`native.js`: iconos claros sobre fondo oscuro).
+  - Se redefinen los tokens de `:root`; solo se tocan aparte los sitios con colores fijos (blancos, degradados pastel,
+    vales, rojos y amarillos de texto). El color de cada uno se aclara/oscurece en `applyColors()`.
+  - **Contraste medido ≥ 4,5:1** en todo el texto: gris 2 y 3, rojo de aviso, botones, chips, vales, calendario y los
+    6 colores de persona (el peor par, gris 3 sobre el suave de mostaza: 4,85:1).
+- 🔠 **Tamaño de letra: normal / grande / muy grande** (Pareja → App, una fila con tres «Aa»), solo en ese móvil
+  (`xp_font`). Escala el `font-size` del `html` (todo va en rem). En «muy grande» y 360 px las pestañas de 3 se parten
+  en dos líneas para que no se corten.
+- Pruebas: 100 de lógica (`L.effectiveTheme`) · humo de interfaz con 4 comprobaciones nuevas (el oscuro cambia el
+  fondo y la barra, «muy grande» agranda la letra sin scroll de lado). Privacidad y ficha de Play al día.
+
 ## [0.13.1] — 2026-11-12 · Código de pareja de 8
 
 - 🔑 **Los códigos nuevos para emparejarse son de 8 letras/números** (antes 6): de 1.000 millones de combinaciones a

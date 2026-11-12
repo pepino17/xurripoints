@@ -37,7 +37,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-height: 100vh;
-  font: 400 16px/1.45 var(--body);
+  font: 400 1rem/1.45 var(--body);   /* en rem: así «Tamaño de letra» (data-font en el html) lo escala todo */
   color: var(--ink);
   background: var(--bg);
   overflow-x: hidden;
@@ -1277,7 +1277,120 @@ details.more .stack { margin-top: 0; }
 .home-opt.on { border-color: var(--a); background: var(--a-soft); }
 .ho-e { font-size: 26px; line-height: 1; flex: none; }
 .ho-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.ho-body b { font-size: 16px; }
+.ho-body b { font-size: 1rem; }
 .ho-body small { color: var(--ink-3); font-size: .88rem; line-height: 1.35; }
 .ho-on { color: var(--a-deep); flex: none; }
 .ho-on svg, .ho-on .lucide { width: 1.3em; height: 1.3em; }
+
+/* ================================================================
+   v0.14 · Tamaño de letra (por móvil, `xp_font`): todo va en rem, basta con el html.
+   ================================================================ */
+html[data-font="grande"] { font-size: 112.5%; }
+html[data-font="muy"] { font-size: 125%; }
+/* Muy grande en 360 px: las pestañas (Lista · Calendario · Compra) no caben en una línea → el icono, encima. */
+html[data-font="muy"] .seg > button { flex: 1 1 auto; flex-wrap: wrap; white-space: normal; padding-inline: 4px; line-height: 1.2; }
+.font-row { flex-wrap: wrap; }
+.font-row .sr-body { flex: 1 1 140px; }
+.font-seg { margin: 0; flex: none; }
+.font-seg > button { min-width: 52px; padding: 4px 10px; line-height: 1; }
+
+/* ================================================================
+   v0.14 · Tema «Oscuro» (gratis). Se redefinen los tokens; abajo, solo lo que tenía colores fijos.
+   Contraste medido: todo el texto ≥ 4,5:1 (gris 3 sobre lo más claro, 4,85:1). Los colores de cada uno
+   los aclara/oscurece applyColors() en app.js.
+   ================================================================ */
+:root[data-theme="oscuro"] {
+  color-scheme: dark;
+  --bg: #1B1720; --card: #262029; --card-2: #2E2731;
+  --ink: #F5EAF0; --ink-2: #D5C4CE; --ink-3: #C2AFBA;
+  --line: #3D3340; --line-2: #4E4252;
+  --butter: #4A3B17; --peach: #4A3022;
+  --mint-deep: #7FD6B0; --mint-soft: #1F3A30;
+  --berry: #FF8A9E; --berry-soft: #45202A;
+  --blob-1: #33202D; --blob-2: #26223A; --blob-3: #33261F;
+  --shadow: 0 12px 28px -18px rgba(0, 0, 0, .8);
+  --oro: #F2CF7A;  /* texto amarillo sobre --butter (7,3:1) */
+}
+/* Fondos blancos fijos → tarjeta */
+:root[data-theme="oscuro"] .inp,
+:root[data-theme="oscuro"] .emo,
+:root[data-theme="oscuro"] .chip,
+:root[data-theme="oscuro"] .seg > button.on,
+:root[data-theme="oscuro"] .cat-btn,
+:root[data-theme="oscuro"] .r-dot,
+:root[data-theme="oscuro"] .vbtn,
+:root[data-theme="oscuro"] .code-tiles span,
+:root[data-theme="oscuro"] .die,
+:root[data-theme="oscuro"] .purse-heart,
+:root[data-theme="oscuro"] .vote-dot.hidden::after { background-color: var(--card); }
+:root[data-theme="oscuro"] .emo.on,
+:root[data-theme="oscuro"] .chip.on { background: var(--a-soft); }
+:root[data-theme="oscuro"] .chip.static { background: var(--card-2); }
+:root[data-theme="oscuro"] .seg { background: var(--line); }
+:root[data-theme="oscuro"] .card { border-color: var(--line); }
+:root[data-theme="oscuro"] .av,
+:root[data-theme="oscuro"] .hero,
+:root[data-theme="oscuro"] .purse-card { border-color: var(--card); }
+:root[data-theme="oscuro"] .hero-goal:not(.big),
+:root[data-theme="oscuro"] .hero-me,
+:root[data-theme="oscuro"] .purse-res,
+:root[data-theme="oscuro"] .purse-week,
+:root[data-theme="oscuro"] .md-diff,
+:root[data-theme="oscuro"] .edit-dot { background: rgba(255, 255, 255, .05); }
+:root[data-theme="oscuro"] .goal-bar { background: var(--line); }
+:root[data-theme="oscuro"] .col-chip.on { background: color-mix(in srgb, var(--cc) 22%, var(--card)); }
+:root[data-theme="oscuro"] .cp-emoji { border-right-color: var(--line-2); }
+/* Degradados pastel → tarjeta (el pastel con letra clara no se leía) */
+:root[data-theme="oscuro"] .hero { background: linear-gradient(150deg, var(--a-soft), var(--card) 55%, var(--b-soft)); }
+:root[data-theme="oscuro"] .purse-card.a { background: var(--a-soft); }
+:root[data-theme="oscuro"] .purse-card.b { background: var(--b-soft); }
+:root[data-theme="oscuro"] .plus-card,
+:root[data-theme="oscuro"] .month-sum,
+:root[data-theme="oscuro"] .who-card,
+:root[data-theme="oscuro"] .goal:not(.empty),
+:root[data-theme="oscuro"] .thanks-card,
+:root[data-theme="oscuro"] .swipe-card,
+:root[data-theme="oscuro"] .roulette.landed,
+:root[data-theme="oscuro"] .idea.match,
+:root[data-theme="oscuro"] .game-card:first-child,
+:root[data-theme="oscuro"] .debt-card,
+:root[data-theme="oscuro"] .save-total,
+:root[data-theme="oscuro"] .jar.full,
+:root[data-theme="oscuro"] .update-bar,
+:root[data-theme="oscuro"] .wv-coupon,
+:root[data-theme="oscuro"] .hero-goal.done { background: var(--card-2); }
+:root[data-theme="oscuro"] .add-tile.butter,
+:root[data-theme="oscuro"] .note,
+:root[data-theme="oscuro"] .hint-card,
+:root[data-theme="oscuro"] .plus-focus { background: var(--butter); }
+:root[data-theme="oscuro"] .welcome { background: var(--bg); }
+/* Vales: tintes oscuros */
+:root[data-theme="oscuro"] .coupon { --tint: #4A3B17; --tint-2: #2F2A1E; }
+:root[data-theme="oscuro"] .coupon.rose { --tint: #4A2433; --tint-2: #33232B; }
+:root[data-theme="oscuro"] .coupon.lilac { --tint: #352E55; --tint-2: #2A2638; }
+:root[data-theme="oscuro"] .coupon.mint { --tint: #1F3A30; --tint-2: #22302B; }
+:root[data-theme="oscuro"] .coupon.peach { --tint: #4A3022; --tint-2: #33282A; }
+/* Textos de color fijo */
+:root[data-theme="oscuro"] .btn.soft-berry,
+:root[data-theme="oscuro"] .pill.no { color: var(--berry); }
+:root[data-theme="oscuro"] .pill.wait,
+:root[data-theme="oscuro"] .offline,
+:root[data-theme="oscuro"] .qa.butter .qa-ic { color: var(--oro); }
+:root[data-theme="oscuro"] .plus-tag,
+:root[data-theme="oscuro"] .plus-badge { color: var(--oro); background: var(--butter); }
+:root[data-theme="oscuro"] .btn.soft,
+:root[data-theme="oscuro"] .btn.soft-berry,
+:root[data-theme="oscuro"] .wv-plus.demo { box-shadow: 0 3px 0 var(--line-2); }
+:root[data-theme="oscuro"] .toast { color: var(--bg); }
+/* Rellenos de color (rosa, verde, rojo, ruleta pastel): letra oscura encima (≥ 5,6:1 con los 6 colores) */
+:root[data-theme="oscuro"] .btn.primary,
+:root[data-theme="oscuro"] .btn.mint,
+:root[data-theme="oscuro"] .btn.danger,
+:root[data-theme="oscuro"] .fab,
+:root[data-theme="oscuro"] .tab-add,
+:root[data-theme="oscuro"] .wheel-hub,
+:root[data-theme="oscuro"] .duo.on .duo-gear,
+:root[data-theme="oscuro"] .wv-plus,
+:root[data-theme="oscuro"] .count,
+:root[data-theme="oscuro"] .badge,
+:root[data-theme="oscuro"] .wl-label em { color: #3B2335; }

@@ -26,7 +26,8 @@ Todo lo que se le ocurra a Joan, aunque sea para el futuro. Lo hecho se tacha y 
 - ~~＋ con 4 grandes y "Más"~~, ~~Decidir en tarjetas~~, ~~Pareja en bloques~~, ~~ayuda por pantalla~~,
   ~~primeros pasos~~ → hecho en v0.7.0.
 - Modo "simple" opcional: ocultar pestañas que no uséis (p. ej. sin Juntos o sin Ahorro).
-- Tema oscuro y tamaño de letra ajustable (accesibilidad, dislexia).
+- ~~Tema oscuro y tamaño de letra ajustable (accesibilidad, dislexia)~~ → hecho en **v0.14.0** (2026-11-12): tema
+  **Oscuro** gratis (sigue al móvil si no se elige) y **letra normal / grande / muy grande** en Pareja → App.
 
 ## Juntos (juegos y decidir)
 - Juegos **a distancia** (cada uno en su móvil, sincronizado): tres en raya, conecta 4, preguntas.
